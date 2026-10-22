@@ -22,9 +22,10 @@ function nova(){const cl=clientes();$('#main').innerHTML=`
 <label>Volumes</label><div class="row vt">${[['palete','🟫 Paletes'],['caixa','📦 Caixas'],['unidade','🔹 Unidades']].map(([k,t])=>`<div><small>${t}</small><input data-vt="${k}" type="number" inputmode="numeric" placeholder="0" value="${esc(f.vt[k])}"></div>`).join('')}</div>
 <p class="tot">Total: <b id="vtot">${L.volTotal(f.vt)}</b> volumes</p>
 <details ${f.confEsp||f.confLidos.length?'open':''}><summary style="padding:12px 0;font-weight:bold">🔎 Conferência de código (opcional)</summary>
-<label>Código(s) da NF (esperado)</label><input id="confEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(f.confEsp)}">
+<label>Código(s) da NF (esperado)</label><div class="row"><input id="confEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(f.confEsp)}"><button class="big alt" data-ocr="esp" style="flex:0 0 120px;margin:0">📷 Ler texto</button></div>
 <label>Código da etiqueta</label><div class="row"><input id="confLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="confOk" style="flex:0 0 110px;margin:0">✔ Conferir</button></div>
-${HAS_BD?'<button class="big alt" id="confScan">📷 Ler código com a câmera</button>':'<p><small>Leitor pela câmera não disponível neste celular: digite o código.</small></p>'}
+<button class="big alt" data-ocr="lido">📷 Ler texto da etiqueta</button>
+${HAS_BD?'<button class="big alt" id="confScan">📷 Ler código com a câmera</button>':'<p><small>Leitor de código de barras não disponível neste celular: use 📷 Ler texto ou digite o código.</small></p>'}
 <div id="confRes">${f.confLidos.map(x=>`<div class="conf ${x.ok?'c-ok':'c-bad'}">${x.ok?'✔ Confere':'✖ Código diferente!'} <small>${esc(x.cod)}</small></div>`).join('')}</div></details>
 <label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
 <label>🧾 Romaneio (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio</button>
@@ -40,6 +41,32 @@ ${HAS_BD?'<button class="big alt" id="confScan">📷 Ler código com a câmera</
   document.querySelectorAll('[data-vt]').forEach(i=>i.oninput=e=>{f.vt[i.dataset.vt]=e.target.value;$('#vtot').textContent=L.volTotal(f.vt);});
   $('#confLido').onkeydown=e=>{if(e.key==='Enter')conferirCod($('#confLido').value);};}
 const HAS_BD='BarcodeDetector' in window;
+// ---- OCR (v2.5): Android = ML Kit via AndroidOcr bridge; iPhone/PWA/fallback = Tesseract.js local (ocr/) ----
+const ocrCbs={};let ocrSeq=0,tessW=null;
+window.ocrResult=(id,text,err)=>{const c=ocrCbs[id];if(!c)return;delete ocrCbs[id];err?c.er(new Error(err)):c.ok(text||'');};
+function ocrProg(p){const e=$('#ocrPct');if(e)e.textContent=p?Math.round(p*100)+'%':'';}
+function loadScript(src){return new Promise((ok,er)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=er;document.head.appendChild(s);});}
+async function ocrTexto(dataUrl){
+  if(window.AndroidOcr)return new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.ler(dataUrl,id);});
+  if(!window.Tesseract)await loadScript('ocr/tesseract.min.js');
+  if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true,
+    logger:m=>{if(m.status==='recognizing text')ocrProg(m.progress);}});
+  const r=await tessW.recognize(dataUrl);return r.data.text||'';}
+function ocrModal(alvo,cands,texto){const m=$('#modal');
+  m.innerHTML=`<div><p style="font-size:22px;margin-top:0"><b>${alvo==='esp'?'Código da NF':'Código da etiqueta'}</b></p>
+  ${cands.length?'<p>Toque no código certo:</p>'+cands.map(c=>`<button class="big alt" data-cand="${esc(c)}" style="font-size:24px">${esc(c)}</button>`).join(''):'<p>Não achei código no texto. Digite abaixo.</p>'}
+  <label>Confirme ou corrija</label><input id="ocrVal" style="text-transform:uppercase;font-size:24px" value="${esc(cands[0]||'')}">
+  <button class="big ok" id="ocrOk">✔ Usar este código</button><button class="big alt" id="ocrNao">Cancelar</button>
+  <details><summary style="padding:8px 0">Texto lido</summary><pre style="white-space:pre-wrap;font-size:13px">${esc(texto)}</pre></details></div>`;
+  m.classList.add('on');
+  m.querySelectorAll('[data-cand]').forEach(b=>b.onclick=()=>{$('#ocrVal').value=b.dataset.cand;});
+  $('#ocrNao').onclick=()=>m.classList.remove('on');
+  $('#ocrOk').onclick=()=>{const v=$('#ocrVal').value.trim().toUpperCase();m.classList.remove('on');if(!v)return;
+    if(alvo==='esp'){const cur=L.parseCods(f.confEsp);if(!cur.includes(L.normCod(v)))f.confEsp=(f.confEsp.trim()?f.confEsp.trim()+' ':'')+v;nova();toast('Código da NF: '+v);}
+    else {if(!L.parseCods(f.confEsp).length){toast('Coloque primeiro o código esperado da NF');$('#confLido').value=v;return;}conferirCod(v);}};}
+async function lerTexto(file,alvo){const m=$('#modal');m.innerHTML='<div style="text-align:center"><p style="font-size:26px">⏳ Lendo texto...</p><p id="ocrPct" style="font-size:22px"></p><p><small>Pode levar alguns segundos.</small></p></div>';m.classList.add('on');
+  try{const d=await compress(file);if(!d)throw new Error('foto');const t=await ocrTexto(d);ocrModal(alvo,L.extrairCods(t),t);}
+  catch(e){m.classList.remove('on');toast('Não consegui ler o texto. Digite o código.');}}
 function alerta(ok,cod){const m=$('#modal');m.innerHTML=`<div style="text-align:center"><div class="conf ${ok?'c-ok':'c-bad'}" style="font-size:34px">${ok?'✔ Confere':'✖ Código diferente!'}</div><p>Lido: <b>${esc(cod)}</b>${ok?'':'<br>Esperado: <b>'+esc(L.parseCods(f.confEsp).join(', '))+'</b>'}</p><button class="big" id="mOk">OK</button></div>`;m.classList.add('on');$('#mOk').onclick=()=>m.classList.remove('on');}
 function conferirCod(v){const esp=L.parseCods(f.confEsp);if(!esp.length){$('#erro').textContent='Coloque primeiro o código esperado da NF';return;}
   const c=L.conferir(esp,v);if(!c.cod)return;f.confLidos.push(c);nova();alerta(c.ok,c.cod);}
@@ -80,7 +107,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
-function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="icone.png" alt="" style="width:96px"><h2>Qlog Expedição</h2><p><b>Versão:</b> 2.4</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 22/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta e saída com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div>`;}
+function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="icone.png" alt="" style="width:96px"><h2>Qlog Expedição</h2><p><b>Versão:</b> 2.5</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 22/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta e saída com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.tipo){f.tipo=d.tipo;nova();}else if(d.cli!==undefined){f.cliente=d.cli;nova();}
@@ -88,7 +115,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-ope
     $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=clientes();if(!c.includes(n))c.push(n);setClientes(c);f.cliente=n;}m.classList.remove('on');nova();};}
   else if(d.foto){fotoAlvo=d.foto;$('#cam').value='';$('#cam').onchange=async ev=>{for(const fl of ev.target.files){const u=await compress(fl);if(u)f[fotoAlvo].push(u);}nova();};$('#cam').click();}
   else if(d.del){f[d.del].splice(+d.i,1);nova();}else if(d.open){if(hist.sel){hist.sel.has(d.open)?hist.sel.delete(d.open):hist.sel.add(d.open);lista();$('#selN').textContent=hist.sel.size;document.querySelectorAll('.selN2').forEach(x=>x.textContent=hist.sel.size);}else{detalhe=d.open;render();}}
-  else if(t.id==='confOk')conferirCod($('#confLido').value);else if(t.id==='confScan'){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&scan(ev.target.files[0]);};$('#cam').click();}
+  else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr){const al=d.ocr;$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&lerTexto(ev.target.files[0],al);};$('#cam').click();}
+  else if(t.id==='confScan'){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&scan(ev.target.files[0]);};$('#cam').click();}
   else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{f=novo();nova();toast('🔄 Tela limpa');},'Sim, limpar');
   else if(t.id==='resetCli')confirmar('Apagar a lista de transportadoras salvas? Os registros continuam.',()=>{setClientes([]);toast('Lista apagada');sobre();},'Sim, apagar lista');
   else if(d.rmcli!==undefined){const n=d.rmcli;confirmar('Apagar a transportadora "'+n+'" da lista? Os registros continuam.',()=>{setClientes(clientes().filter(c=>c!==n));if(f.cliente===n)f.cliente='';toast('Apagada');sobre();},'Sim, apagar');}

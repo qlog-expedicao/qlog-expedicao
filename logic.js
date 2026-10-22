@@ -40,6 +40,11 @@ function htmlMes(regs,mes){const e=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>
   return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Qlog Expedição '+e(mes)+'</title><style>body{font-family:Arial;background:#eef2f6;margin:0;padding:16px}h1{color:#0b4f8a}input{width:100%;font-size:18px;padding:10px;box-sizing:border-box}.r{background:#fff;border-radius:10px;padding:12px;margin:12px 0}pre{white-space:pre-wrap;font-size:15px}.f img{height:160px;margin:4px;border-radius:6px}</style></head><body>'+
   '<h1>Qlog Expedição: registros de '+e(mes)+'</h1><p>'+v.length+' registros. Clique numa foto para abrir grande.</p><input id="q" placeholder="Buscar NF, transportadora, data, placa ou EXP-0001" oninput="var q=this.value.toLowerCase();document.querySelectorAll(\'.r\').forEach(function(x){x.style.display=x.dataset.s.indexOf(q)>-1?\'\':\'none\'})">'+
   v.map(r=>{const t=resumo(r);return '<div class="r" data-s="'+e(t.toLowerCase())+'"><pre>'+e(t)+'</pre>'+im(r.romaneio,'Romaneio')+im(r.caminhao,'Caminhão carregado')+im(r.fotos,'Produtos')+'</div>';}).join('')+'</body></html>';}
+// v2.5 OCR: candidatos de código no texto lido (ex.: OM0003, BA0003, 164)
+function extrairCods(texto){const out=[];const add=t=>{if(!out.includes(t))out.push(t);};
+  const toks=String(texto||'').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  const mix=toks.filter(t=>t.length>=4&&/[A-Z]/.test(t)&&/[0-9]/.test(t)),dig=toks.filter(t=>/^[0-9]{3,}$/.test(t));
+  mix.forEach(add);dig.forEach(add);return out;}
 function validar(r){const e=[]; if(!r.cliente)e.push('Escolha a transportadora'); if(!(r.nfs||[]).length)e.push('Coloque pelo menos uma NF'); if(!(Number(r.volumes)>0))e.push('Coloque os volumes'); return e;}
-const L={volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes};
+const L={volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
