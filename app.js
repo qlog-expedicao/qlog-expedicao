@@ -68,7 +68,13 @@ function fotoOcr(al){$('#cam').value='';$('#cam').removeAttribute('multiple');$(
 // ---- v2.6: scanner ao vivo (só para os campos de código) ----
 let SC=null;
 function fecharScanner(){if(!SC)return;SC.on=false;clearTimeout(SC.h);try{SC.stream&&SC.stream.getTracks().forEach(t=>t.stop());}catch(e){}const o=$('#scanner');o&&o.remove();SC=null;}
+const scanCbs={};let scanSeq=0;
+window.scanResult=(id,text,err)=>{const al=scanCbs[id];if(!al)return;delete scanCbs[id];
+  if(err==='foto')return fotoOcr(al);if(err==='cancelado')return;if(err==='permissao'){toast('Câmera não liberada. Usando foto.');return fotoOcr(al);}
+  if(err||text==null){toast('Scanner falhou. Usando foto.');return fotoOcr(al);}
+  ocrModal(al,L.extrairCods(text),text);};
 async function abrirScanner(al){
+  if(window.AndroidScan){const id='s'+(++scanSeq);scanCbs[id]=al;try{window.AndroidScan.abrir(id,al==='esp'?'Código da NF':'Código da etiqueta');}catch(e){delete scanCbs[id];fotoOcr(al);}return;}
   if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))return fotoOcr(al);
   const o=document.createElement('div');o.id='scanner';
   o.innerHTML=`<video id="scVid" playsinline muted autoplay></video><div class="scMask"><div class="scBox" id="scBox"></div></div>
@@ -138,7 +144,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
-function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="icone.png" alt="" style="width:96px"><h2>Qlog Expedição</h2><p><b>Versão:</b> 2.6</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 22/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta e saída com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div>`;}
+function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="icone.png" alt="" style="width:96px"><h2>Qlog Expedição</h2><p><b>Versão:</b> 2.7</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 22/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta e saída com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.tipo){f.tipo=d.tipo;nova();}else if(d.cli!==undefined){f.cliente=d.cli;nova();}
