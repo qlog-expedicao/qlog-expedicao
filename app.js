@@ -52,7 +52,7 @@ async function ocrTexto(dataUrl){
   if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true,
     logger:m=>{if(m.status==='recognizing text')ocrProg(m.progress);}});
   const r=await tessW.recognize(dataUrl);return r.data.text||'';}
-function ocrModal(alvo,cands,texto){const m=$('#modal');
+function ocrModal(alvo,cands,texto){if(alvo==='lido'){const m=L.casarEsperado(cands,L.parseCods(f.confEsp));cands=m.concat(cands.filter(c=>!m.includes(c)));}const m=$('#modal');
   m.innerHTML=`<div><p style="font-size:22px;margin-top:0"><b>${alvo==='esp'?'Código da NF':'Código da etiqueta'}</b></p>
   ${cands.length?'<p>Toque no código certo:</p>'+cands.map(c=>`<button class="big alt" data-cand="${esc(c)}" style="font-size:24px">${esc(c)}</button>`).join(''):'<p>Não achei código no texto. Digite abaixo.</p>'}
   <label>Confirme ou corrija</label><input id="ocrVal" style="text-transform:uppercase;font-size:24px" value="${esc(cands[0]||'')}">
@@ -64,6 +64,37 @@ function ocrModal(alvo,cands,texto){const m=$('#modal');
   $('#ocrOk').onclick=()=>{const v=$('#ocrVal').value.trim().toUpperCase();m.classList.remove('on');if(!v)return;
     if(alvo==='esp'){const cur=L.parseCods(f.confEsp);if(!cur.includes(L.normCod(v)))f.confEsp=(f.confEsp.trim()?f.confEsp.trim()+' ':'')+v;nova();toast('Código da NF: '+v);}
     else {if(!L.parseCods(f.confEsp).length){toast('Coloque primeiro o código esperado da NF');$('#confLido').value=v;return;}conferirCod(v);}};}
+function fotoOcr(al){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&lerTexto(ev.target.files[0],al);};$('#cam').click();}
+// ---- v2.6: scanner ao vivo (só para os campos de código) ----
+let SC=null;
+function fecharScanner(){if(!SC)return;SC.on=false;clearTimeout(SC.h);try{SC.stream&&SC.stream.getTracks().forEach(t=>t.stop());}catch(e){}const o=$('#scanner');o&&o.remove();SC=null;}
+async function abrirScanner(al){
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))return fotoOcr(al);
+  const o=document.createElement('div');o.id='scanner';
+  o.innerHTML=`<video id="scVid" playsinline muted autoplay></video><div class="scMask"><div class="scBox" id="scBox"></div></div>
+  <div class="scTop">${al==='esp'?'Código da NF':'Código da etiqueta'}<br><small id="scMsg">Aponte o código dentro do quadro</small></div>
+  <div class="scBot"><button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big alt" id="scFoto">📷 Tirar foto</button><button class="big red" id="scCancel">✖ Cancelar</button></div>`;
+  document.body.appendChild(o);SC={on:true,al,busy:false,torch:false};
+  $('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};
+  let st;try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});}
+  catch(e){fecharScanner();toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
+  if(!SC||!SC.on){st.getTracks().forEach(t=>t.stop());return;}SC.stream=st;
+  const v=$('#scVid');v.srcObject=SC.stream;try{await v.play();}catch(e){}
+  const tr=SC.stream.getVideoTracks()[0];try{if(tr.getCapabilities&&tr.getCapabilities().torch){const b=$('#scTorch');b.style.display='';b.onclick=async()=>{SC.torch=!SC.torch;try{await tr.applyConstraints({advanced:[{torch:SC.torch}]});b.textContent=SC.torch?'🔦 Desligar lanterna':'🔦 Lanterna';}catch(e){}};}}catch(e){}
+  SC.bd=HAS_BD?new BarcodeDetector():null;scLoop();}
+function scCrop(){const v=$('#scVid'),b=$('#scBox');if(!v||!v.videoWidth)return null;
+  const vr=v.getBoundingClientRect(),br=b.getBoundingClientRect(),k=Math.max(vr.width/v.videoWidth,vr.height/v.videoHeight);
+  const ox=(vr.width-v.videoWidth*k)/2,oy=(vr.height-v.videoHeight*k)/2;
+  const sx=Math.max(0,(br.left-vr.left-ox)/k),sy=Math.max(0,(br.top-vr.top-oy)/k),sw=Math.min(v.videoWidth-sx,br.width/k),sh=Math.min(v.videoHeight-sy,br.height/k);
+  const c=document.createElement('canvas');const z=Math.min(1,1000/sw);c.width=Math.round(sw*z);c.height=Math.round(sh*z);c.getContext('2d').drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);return c;}
+async function scLoop(){if(!SC||!SC.on)return;const me=SC;
+  try{const c=scCrop();if(c){let cands=[],texto='';
+    if(me.bd){try{const r=await me.bd.detect(c);r.forEach(x=>{const t=String(x.rawValue||'').trim().toUpperCase();if(t&&!cands.includes(t))cands.push(t);});texto=cands.join('\n');}catch(e){}}
+    if(!cands.length){texto=await ocrTexto(c.toDataURL('image/jpeg',0.85));cands=L.extrairCods(texto);}
+    const mix=cands.some(c=>/[A-Z]/.test(c)&&/[0-9]/.test(c)),key=cands.join('|'),firme=mix||(cands.length&&me.last===key);me.last=key;
+    if(SC===me&&me.on&&cands.length&&firme){const al=me.al;fecharScanner();ocrModal(al,cands,texto);return;}
+    const m=$('#scMsg');if(m)m.textContent='Procurando código... aproxime e deixe reto';}}catch(e){}
+  if(SC===me&&me.on)me.h=setTimeout(scLoop,600);}
 async function lerTexto(file,alvo){const m=$('#modal');m.innerHTML='<div style="text-align:center"><p style="font-size:26px">⏳ Lendo texto...</p><p id="ocrPct" style="font-size:22px"></p><p><small>Pode levar alguns segundos.</small></p></div>';m.classList.add('on');
   try{const d=await compress(file);if(!d)throw new Error('foto');const t=await ocrTexto(d);ocrModal(alvo,L.extrairCods(t),t);}
   catch(e){m.classList.remove('on');toast('Não consegui ler o texto. Digite o código.');}}
@@ -100,14 +131,14 @@ function det(r){$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Vo
  <button class="big ok" id="share">📤 Compartilhar no WhatsApp</button><button class="big red" id="apagar">🗑 Apagar registro</button>`;
   $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);
   $('#apagar').onclick=()=>confirmar('Apagar este registro? Não tem como desfazer.',async()=>{await tx('readwrite',s=>s.delete(r.id));await load();detalhe=null;toast('Apagado');render();});}
-window.voltar=()=>{if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
+window.voltar=()=>{if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
 function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Volumes</th><th>Pal.</th><th>Cx.</th><th>Un.</th></tr>`+
   Object.entries(o).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.reg}</td><td>${v.coleta}</td><td>${v.saida}</td><td>${v.vol}</td><td>${v.palete||0}</td><td>${v.caixa||0}</td><td>${v.unidade||0}</td></tr>`).join('')+'</table></div>';
   $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora')}
   <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
-function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="icone.png" alt="" style="width:96px"><h2>Qlog Expedição</h2><p><b>Versão:</b> 2.5</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 22/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta e saída com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div>`;}
+function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="icone.png" alt="" style="width:96px"><h2>Qlog Expedição</h2><p><b>Versão:</b> 2.6</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 22/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta e saída com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.tipo){f.tipo=d.tipo;nova();}else if(d.cli!==undefined){f.cliente=d.cli;nova();}
@@ -115,7 +146,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-ope
     $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=clientes();if(!c.includes(n))c.push(n);setClientes(c);f.cliente=n;}m.classList.remove('on');nova();};}
   else if(d.foto){fotoAlvo=d.foto;$('#cam').value='';$('#cam').onchange=async ev=>{for(const fl of ev.target.files){const u=await compress(fl);if(u)f[fotoAlvo].push(u);}nova();};$('#cam').click();}
   else if(d.del){f[d.del].splice(+d.i,1);nova();}else if(d.open){if(hist.sel){hist.sel.has(d.open)?hist.sel.delete(d.open):hist.sel.add(d.open);lista();$('#selN').textContent=hist.sel.size;document.querySelectorAll('.selN2').forEach(x=>x.textContent=hist.sel.size);}else{detalhe=d.open;render();}}
-  else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr){const al=d.ocr;$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&lerTexto(ev.target.files[0],al);};$('#cam').click();}
+  else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr)abrirScanner(d.ocr);
   else if(t.id==='confScan'){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&scan(ev.target.files[0]);};$('#cam').click();}
   else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{f=novo();nova();toast('🔄 Tela limpa');},'Sim, limpar');
   else if(t.id==='resetCli')confirmar('Apagar a lista de transportadoras salvas? Os registros continuam.',()=>{setClientes([]);toast('Lista apagada');sobre();},'Sim, apagar lista');

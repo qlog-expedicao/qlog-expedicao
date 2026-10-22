@@ -45,6 +45,12 @@ function extrairCods(texto){const out=[];const add=t=>{if(!out.includes(t))out.p
   const toks=String(texto||'').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
   const mix=toks.filter(t=>t.length>=4&&/[A-Z]/.test(t)&&/[0-9]/.test(t)),dig=toks.filter(t=>/^[0-9]{3,}$/.test(t));
   mix.forEach(add);dig.forEach(add);return out;}
+// v2.6: OCR pode trocar O/0, I/1 ou inserir/perder 1 caractere (nunca troca dígito)
+function ocrNorm(t){return String(t).toUpperCase().replace(/O/g,'0').replace(/[IL]/g,'1').replace(/S/g,'5').replace(/B/g,'8');}
+function dist1(a,b){if(a===b)return 0;if(Math.abs(a.length-b.length)>1)return 2;let i=0,j=0,e=0;
+  while(i<a.length&&j<b.length){if(a[i]===b[j]){i++;j++;continue;}if(++e>1)return 2;if(a.length>b.length)i++;else if(b.length>a.length)j++;else return 2;}
+  return e+(a.length-i)+(b.length-j);}
+function casarEsperado(cands,esp){const out=[];for(const e of esp||[])if(e.length>=4&&(cands||[]).some(c=>dist1(ocrNorm(c),ocrNorm(e))<=1)&&!out.includes(e))out.push(e);return out;}
 function validar(r){const e=[]; if(!r.cliente)e.push('Escolha a transportadora'); if(!(r.nfs||[]).length)e.push('Coloque pelo menos uma NF'); if(!(Number(r.volumes)>0))e.push('Coloque os volumes'); return e;}
-const L={volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods};
+const L={volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
