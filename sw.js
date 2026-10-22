@@ -1,4 +1,4 @@
-const CACHE='qlog-v2.7';const ASSETS=["./","style.css","app.js","icone.png","icon-192.png","icon-512.png","ocr/tesseract-core-simd-lstm.wasm.js","ocr/tesseract.min.js","ocr/eng.traineddata.gz","ocr/worker.min.js","ocr/tesseract-core-lstm.wasm.js","icon-180.png","index.html","manifest.webmanifest","logic.js"];
+const CACHE='qlog-v2.8';const ASSETS=["./","style.css","app.js","icone.png","icon-192.png","icon-512.png","ocr/tesseract-core-simd-lstm.wasm.js","ocr/tesseract.min.js","ocr/eng.traineddata.gz","ocr/worker.min.js","ocr/tesseract-core-lstm.wasm.js","icon-180.png","index.html","manifest.webmanifest","logic.js"];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n!==CACHE).map(n=>caches.delete(n)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request,{ignoreSearch:true}).then(r=>r||fetch(e.request).catch(()=>caches.match('./index.html'))));});

@@ -1,10 +1,36 @@
 'use strict';
 const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let db, regs=[], tab='nova', detalhe=null;
-const novo=()=>({tipo:'saida',cliente:'',nfs:'',vt:{palete:'',caixa:'',unidade:''},confEsp:'',confLidos:[],motorista:'',placa:'',obs:'',fotos:[],romaneio:[],caminhao:[]});
+const novo=()=>({tipo:'saida',cliente:'',nfs:'',vt:{palete:'',caixa:'',unidade:''},confEsp:'',confLidos:[],motorista:'',placa:'',obs:'',fotos:[],romaneio:[],caminhao:[],itens:[],forn:''});
 let f=novo();
 const clientes=()=>JSON.parse(localStorage.getItem('clientes')||'[]');
 const setClientes=c=>localStorage.setItem('clientes',JSON.stringify(c));
+const fornecedores=()=>JSON.parse(localStorage.getItem('fornecedores')||'[]');
+const setFornecedores=c=>localStorage.setItem('fornecedores',JSON.stringify(c));
+const TIPOS=[['coleta','📦 Coleta'],['saida','🚚 Saída'],['recebimento','📥 Recebimento']];
+const tipoRow=()=>`<div class="row tipo">${TIPOS.map(([k,t])=>`<button data-tipo="${k}" class="${f.tipo===k?'on':''}">${t}</button>`).join('')}</div>`;
+const tagHTML=r=>`<span class="tag ${r.tipo==='recebimento'?'rec':r.tipo}">${L.tipoNome(r.tipo).toUpperCase()}</span>`;
+const stCls=s=>s==='CONFERIDO OK'?'c-ok':s==='DIVERGENTE'?'c-bad':'c-wait';
+function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-iq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-iq="1" data-ii="${i}">+</button><button data-idel="${i}" class="idel">🗑</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+
+  `<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
+function novaRec(){const fl=fornecedores();$('#main').innerHTML=tipoRow()+`
+<label>Fornecedor / Cliente</label><div class="cli">${fl.map(c=>`<button data-forn="${esc(c)}" class="${f.forn===c?'on':''}">${esc(c)}</button>`).join('')}<button id="addForn">➕ Novo fornecedor / cliente</button></div>
+<label>NFs (opcional)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs (se tiver)" value="${esc(f.nfs)}">
+<button class="big ok" id="recScan" style="font-size:24px;padding:22px">📷 Ler códigos (contínuo)</button>
+<label>Itens recebidos</label><div id="itens">${itensHTML()}</div>
+<div class="row"><input id="addCodTxt" placeholder="Digitar código"><button class="big alt" id="addCod" style="flex:0 0 150px;margin:0">➕ Adicionar código</button></div>
+<label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
+<label>🧾 Romaneio / NF (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio / NF</button>
+<p><small>No WhatsApp vão só as fotos do romaneio/NF.</small></p>
+<label>Observação</label><textarea id="obs" rows="2">${esc(f.obs)}</textarea>
+<p>🕒 Data e hora: automática ao salvar</p><div id="erro" class="err"></div>
+<button class="big ok" id="salvar">💾 Salvar</button><button class="big" id="salvarEnv">💾 Salvar e 📤 Compartilhar</button><button class="big alt" id="reset">🔄 Limpar (reset)</button>
+<input type="file" id="cam" accept="image/*" capture="environment" multiple hidden>`;
+  ['nfs','obs'].forEach(k=>$('#'+k).oninput=e=>f[k]=e.target.value);
+  $('#addCodTxt').onkeydown=e=>{if(e.key==='Enter')addCodManual();};}
+function addCodManual(){const v=$('#addCodTxt').value.trim();if(!v)return;f.itens=L.addItem(f.itens,v);$('#itens').innerHTML=itensHTML();$('#addCodTxt').value='';$('#addCodTxt').focus();}
+const qtdDe=(it,c)=>{const x=it.find(i=>i.cod===L.addItem([],c)[0].cod);return x?x.qtd:0;};
+function lerContinuoForm(){abrirMulti('Recebimento: ler códigos',code=>{f.itens=L.addItem(f.itens,code);if($('#itens'))$('#itens').innerHTML=itensHTML();return qtdDe(f.itens,code);},()=>{if(tab==='nova')nova();},f.itens);}
 function openDB(){return new Promise((ok,er)=>{const q=indexedDB.open('qlog',1);q.onupgradeneeded=()=>q.result.createObjectStore('regs',{keyPath:'id'});q.onsuccess=()=>ok(q.result);q.onerror=()=>er(q.error);});}
 const tx=(m,fn)=>new Promise((ok,er)=>{const t=db.transaction('regs',m),s=t.objectStore('regs'),r=fn(s);t.oncomplete=()=>ok(r&&r.result);t.onerror=()=>er(t.error);});
 async function load(){regs=(await tx('readonly',s=>s.getAll())||[]).sort((a,b)=>b.ts-a.ts);}
@@ -15,8 +41,7 @@ function compress(file){return new Promise(ok=>{const u=URL.createObjectURL(file
   c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',0.75));};i.onerror=()=>ok(null);i.src=u;});}
 function fotosHTML(arr,key,edit){return '<div class="fotos">'+arr.map((d,i)=>`<div><img src="${d}">${edit?`<b data-del="${key}" data-i="${i}">✕</b>`:''}</div>`).join('')+'</div>';}
 function render(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));({nova,hist,rel,sobre})[tab]();}
-function nova(){const cl=clientes();$('#main').innerHTML=`
-<div class="row tipo"><button data-tipo="coleta" class="${f.tipo==='coleta'?'on':''}">📦 Coleta</button><button data-tipo="saida" class="${f.tipo==='saida'?'on':''}">🚚 Saída</button></div>
+function nova(){if(f.tipo==='recebimento')return novaRec();const cl=clientes();$('#main').innerHTML=tipoRow()+`
 <label>Transportadora</label><div class="cli">${cl.map(c=>`<button data-cli="${esc(c)}" class="${f.cliente===c?'on':''}">${esc(c)}</button>`).join('')}<button id="addCli">➕ Nova transportadora</button></div>
 <label>NFs (separe com - ou espaço)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs aqui" value="${esc(f.nfs)}">
 <label>Volumes</label><div class="row vt">${[['palete','🟫 Paletes'],['caixa','📦 Caixas'],['unidade','🔹 Unidades']].map(([k,t])=>`<div><small>${t}</small><input data-vt="${k}" type="number" inputmode="numeric" placeholder="0" value="${esc(f.vt[k])}"></div>`).join('')}</div>
@@ -67,23 +92,34 @@ function ocrModal(alvo,cands,texto){if(alvo==='lido'){const m=L.casarEsperado(ca
 function fotoOcr(al){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&lerTexto(ev.target.files[0],al);};$('#cam').click();}
 // ---- v2.6: scanner ao vivo (só para os campos de código) ----
 let SC=null;
-function fecharScanner(){if(!SC)return;SC.on=false;clearTimeout(SC.h);try{SC.stream&&SC.stream.getTracks().forEach(t=>t.stop());}catch(e){}const o=$('#scanner');o&&o.remove();SC=null;}
+function fecharScanner(){if(!SC)return;const mu=SC.multi;SC.on=false;setTimeout(()=>mu&&mu.onFim(),0);clearTimeout(SC.h);try{SC.stream&&SC.stream.getTracks().forEach(t=>t.stop());}catch(e){}const o=$('#scanner');o&&o.remove();SC=null;}
 const scanCbs={};let scanSeq=0;
+// ---- v2.8: leitura contínua (Recebimento). Android = ScanActivity modo multi; iPhone/PWA = loop JS ----
+const multiCbs={};
+function bip(){try{const A=window.AudioContext||window.webkitAudioContext;if(A){bip.c=bip.c||new A();const o=bip.c.createOscillator(),g=bip.c.createGain();o.frequency.value=1800;g.gain.value=0.2;o.connect(g);g.connect(bip.c.destination);o.start();o.stop(bip.c.currentTime+0.12);}}catch(e){}try{navigator.vibrate&&navigator.vibrate(80);}catch(e){}}
+window.scanItem=(id,code)=>{const c=multiCbs[id];if(!c||!code)return;c.got[code]=(c.got[code]||0)+1;c.onItem(code);};
+window.scanFim=(id,json,err)=>{const c=multiCbs[id];if(!c)return;delete multiCbs[id];
+  try{(JSON.parse(json||'[]')||[]).forEach(x=>{for(let k=(x.qtd||0)-(c.got[x.cod]||0);k>0;k--)c.onItem(x.cod);});}catch(e){}
+  if(err==='permissao')toast('Câmera não liberada.');else if(err&&err!=='cancelado')toast('Scanner falhou: '+err);c.onFim();};
+function abrirMulti(titulo,onItem,onFim,atuais){
+  if(window.AndroidScan&&window.AndroidScan.abrirMulti){const id='m'+(++scanSeq);multiCbs[id]={onItem,onFim,got:{}};
+    try{window.AndroidScan.abrirMulti(id,titulo,JSON.stringify(atuais||[]));return;}catch(e){delete multiCbs[id];}}
+  abrirScanner(null,{titulo,onItem,onFim});}
 window.scanResult=(id,text,err)=>{const al=scanCbs[id];if(!al)return;delete scanCbs[id];
   if(err==='foto')return fotoOcr(al);if(err==='cancelado')return;if(err==='permissao'){toast('Câmera não liberada. Usando foto.');return fotoOcr(al);}
   if(err||text==null){toast('Scanner falhou. Usando foto.');return fotoOcr(al);}
   ocrModal(al,L.extrairCods(text),text);};
-async function abrirScanner(al){
-  if(window.AndroidScan){const id='s'+(++scanSeq);scanCbs[id]=al;try{window.AndroidScan.abrir(id,al==='esp'?'Código da NF':'Código da etiqueta');}catch(e){delete scanCbs[id];fotoOcr(al);}return;}
-  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))return fotoOcr(al);
+async function abrirScanner(al,multi){
+  if(window.AndroidScan&&!multi){const id='s'+(++scanSeq);scanCbs[id]=al;try{window.AndroidScan.abrir(id,al==='esp'?'Código da NF':'Código da etiqueta');}catch(e){delete scanCbs[id];fotoOcr(al);}return;}
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){if(multi){toast('Câmera ao vivo indisponível. Digite os códigos.');return multi.onFim();}return fotoOcr(al);}
   const o=document.createElement('div');o.id='scanner';
   o.innerHTML=`<video id="scVid" playsinline muted autoplay></video><div class="scMask"><div class="scBox" id="scBox"></div></div>
-  <div class="scTop">${al==='esp'?'Código da NF':'Código da etiqueta'}<br><small id="scMsg">Aponte o código dentro do quadro</small></div>
-  <div class="scBot"><button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big alt" id="scFoto">📷 Tirar foto</button><button class="big red" id="scCancel">✖ Cancelar</button></div>`;
-  document.body.appendChild(o);SC={on:true,al,busy:false,torch:false};
-  $('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};
+  <div class="scTop">${multi?esc(multi.titulo):al==='esp'?'Código da NF':'Código da etiqueta'}<br><small id="scMsg">Aponte o código dentro do quadro</small><div id="scLast" class="scLast"></div></div>
+  <div class="scBot">${multi?'<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big ok" id="scFim">✔ Concluir</button>':`<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big alt" id="scFoto">📷 Tirar foto</button><button class="big red" id="scCancel">✖ Cancelar</button>`}</div>`;
+  document.body.appendChild(o);SC={on:true,al,busy:false,torch:false,multi,seen:{}};
+  if(multi)$('#scFim').onclick=fecharScanner;else{$('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};}
   let st;try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});}
-  catch(e){fecharScanner();toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
+  catch(e){fecharScanner();if(multi){toast('Câmera ao vivo não liberada. Digite os códigos.');return;}toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
   if(!SC||!SC.on){st.getTracks().forEach(t=>t.stop());return;}SC.stream=st;
   const v=$('#scVid');v.srcObject=SC.stream;try{await v.play();}catch(e){}
   const tr=SC.stream.getVideoTracks()[0];try{if(tr.getCapabilities&&tr.getCapabilities().torch){const b=$('#scTorch');b.style.display='';b.onclick=async()=>{SC.torch=!SC.torch;try{await tr.applyConstraints({advanced:[{torch:SC.torch}]});b.textContent=SC.torch?'🔦 Desligar lanterna':'🔦 Lanterna';}catch(e){}};}}catch(e){}
@@ -93,11 +129,15 @@ function scCrop(){const v=$('#scVid'),b=$('#scBox');if(!v||!v.videoWidth)return 
   const ox=(vr.width-v.videoWidth*k)/2,oy=(vr.height-v.videoHeight*k)/2;
   const sx=Math.max(0,(br.left-vr.left-ox)/k),sy=Math.max(0,(br.top-vr.top-oy)/k),sw=Math.min(v.videoWidth-sx,br.width/k),sh=Math.min(v.videoHeight-sy,br.height/k);
   const c=document.createElement('canvas');const z=Math.min(1,1000/sw);c.width=Math.round(sw*z);c.height=Math.round(sh*z);c.getContext('2d').drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);return c;}
-async function scLoop(){if(!SC||!SC.on)return;const me=SC;
-  try{const c=scCrop();if(c){let cands=[],texto='';
-    if(me.bd){try{const r=await me.bd.detect(c);r.forEach(x=>{const t=String(x.rawValue||'').trim().toUpperCase();if(t&&!cands.includes(t))cands.push(t);});texto=cands.join('\n');}catch(e){}}
+async function scLoop(){if(!SC||!SC.on)return;const me=SC,t0=Date.now();
+  try{const c=scCrop();if(c){let cands=[],texto='',bars=false;
+    if(me.bd){try{const r=await me.bd.detect(c);r.forEach(x=>{const t=String(x.rawValue||'').trim().toUpperCase();if(t&&!cands.includes(t))cands.push(t);});texto=cands.join('\n');bars=cands.length>0;}catch(e){}}
     if(!cands.length){texto=await ocrTexto(c.toDataURL('image/jpeg',0.85));cands=L.extrairCods(texto);}
     const mix=cands.some(c=>/[A-Z]/.test(c)&&/[0-9]/.test(c)),key=cands.join('|'),firme=mix||(cands.length&&me.last===key);me.last=key;
+    if(me.multi){const now=Date.now(),win=Math.max(1500,2*(now-t0)+700),acc=bars?cands:(firme&&cands.length?[cands[0]]:[]);
+      for(const cd of acc){const prev=me.seen[cd];me.seen[cd]=now;if(prev&&now-prev<win)continue;if(SC!==me||!me.on)break;const n=me.multi.onItem(cd);bip();
+        const z=$('#scLast');if(z)z.textContent='✔ '+cd+'  ×'+n;toast('✔ '+cd+' ×'+n);}
+      if(SC===me&&me.on)me.h=setTimeout(scLoop,400);return;}
     if(SC===me&&me.on&&cands.length&&firme){const al=me.al;fecharScanner();ocrModal(al,cands,texto);return;}
     const m=$('#scMsg');if(m)m.textContent='Procurando código... aproxime e deixe reto';}}catch(e){}
   if(SC===me&&me.on)me.h=setTimeout(scLoop,600);}
@@ -109,10 +149,37 @@ function conferirCod(v){const esp=L.parseCods(f.confEsp);if(!esp.length){$('#err
   const c=L.conferir(esp,v);if(!c.cod)return;f.confLidos.push(c);nova();alerta(c.ok,c.cod);}
 async function scan(file){try{const bd=new BarcodeDetector();const b=await createImageBitmap(file);const r=await bd.detect(b);
   if(r.length)conferirCod(r[0].rawValue);else toast('Não achei código na foto. Digite o código.');}catch(e){toast('Leitor falhou. Digite o código.');}}
-async function salvar(enviar){const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,caixa:+f.vt.caixa||0,unidade:+f.vt.unidade||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
+async function salvar(enviar){if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,caixa:+f.vt.caixa||0,unidade:+f.vt.unidade||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
   motorista:f.motorista.trim(),placa:f.placa.trim().toUpperCase(),obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:f.caminhao};
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
   await tx('readwrite',s=>s.put(r));await load();f=novo();toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+async function salvarRec(enviar){const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,'recebimento'),tipo:'recebimento',cliente:f.forn,nfs:L.parseNFs(f.nfs),volumes:0,
+  itens:f.itens.map(x=>({cod:x.cod,qtd:x.qtd})),skuEsp:null,obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:[]};
+  const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
+  await tx('readwrite',s=>s.put(r));await load();f=novo();f.tipo='recebimento';toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+function grpHTML(c){return [['c-ok','✔ OK',c.ok],['c-dif','⚠ Quantidade diferente',c.dif],['c-bad','✖ Faltou',c.faltou],['c-mais','➕ A mais',c.amais]].map(([k,t,a])=>
+  `<div class="grp"><div class="gh ${k}">${t} (${a.length})</div>${a.length?'<table><tr><th>Código</th><th>Esperado</th><th>Lido</th></tr>'+a.map(x=>`<tr><td>${esc(x.cod)}</td><td>${x.esp}</td><td>${x.lido}</td></tr>`).join('')+'</table>':'<p><small>Nenhum</small></p>'}</div>`).join('');}
+function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card">${tagHTML(r)} <span class="st ${stCls(c.status)}">${c.status}</span>
+ <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre></div>
+ <div class="card"><b>📋 Conferência com lista de SKU</b>${r.skuEsp?`<p>Lista: ${r.skuEsp.length} códigos · ${r.skuEsp.reduce((s,x)=>s+x.qtd,0)} unidades. Lido: ${t.cods} códigos · ${t.un} unidades.</p>`+grpHTML(c):'<p>Lista de SKU ainda não chegou. Quando chegar, toque abaixo.</p>'}
+ <button class="big" id="skuBtn">📋 ${r.skuEsp?'Editar lista de SKU':'Conferir com lista de SKU'}</button></div>
+ <div class="card"><label>🧾 Romaneio / NF</label>${fotosHTML(r.romaneio||[])}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos||[])}</div>
+ <button class="big ok" id="share">📤 Compartilhar no WhatsApp</button><button class="big red" id="apagar">🗑 Apagar registro</button>`;
+  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);$('#skuBtn').onclick=()=>skuModal(r);
+  $('#apagar').onclick=()=>confirmar('Apagar este registro? Não tem como desfazer.',async()=>{await tx('readwrite',s=>s.delete(r.id));await load();detalhe=null;toast('Apagado');render();});}
+function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90vh;overflow:auto"><p style="font-size:20px;margin-top:0"><b>📋 Lista de SKU esperada</b></p>
+  <p><small>Um código por linha. Pode ter quantidade: <b>SKU;qtd</b> ou <b>SKU qtd</b>. Sem quantidade = 1.</small></p>
+  <textarea id="skuTxt" rows="8" style="font-size:18px" placeholder="7891234567890;10&#10;ABC123 5">${esc(L.skuTexto(r.skuEsp))}</textarea>
+  <button class="big alt" id="skuCam">📷 Ler a lista com a câmera</button><button class="big alt" id="skuArq">📄 Importar arquivo CSV/TXT</button>
+  <input type="file" id="skuFile" accept=".csv,.txt,text/plain,text/csv" hidden>
+  <button class="big ok" id="skuOk">💾 Salvar e conferir</button>${r.skuEsp?'<button class="big red" id="skuDel">🗑 Remover lista</button>':''}<button class="big alt" id="skuX">Cancelar</button></div>`;
+  m.classList.add('on');$('#skuX').onclick=()=>m.classList.remove('on');
+  const grava=async l=>{r.skuEsp=l;await tx('readwrite',s=>s.put(r));await load();m.classList.remove('on');toast(l?'Lista salva: '+L.conferirSku(r.itens,l).status:'Lista removida');render();};
+  $('#skuOk').onclick=()=>{const l=L.parseSkuLista($('#skuTxt').value);if(!l.length)return toast('Lista vazia');grava(l);};
+  if($('#skuDel'))$('#skuDel').onclick=()=>grava(null);
+  $('#skuArq').onclick=()=>{$('#skuFile').value='';$('#skuFile').click();};
+  $('#skuFile').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const rd=new FileReader();rd.onload=()=>{const l=L.parseSkuLista(rd.result);if(!l.length)return toast('Não achei códigos no arquivo');$('#skuTxt').value=L.skuTexto(l);toast(l.length+' códigos importados');};rd.readAsText(fl);};
+  $('#skuCam').onclick=()=>{let tmp=L.parseSkuLista($('#skuTxt').value);abrirMulti('Lista de SKU: ler códigos',code=>{tmp=L.addItem(tmp,code);const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);return qtdDe(tmp,code);},()=>{const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);},tmp);};}
 function compartilhar(r){const t=L.resumo(r),p=r.romaneio.concat(r.caminhao||[]);
   if(window.AndroidShare)AndroidShare.share(t,JSON.stringify(p),'');else if(navigator.share){let fs=[];try{fs=p.map((d,i)=>dataUrlFile(d,L.codigo(r)+'_'+(i+1)+'.jpg'));}catch(e){fs=[];}
     if(fs.length&&navigator.canShare&&navigator.canShare({files:fs}))navigator.share({text:t,files:fs}).catch(()=>{});else navigator.share({text:t}).catch(()=>{});}else{navigator.clipboard&&navigator.clipboard.writeText(t);toast('Texto copiado');}}
@@ -127,35 +194,42 @@ const mesNome=k=>NOMES[+k.slice(0,2)-1]+' '+k.slice(3);
 function mesSelHTML(){return `<label>📅 Mês</label><select id="mesAt" style="width:100%;font-size:20px;padding:10px">${mesLista().map(m=>`<option value="${m}" ${m===mesAt?'selected':''}>${mesNome(m)}</option>`).join('')}</select>`;}
 const doMes=()=>regs.filter(r=>L.mesKey(r.ts)===mesAt);
 function hist(){if(detalhe){const r=regs.find(x=>x.id===detalhe);if(r)return det(r);detalhe=null;}
-  const sm=!!hist.sel;$('#main').innerHTML=mesSelHTML()+`<input id="q" placeholder="🔍 Buscar NF, transportadora, data ou EXP-0001" value="${esc(hist.q||'')}">
+  const sm=!!hist.sel;$('#main').innerHTML=mesSelHTML()+`<input id="q" placeholder="🔍 Buscar NF, transportadora, código, data, EXP/REC" value="${esc(hist.q||'')}">
   ${sm?`<div class="row"><button class="big red" id="selDel" style="margin:0">🗑 Apagar selecionados (<span id="selN">${hist.sel.size}</span>)</button><button class="big alt" id="selX" style="margin:0;flex:0 0 120px">Cancelar</button></div><button class="big ok" id="selEnv">📤 Enviar selecionados (<span class="selN2">${hist.sel.size}</span>)</button><button class="big alt" id="selAll">☑ Marcar todos da lista</button>`:(doMes().length?'<button class="big alt" id="selOn">☑ Selecionar para apagar</button>':'')}<div id="lista"></div>`;
   $('#q').oninput=e=>{hist.q=e.target.value;lista();};$('#mesAt').onchange=e=>{mesAt=e.target.value;hist.sel=null;hist();};lista();}
-function lista(){const v=L.filtrar(doMes(),hist.q);$('#lista').innerHTML=v.length?v.map(r=>`<div class="card${hist.sel&&hist.sel.has(r.id)?' selc':''}" data-open="${r.id}">${hist.sel?`<span style="font-size:26px;float:right">${hist.sel.has(r.id)?'☑':'☐'}</span>`:''}<span class="tag ${r.tipo}">${r.tipo==='coleta'?'COLETA':'SAÍDA'}</span>
- <b>${L.codigo(r)} · ${esc(r.cliente)}</b><br>NFs ${esc(r.nfs.join('-'))} · ${esc(L.volTxt(r))} vol${L.confStatus(r.conf)?' · 🔎 '+L.confStatus(r.conf):''}<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length} · 🚛 ${(r.caminhao||[]).length}</small></div>`).join(''):'<p>Nenhum registro neste mês.</p>';}
-function det(r){$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card"><span class="tag ${r.tipo}">${r.tipo==='coleta'?'COLETA':'SAÍDA'}</span>
+function lista(){const v=L.filtrar(doMes(),hist.q);$('#lista').innerHTML=v.length?v.map(r=>`<div class="card${hist.sel&&hist.sel.has(r.id)?' selc':''}" data-open="${r.id}">${hist.sel?`<span style="font-size:26px;float:right">${hist.sel.has(r.id)?'☑':'☐'}</span>`:''}${tagHTML(r)}${r.tipo==='recebimento'?` <span class="st ${stCls(L.recStatus(r))}">${L.recStatus(r)}</span>
+ <b>${L.codigo(r)} · ${esc(r.cliente||'Sem fornecedor')}</b><br>${(r.nfs||[]).length?'NFs '+esc(r.nfs.join('-'))+' · ':''}${L.itensTot(r.itens).cods} itens · ${L.itensTot(r.itens).un} un.<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length}</small></div>`:`
+ <b>${L.codigo(r)} · ${esc(r.cliente)}</b><br>NFs ${esc(r.nfs.join('-'))} · ${esc(L.volTxt(r))} vol${L.confStatus(r.conf)?' · 🔎 '+L.confStatus(r.conf):''}<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length} · 🚛 ${(r.caminhao||[]).length}</small></div>`}`).join(''):'<p>Nenhum registro neste mês.</p>';}
+function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card"><span class="tag ${r.tipo}">${r.tipo==='coleta'?'COLETA':'SAÍDA'}</span>
  <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre><label>🧾 Romaneio</label>${fotosHTML(r.romaneio)}<label>🚛 Caminhão carregado</label>${fotosHTML(r.caminhao||[])}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos)}</div>
  <button class="big ok" id="share">📤 Compartilhar no WhatsApp</button><button class="big red" id="apagar">🗑 Apagar registro</button>`;
   $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);
   $('#apagar').onclick=()=>confirmar('Apagar este registro? Não tem como desfazer.',async()=>{await tx('readwrite',s=>s.delete(r.id));await load();detalhe=null;toast('Apagado');render();});}
 window.voltar=()=>{if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
-function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Volumes</th><th>Pal.</th><th>Cx.</th><th>Un.</th></tr>`+
-  Object.entries(o).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.reg}</td><td>${v.coleta}</td><td>${v.saida}</td><td>${v.vol}</td><td>${v.palete||0}</td><td>${v.caixa||0}</td><td>${v.unidade||0}</td></tr>`).join('')+'</table></div>';
-  $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora')}
+function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora / Fornecedor'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Receb.</th><th>Volumes</th><th>Pal.</th><th>Cx.</th><th>Un.</th></tr>`+
+  Object.entries(o).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.reg}</td><td>${v.coleta}</td><td>${v.saida}</td><td>${v.receb||0}</td><td>${v.vol}</td><td>${v.palete||0}</td><td>${v.caixa||0}</td><td>${v.unidade||0}</td></tr>`).join('')+'</table></div>';
+  $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora / fornecedor')}
   <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
-function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="icone.png" alt="" style="width:96px"><h2>Qlog Expedição</h2><p><b>Versão:</b> 2.7</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 22/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta e saída com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div>`;}
+function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="icone.png" alt="" style="width:96px"><h2>Qlog Expedição</h2><p><b>Versão:</b> 2.8</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 22/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
-  if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.tipo){f.tipo=d.tipo;nova();}else if(d.cli!==undefined){f.cliente=d.cli;nova();}
+  if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.tipo){f.tipo=d.tipo;nova();}else if(d.cli!==undefined){f.cliente=d.cli;nova();}else if(d.forn!==undefined){f.forn=d.forn;nova();}
+  else if(t.id==='addForn'){const m=$('#modal');m.innerHTML='<div><label>Nome do fornecedor / cliente</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
+    $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=fornecedores();if(!c.includes(n))c.push(n);setFornecedores(c);f.forn=n;}m.classList.remove('on');nova();};}
+  else if(t.id==='recScan')lerContinuoForm();else if(t.id==='addCod')addCodManual();
+  else if(d.iq){const x=f.itens[+d.ii];if(x){f.itens=L.addItem(f.itens,x.cod,+d.iq);$('#itens').innerHTML=itensHTML();}}
+  else if(d.idel!==undefined){const x=f.itens[+d.idel];if(x)confirmar('Tirar o código '+x.cod+' da lista?',()=>{f.itens=f.itens.filter(i=>i!==x);$('#itens').innerHTML=itensHTML();},'Sim, tirar');}
   else if(t.id==='addCli'){const m=$('#modal');m.innerHTML='<div><label>Nome da transportadora</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
     $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=clientes();if(!c.includes(n))c.push(n);setClientes(c);f.cliente=n;}m.classList.remove('on');nova();};}
   else if(d.foto){fotoAlvo=d.foto;$('#cam').value='';$('#cam').onchange=async ev=>{for(const fl of ev.target.files){const u=await compress(fl);if(u)f[fotoAlvo].push(u);}nova();};$('#cam').click();}
   else if(d.del){f[d.del].splice(+d.i,1);nova();}else if(d.open){if(hist.sel){hist.sel.has(d.open)?hist.sel.delete(d.open):hist.sel.add(d.open);lista();$('#selN').textContent=hist.sel.size;document.querySelectorAll('.selN2').forEach(x=>x.textContent=hist.sel.size);}else{detalhe=d.open;render();}}
   else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr)abrirScanner(d.ocr);
   else if(t.id==='confScan'){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&scan(ev.target.files[0]);};$('#cam').click();}
-  else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{f=novo();nova();toast('🔄 Tela limpa');},'Sim, limpar');
+  else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{const tp=f.tipo;f=novo();f.tipo=tp;nova();toast('🔄 Tela limpa');},'Sim, limpar');
   else if(t.id==='resetCli')confirmar('Apagar a lista de transportadoras salvas? Os registros continuam.',()=>{setClientes([]);toast('Lista apagada');sobre();},'Sim, apagar lista');
+  else if(d.rmforn!==undefined){const n=d.rmforn;confirmar('Apagar "'+n+'" da lista de fornecedores? Os registros continuam.',()=>{setFornecedores(fornecedores().filter(c=>c!==n));if(f.forn===n)f.forn='';toast('Apagado');sobre();},'Sim, apagar');}
   else if(d.rmcli!==undefined){const n=d.rmcli;confirmar('Apagar a transportadora "'+n+'" da lista? Os registros continuam.',()=>{setClientes(clientes().filter(c=>c!==n));if(f.cliente===n)f.cliente='';toast('Apagada');sobre();},'Sim, apagar');}
   else if(t.id==='selOn'){hist.sel=new Set();hist();}
   else if(t.id==='selEnv'){const sr=regs.filter(r=>hist.sel.has(r.id));if(!sr.length)return toast('Nenhum selecionado');const m=$('#modal');
