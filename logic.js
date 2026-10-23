@@ -3,9 +3,11 @@ const pad=n=>String(n).padStart(2,'0');
 function fmtData(ts){const d=new Date(ts);return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+String(d.getFullYear()).slice(2);}
 function fmtHora(ts){const d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes());}
 function parseNFs(s){return String(s||'').split(/[^0-9A-Za-z]+/).map(x=>x.trim()).filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i);}
-const VT=[['palete','palete','paletes'],['caixa','caixa','caixas'],['unidade','unidade','unidades']];
-function volTotal(v){return VT.reduce((s,[k])=>s+(Number(v&&v[k])||0),0);}
-function volTxt(r){const v=r.vtipos;const n=Number(r.volumes)||0;if(!v)return String(n);
+const VT=[['palete','palete','paletes'],['volume','volume','volumes']];
+// v2.9: só Paletes e Volumes. Registros antigos: caixa+unidade viram volume
+function vtNorm(v){v=v||{};const n=k=>Number(v[k])||0;return {palete:n('palete'),volume:n('volume')+n('caixa')+n('unidade')};}
+function volTotal(v){const n=vtNorm(v);return n.palete+n.volume;}
+function volTxt(r){const v=r.vtipos?vtNorm(r.vtipos):null;const n=Number(r.volumes)||0;if(!v)return String(n);
   const p=VT.filter(([k])=>Number(v[k])>0).map(([k,a,b])=>v[k]+' '+(Number(v[k])===1?a:b));return n+(p.length?' ('+p.join(', ')+')':'');}
 const normCod=s=>String(s||'').trim().toUpperCase();
 function parseCods(s){return String(s||'').split(/[\s,;]+/).map(normCod).filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i);}
@@ -52,11 +54,11 @@ function filtrar(regs,q){q=String(q||'').trim().toLowerCase(); if(!q)return regs
   return regs.filter(r=>(r.cliente||'').toLowerCase().includes(q)||(r.nfs||[]).some(n=>n.toLowerCase().includes(q))||fmtData(r.ts).includes(q)||(r.placa||'').toLowerCase().includes(q)||codigo(r).toLowerCase().includes(q)||(r.itens||[]).some(i=>String(i.cod).toLowerCase().includes(q)));}
 function relatorio(regs){const dia={},cli={};
   for(const r of regs){const d=fmtData(r.ts),c=r.cliente||'Sem transportadora',v=Number(r.volumes)||0;
-    for(const [o,k] of [[dia,d],[cli,c]]){o[k]=o[k]||{reg:0,vol:0,coleta:0,saida:0,receb:0,palete:0,caixa:0,unidade:0};o[k].reg++;o[k].vol+=v;for(const [t] of VT)o[k][t]+=Number(r.vtipos&&r.vtipos[t])||0;o[k][r.tipo==='coleta'?'coleta':r.tipo==='recebimento'?'receb':'saida']++;}}
+    for(const [o,k] of [[dia,d],[cli,c]]){o[k]=o[k]||{reg:0,vol:0,coleta:0,saida:0,receb:0,palete:0,volume:0};o[k].reg++;o[k].vol+=v;for(const [t] of VT)o[k][t]+=vtNorm(r.vtipos)[t];o[k][r.tipo==='coleta'?'coleta':r.tipo==='recebimento'?'receb':'saida']++;}}
   return {dia,cli};}
 function csv(regs){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
-  const h=['Código','Tipo','Transportadora','NFs','Volumes','Paletes','Caixas','Unidades','Data','Hora','Motorista','Placa','Observação','Fotos produtos','Fotos romaneio','Fotos caminhão','Conferência','Itens'];
-  return '\ufeff'+[h.map(q).join(';')].concat(regs.map(r=>[codigo(r),tipoNome(r.tipo),r.cliente,(r.nfs||[]).join('-'),r.volumes,...VT.map(([t])=>Number(r.vtipos&&r.vtipos[t])||0),fmtData(r.ts),fmtHora(r.ts),r.motorista,r.placa,r.obs,(r.fotos||[]).length,(r.romaneio||[]).length,(r.caminhao||[]).length,r.tipo==='recebimento'?recStatus(r):confStatus(r.conf),(r.itens||[]).map(i=>i.cod+' x '+i.qtd).join(' | ')].map(q).join(';'))).join('\r\n');}
+  const h=['Código','Tipo','Transportadora','NFs','Volumes','Paletes','Volumes (qtd)','Data','Hora','Motorista','Placa','Observação','Fotos produtos','Fotos romaneio','Fotos caminhão','Conferência','Itens'];
+  return '\ufeff'+[h.map(q).join(';')].concat(regs.map(r=>[codigo(r),tipoNome(r.tipo),r.cliente,(r.nfs||[]).join('-'),r.volumes,...VT.map(([t])=>vtNorm(r.vtipos)[t]),fmtData(r.ts),fmtHora(r.ts),r.motorista,r.placa,r.obs,(r.fotos||[]).length,(r.romaneio||[]).length,(r.caminhao||[]).length,r.tipo==='recebimento'?recStatus(r):confStatus(r.conf),(r.itens||[]).map(i=>i.cod+' x '+i.qtd).join(' | ')].map(q).join(';'))).join('\r\n');}
 
 function mesKey(ts){const d=new Date(ts);return String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();}
 function meses(regs){return [...new Set(regs.map(r=>mesKey(r.ts)))];}
@@ -81,5 +83,5 @@ function dist1(a,b){if(a===b)return 0;if(Math.abs(a.length-b.length)>1)return 2;
   return e+(a.length-i)+(b.length-j);}
 function casarEsperado(cands,esp){const out=[];for(const e of esp||[])if(e.length>=4&&(cands||[]).some(c=>dist1(ocrNorm(c),ocrNorm(e))<=1)&&!out.includes(e))out.push(e);return out;}
 function validar(r){const e=[];if(r.tipo==='recebimento'){if(!(r.itens||[]).length)e.push('Leia ou adicione pelo menos um código');return e;} if(!r.cliente)e.push('Escolha a transportadora'); if(!(r.nfs||[]).length)e.push('Coloque pelo menos uma NF'); if(!(Number(r.volumes)>0))e.push('Coloque os volumes'); return e;}
-const L={volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus};
+const L={vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
