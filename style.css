@@ -1,5 +1,5 @@
 *{box-sizing:border-box}body{margin:0;font-family:sans-serif;font-size:18px;background:#eef2f6;color:#123}
-header{background:#0b1f44;border-bottom:4px solid #2ee66b;color:#fff;padding:12px 14px;font-size:22px}nav{display:flex;position:sticky;top:0;z-index:5}
+header{background:#354350;border-bottom:4px solid #3f8a5f;color:#fff;padding:12px 14px;font-size:22px}nav{display:flex;position:sticky;top:0;z-index:5}
 nav button{flex:1;min-width:0;padding:14px 4px;font-size:18px;border:0;background:#d6e2ee;color:#0b4f8a;font-weight:bold}nav button.on{background:#fff;border-bottom:4px solid #0b4f8a}
 main{padding:12px;max-width:720px;margin:auto}label{display:block;font-weight:bold;margin:14px 0 6px}
 input,select,textarea{width:100%;font-size:20px;padding:12px;border:2px solid #9ab;border-radius:10px;background:#fff}
@@ -16,7 +16,7 @@ footer{text-align:center;color:#678;font-size:13px;padding:20px}.err{color:#c628
 nav button[data-t=sobre]{flex:0 0 56px}
 .vt small{display:block;font-weight:bold}.tot{font-size:20px}.conf{padding:14px;border-radius:12px;color:#fff;font-weight:bold;font-size:24px;margin:8px 0;text-align:center}.c-ok{background:#1b8a3a}.c-bad{background:#c62828}
 table{font-size:15px}
-.logo{width:40px;height:40px;vertical-align:middle;background:#fff;border-radius:9px;padding:2px;margin-right:6px}.hg{color:#2ee66b}
+.logo{width:40px;height:40px;vertical-align:middle;background:#fff;border-radius:9px;padding:2px;margin-right:6px}.hg{color:#7fd39e}
 .selc{outline:3px solid #d33;background:#fff0f0}
 
 body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}header{padding-top:calc(12px + env(safe-area-inset-top))}
