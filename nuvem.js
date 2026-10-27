@@ -39,19 +39,24 @@ N.pedirEntrada=()=>{const m=document.getElementById('modal');if(!m||m.classList.
       N.nome=nome;localStorage.setItem('nvNome',nome);m.classList.remove('on');delete m.dataset.nv;await papel();toast('✅ Conectado à equipe');
     }catch(e){er.textContent=/permission/i.test(String(e.code||e.message))?'Senha errada ou celular bloqueado':'Sem internet. Tente de novo.';}};};
 // ouvir mudanças da nuvem -> grava no celular
-function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];
+function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();
+  if(N.admin)N.unsub.push(N.fs.collection('membros').onSnapshot(q=>{const o={};q.forEach(d=>{o[d.id]=d.data().nome||'';});N.nomes=o;if(tab==='hist')render();},()=>{}));
   N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
       if(ch.type==='removed'){await tx('readwrite',s=>s.delete(d.id));continue;}
-      const loc=regs.find(r=>r.id===d.id);await tx('readwrite',s=>s.put(L.regMescla(loc,d)));}
+      if(N.admin&&('autor' in d)){try{await ch.doc.ref.update({autor:firebase.firestore.FieldValue.delete()});}catch(e){}}
+      const loc=regs.find(r=>r.id===d.id);await tx('readwrite',s=>s.put(N.admin?L.regMescla(loc,d):L.semAutor(L.regMescla(loc,d))));}
     await load();if(tab==='hist'||tab==='rel')render();}catch(e){}},e=>{if(/permission/i.test(e.code||''))papel();}));
   ['clientes','fornecedores'].forEach(k=>N.unsub.push(N.fs.doc('listas/'+k).onSnapshot(d=>{if(!d.exists)return;const l=d.data().nomes||[];
     const loc=JSON.parse(localStorage.getItem(k)||'[]');const tudo=N.admin?l:[...new Set(l.concat(loc))];localStorage.setItem(k,JSON.stringify(tudo));},()=>{})));}
 // app -> nuvem
+// nome de quem fez: só o administrador vê (vem de membros/{uid}, que só ele lê)
+N.nomes={};N.nomeAutor=r=>N.on&&N.admin&&r?(N.nomes[r.autorUid]||r.autor||''):'';
+async function limparAutores(){if(N.admin)return;try{const v=regs.filter(r=>'autor' in r);if(v.length){await tx('readwrite',s=>v.forEach(r=>s.put(L.semAutor(r))));await load();}}catch(e){}}
 N.salvar=async r=>{if(!N.on)return;try{await N.fs.doc('registros/'+r.id).set(L.regNuvem(r,N.nome,N.uid));}catch(e){}};
 N.apagar=async id=>{if(!N.on||!N.admin)return;try{await N.fs.doc('registros/'+id).delete();}catch(e){}};
 N.lista=async(k,l)=>{if(!N.on)return;try{const ref=N.fs.doc('listas/'+k);
   if(N.admin)await ref.set({nomes:l});else await ref.set({nomes:firebase.firestore.FieldValue.arrayUnion(...l)},{merge:true});}catch(e){}};
-async function migrar(){try{for(const r of regs){if(!r.nuvem)await N.fs.doc('registros/'+r.id).set(L.regNuvem(r,r.autor||N.nome,N.uid));}
+async function migrar(){try{for(const r of regs){if(!r.nuvem)await N.fs.doc('registros/'+r.id).set(L.regNuvem(r,'',r.autorUid||N.uid));}
   for(const k of ['clientes','fornecedores'])await N.fs.doc('listas/'+k).set({nomes:JSON.parse(localStorage.getItem(k)||'[]')});
   localStorage.setItem('nvMigrou','1');toast('☁️ Dados antigos enviados para a nuvem');}catch(e){}}
 // administrador

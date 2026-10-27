@@ -141,7 +141,9 @@ function sha256(str){const K=[],H=[];let n=2,c=0;const fr=x=>((x-Math.floor(x))*
 function senhaHash(s){return sha256('qlog-equipe-v1:'+String(s||'').trim());}
 const FOTO_CAMPOS=['fotos','romaneio','caminhao'];
 function regNuvem(r,autor,uid){const o={};for(const k in r){if(FOTO_CAMPOS.includes(k)){o['n_'+k]=Array.isArray(r[k])?r[k].length:(r[k]?1:0);continue;}if(r[k]!==undefined)o[k]=r[k];}
-  o.autor=r.autor||autor||'';o.autorUid=r.autorUid||uid||'';return JSON.parse(JSON.stringify(o));}
+  delete o.autor;o.autorUid=r.autorUid||uid||'';return JSON.parse(JSON.stringify(o));}
+// v4.0.4: nome de quem fez nunca vai para a nuvem nem fica no celular de membros
+function semAutor(r){if(!r||!('autor' in r))return r;const o=Object.assign({},r);delete o.autor;return o;}
 function regMescla(local,nuvem){const o=Object.assign({},nuvem);for(const k of FOTO_CAMPOS)o[k]=local&&local[k]!=null?local[k]:[];o.nuvem=true;return o;}
 function renomearNome(lista,velho,novo){novo=String(novo==null?'':novo).replace(/\s+/g,' ').trim();
   if(!novo)return{erro:'O nome não pode ficar vazio'};
@@ -196,5 +198,5 @@ function preencherVazios(f,d,lista){const pre=[],falta=[],auto=[];let nova='';
   if(!d.volume)falta.push('volumes');else if(vazio(f.vt&&f.vt.volume)){f.vt.volume=d.volume;pre.push(d.volume+' volumes');auto.push('volume');}
   if(!d.placa)falta.push(d.placaRotulo?'placa não lida, digite':'placa');else if(vazio(f.placa)){f.placa=d.placa;pre.push('placa '+d.placa);auto.push('placa');}
   return{pre,falta,auto,nova};}
-const L={nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,regMescla};
+const L={nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
