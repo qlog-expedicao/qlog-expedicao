@@ -144,7 +144,8 @@ function regNuvem(r,autor,uid){const o={};for(const k in r){if(FOTO_CAMPOS.inclu
   delete o.autor;o.autorUid=r.autorUid||uid||'';return JSON.parse(JSON.stringify(o));}
 // v4.0.4: nome de quem fez nunca vai para a nuvem nem fica no celular de membros
 function semAutor(r){if(!r||!('autor' in r))return r;const o=Object.assign({},r);delete o.autor;return o;}
-function regMescla(local,nuvem){const o=Object.assign({},nuvem);for(const k of FOTO_CAMPOS)o[k]=local&&local[k]!=null?local[k]:[];o.nuvem=true;return o;}
+// v4.0.5: nunca troca fotos que já estão no celular por lista vazia
+function regMescla(local,nuvem){const o=Object.assign({},nuvem);for(const k of FOTO_CAMPOS){const v=local&&local[k];o[k]=Array.isArray(v)?v.slice():(v?[v]:[]);}o.nuvem=true;return o;}
 function renomearNome(lista,velho,novo){novo=String(novo==null?'':novo).replace(/\s+/g,' ').trim();
   if(!novo)return{erro:'O nome não pode ficar vazio'};
   if(lista.some(c=>c!==velho&&c.toLowerCase()===novo.toLowerCase()))return{erro:'Já existe "'+novo+'" na lista'};

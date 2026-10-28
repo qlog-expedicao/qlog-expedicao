@@ -44,7 +44,7 @@ function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();
   N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
       if(ch.type==='removed'){await tx('readwrite',s=>s.delete(d.id));continue;}
       if(N.admin&&('autor' in d)){try{await ch.doc.ref.update({autor:firebase.firestore.FieldValue.delete()});}catch(e){}}
-      const loc=regs.find(r=>r.id===d.id);await tx('readwrite',s=>s.put(N.admin?L.regMescla(loc,d):L.semAutor(L.regMescla(loc,d))));}
+      let loc=null;try{loc=await tx('readonly',s=>s.get(d.id));}catch(e){}if(!loc)loc=regs.find(r=>r.id===d.id);await tx('readwrite',s=>s.put(N.admin?L.regMescla(loc,d):L.semAutor(L.regMescla(loc,d))));}
     await load();if(tab==='hist'||tab==='rel')render();}catch(e){}},e=>{if(/permission/i.test(e.code||''))papel();}));
   ['clientes','fornecedores'].forEach(k=>N.unsub.push(N.fs.doc('listas/'+k).onSnapshot(d=>{if(!d.exists)return;const l=d.data().nomes||[];
     const loc=JSON.parse(localStorage.getItem(k)||'[]');const tudo=N.admin?l:[...new Set(l.concat(loc))];localStorage.setItem(k,JSON.stringify(tudo));},()=>{})));}
