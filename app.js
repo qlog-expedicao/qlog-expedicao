@@ -40,7 +40,7 @@ function confirmar(msg,sim,lb){const m=$('#modal');m.innerHTML=`<div><p style="f
 function compress(file){return new Promise(ok=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement('canvas');
   c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',0.75));};i.onerror=()=>ok(null);i.src=u;});}
 function fotosHTML(arr,key,edit){return '<div class="fotos">'+arr.map((d,i)=>`<div><img src="${d}">${edit?`<b data-del="${key}" data-i="${i}">✕</b>`:''}</div>`).join('')+'</div>';}
-function render(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));({nova,hist,rel,sobre,loc})[tab]();}
+function render(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));({nova,hist,rel,sobre,loc,arquivo:arquivoTela})[tab]();}
 function nova(){if(f.tipo==='recebimento')return novaRec();const cl=clientes();$('#main').innerHTML=tipoRow()+`
 <label>Transportadora</label><div class="cli">${cl.map(c=>`<button data-cli="${esc(c)}" class="${f.cliente===c?'on':''}"${f.cliente===c?autoCls('cliente'):''}>${esc(c)}</button>`).join('')}<button id="addCli">➕ Nova transportadora</button></div>
 <label>NFs (separe com - ou espaço)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs aqui" value="${esc(f.nfs)}"${autoCls('nfs')}>${autoDica('nfs')}
@@ -164,8 +164,8 @@ function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens)
  <div class="card"><b>📋 Conferência com lista de SKU</b>${r.skuEsp?`<p>Lista: ${r.skuEsp.length} códigos · ${r.skuEsp.reduce((s,x)=>s+x.qtd,0)} unidades. Lido: ${t.cods} códigos · ${t.un} unidades.</p>`+grpHTML(c):'<p>Lista de SKU ainda não chegou. Quando chegar, toque abaixo.</p>'}
  <button class="big" id="skuBtn">📋 ${r.skuEsp?'Editar lista de SKU':'Conferir com lista de SKU'}</button></div>
  <div class="card"><label>🧾 Romaneio / NF</label>${fotosHTML(r.romaneio||[])}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos||[])}</div>
- ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} <button class="big ok" id="share">📤 Compartilhar no WhatsApp</button><button class="big red" id="apagar">🗑 Apagar registro</button>`;
-  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);$('#skuBtn').onclick=()=>skuModal(r);
+ ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button><button class="big" id="editar">✏️ Editar</button><button class="big red" id="apagar">🗑 Apagar registro</button>`;
+  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);$('#editar').onclick=()=>abrirEdicao(r);$('#skuBtn').onclick=()=>skuModal(r);
   $('#apagar').onclick=()=>(window.Nuvem&&!Nuvem.pode())?toast('Só o administrador pode apagar'):confirmar('Apagar este registro? Não tem como desfazer.',async()=>{await tx('readwrite',s=>s.delete(r.id));window.Nuvem&&Nuvem.apagar(r.id);await load();detalhe=null;toast('Apagado');render();});}
 function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90vh;overflow:auto"><p style="font-size:20px;margin-top:0"><b>📋 Lista de SKU esperada</b></p>
   <p><small>Um código por linha. Pode ter quantidade: <b>SKU;qtd</b> ou <b>SKU qtd</b>. Sem quantidade = 1.</small></p>
@@ -193,7 +193,7 @@ const NOMES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agos
 const mesNome=k=>NOMES[+k.slice(0,2)-1]+' '+k.slice(3);
 function mesSelHTML(){return `<label>📅 Mês</label><select id="mesAt" style="width:100%;font-size:20px;padding:10px">${mesLista().map(m=>`<option value="${m}" ${m===mesAt?'selected':''}>${mesNome(m)}</option>`).join('')}</select>`;}
 const doMes=()=>regs.filter(r=>L.mesKey(r.ts)===mesAt);
-function hist(){if(detalhe){const r=regs.find(x=>x.id===detalhe);if(r)return det(r);detalhe=null;}
+function hist(){if(ed&&$('#edOk')){edLer();return edTela();}if(ed&&detalhe!==ed.id)ed=null;if(ed)return edTela();if(detalhe){const r=regs.find(x=>x.id===detalhe);if(r)return det(r);detalhe=null;}
   const sm=!!hist.sel;$('#main').innerHTML=mesSelHTML()+`<input id="q" placeholder="🔍 Buscar NF, transportadora, código, data, EXP/REC" value="${esc(hist.q||'')}">
   ${sm?`<div class="row"><button class="big red" id="selDel" style="margin:0">🗑 Apagar selecionados (<span id="selN">${hist.sel.size}</span>)</button><button class="big alt" id="selX" style="margin:0;flex:0 0 120px">Cancelar</button></div><button class="big ok" id="selEnv">📤 Enviar selecionados (<span class="selN2">${hist.sel.size}</span>)</button><button class="big alt" id="selAll">☑ Marcar todos da lista</button>`:(doMes().length?'<button class="big alt" id="selOn">☑ Selecionar para apagar</button>':'')}<div id="lista"></div>`;
   $('#q').oninput=e=>{hist.q=e.target.value;lista();};$('#mesAt').onchange=e=>{mesAt=e.target.value;hist.sel=null;hist();};lista();}
@@ -202,9 +202,46 @@ function lista(){const v=L.filtrar(doMes(),hist.q);$('#lista').innerHTML=v.lengt
  <b>${L.codigo(r)} · ${esc(r.cliente)}</b><br>NFs ${esc(r.nfs.join('-'))} · ${esc(L.volTxt(r))} vol${L.confStatus(r.conf)?' · 🔎 '+L.confStatus(r.conf):''}<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length} · 🚛 ${(r.caminhao||[]).length}</small></div>`}`).join(''):'<p>Nenhum registro neste mês.</p>';}
 function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card"><span class="tag ${r.tipo}">${r.tipo==='coleta'?'COLETA':'SAÍDA'}</span>
  <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre><label>🧾 Romaneio</label>${fotosHTML(r.romaneio)}<label>🚛 Caminhão carregado</label>${fotosHTML(r.caminhao||[])}${r.conf&&(r.conf.lidos||[]).length?confListaHTML(r.conf.lidos,0):''}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos)}</div>
- ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} <button class="big ok" id="share">📤 Compartilhar no WhatsApp</button><button class="big red" id="apagar">🗑 Apagar registro</button>`;
-  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);
+ ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button><button class="big" id="editar">✏️ Editar</button><button class="big red" id="apagar">🗑 Apagar registro</button>`;
+  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);$('#editar').onclick=()=>abrirEdicao(r);
   $('#apagar').onclick=()=>(window.Nuvem&&!Nuvem.pode())?toast('Só o administrador pode apagar'):confirmar('Apagar este registro? Não tem como desfazer.',async()=>{await tx('readwrite',s=>s.delete(r.id));window.Nuvem&&Nuvem.apagar(r.id);await load();detalhe=null;toast('Apagado');render();});}
+
+// ---- v4.1: editar registro ----
+let ed=null;
+function usuario(){const N=window.Nuvem;return {on:!!(N&&N.on),admin:!!(N&&N.admin),uid:N&&N.uid};}
+function abrirEdicao(r){if(!L.podeEditar(r,usuario()))return toast('Só quem fez o registro ou o administrador pode editar');
+  const vt=L.vtNorm(r.vtipos||{volume:r.volumes});
+  ed={id:r.id,tipo:r.tipo,c:{cliente:r.cliente||'',nfs:(r.nfs||[]).join('-'),palete:vt.palete||'',volume:vt.volume||'',placa:r.placa||'',motorista:r.motorista||'',obs:r.obs||''},
+    fotos:{fotos:(r.fotos||[]).slice(),romaneio:(r.romaneio||[]).slice(),caminhao:(r.caminhao||[]).slice(),mexeu:{}}};edTela();}
+function edLer(){if(!ed)return;document.querySelectorAll('[data-ec]').forEach(i=>{ed.c[i.dataset.ec]=i.value;});}
+function edFotos(k,titulo){const a=ed.fotos[k];return `<label>${titulo} (${a.length})</label><div class="fotos">${a.map((d,i)=>`<div><img src="${d}"><div class="row" style="gap:4px"><button class="big" data-eft="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">🔄 Trocar</button><button class="big red" data-efr="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">❌ Remover</button></div></div>`).join('')}</div><button class="big alt" data-efa="${k}">📷 Adicionar foto</button>`;}
+function edTela(){const rec=ed.tipo==='recebimento',lst=rec?fornecedores():clientes(),inp=(k,lb,ex)=>`<label>${lb}</label><input data-ec="${k}" value="${esc(ed.c[k])}" ${ex||''}>`;
+  $('#main').innerHTML=`<button class="big alt" id="edX">⬅ Cancelar</button><div class="card"><b style="font-size:21px">✏️ Editar registro</b>
+  <label>${rec?'Fornecedor / cliente':'Transportadora'}</label><input data-ec="cliente" list="edLst" value="${esc(ed.c.cliente)}"><datalist id="edLst">${lst.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+  ${inp('nfs','NFs (separe com traço)','inputmode="numeric"')}
+  ${rec?'':`<div class="row"><div style="flex:1">${inp('palete','Paletes','type="number" min="0" inputmode="numeric"')}</div><div style="flex:1">${inp('volume','Volumes','type="number" min="0" inputmode="numeric"')}</div></div>
+  ${inp('placa','Placa','style="text-transform:uppercase"')}${inp('motorista','Motorista')}`}
+  <label>Observação</label><textarea data-ec="obs" rows="3">${esc(ed.c.obs)}</textarea></div>
+  <div class="card">${edFotos('romaneio','🧾 Romaneio')}${rec?'':edFotos('caminhao','🚛 Caminhão carregado')}${edFotos('fotos','📷 Produtos')}</div>
+  <p id="edErro" style="color:#c62828"></p><button class="big ok" id="edOk">💾 Salvar alterações</button><button class="big alt" id="edX2">Cancelar</button>`;
+  const sair=()=>{ed=null;render();};$('#edX').onclick=sair;$('#edX2').onclick=sair;$('#edOk').onclick=edSalvar;}
+// câmera primeiro; galeria como segunda opção
+function edPegar(fn){const m=$('#modal');m.innerHTML=`<div><p style="font-size:20px;margin-top:0"><b>Escolha a foto</b></p><button class="big ok" id="pfC">📷 Tirar foto</button><button class="big alt" id="pfG">🖼️ Pegar da galeria</button><button class="big alt" id="pfX">Cancelar</button></div>`;m.classList.add('on');
+  const pega=cam=>{m.classList.remove('on');const i=document.createElement('input');i.type='file';i.accept='image/*';if(cam)i.setAttribute('capture','environment');i.onchange=async()=>{const fl=i.files[0];if(!fl)return;const u=await compress(fl);if(!u)return toast('Não consegui ler a foto');fn(u);};i.click();};
+  $('#pfC').onclick=()=>pega(true);$('#pfG').onclick=()=>pega(false);$('#pfX').onclick=()=>m.classList.remove('on');}
+document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[data-eft],[data-efr],[data-efa]');if(!t)return;e.stopPropagation();edLer();const d=t.dataset,i=+d.i;
+  if(d.efr)confirmar('Remover esta foto?',()=>{ed.fotos[d.efr]=L.fotoOp(ed.fotos[d.efr],'remover',i);ed.fotos.mexeu[d.efr]=1;edTela();},'Sim, remover');
+  else if(d.eft)edPegar(u=>{ed.fotos[d.eft]=L.fotoOp(ed.fotos[d.eft],'trocar',i,u);ed.fotos.mexeu[d.eft]=1;edTela();});
+  else if(d.efa)edPegar(u=>{ed.fotos[d.efa]=L.fotoOp(ed.fotos[d.efa],'adicionar',-1,u);ed.fotos.mexeu[d.efa]=1;edTela();});},true);
+async function edSalvar(){edLer();const id=ed.id;
+  // v4.0.5: lê o registro do celular (com as fotos) antes de mexer
+  let r=null;try{r=await tx('readonly',s=>s.get(id));}catch(e){}if(!r)r=regs.find(x=>x.id===id);if(!r){ed=null;return render();}
+  if(!L.podeEditar(r,usuario())){ed=null;toast('Só quem fez o registro ou o administrador pode editar');return render();}
+  const c=Object.assign({},ed.c);if(ed.tipo==='recebimento'){delete c.palete;delete c.volume;delete c.placa;delete c.motorista;}
+  const n=L.regEditar(r,c,ed.fotos,Date.now());const er=L.editValidar(n);if(er.length){$('#edErro').innerHTML=er.map(esc).join('<br>');return;}
+  const salvo=(window.Nuvem&&!Nuvem.admin)?L.semAutor(n):n;
+  if(salvo.cliente){if(ed.tipo==='recebimento'){const l=fornecedores();if(!l.includes(salvo.cliente)){l.push(salvo.cliente);setFornecedores(l);}}else{const l=clientes();if(!l.includes(salvo.cliente)){l.push(salvo.cliente);setClientes(l);}}}
+  await tx('readwrite',s=>s.put(salvo));await load();window.Nuvem&&Nuvem.salvar(salvo);ed=null;detalhe=id;toast('✅ Alterações salvas');render();}
 
 // ---- v3.2: Localizar códigos (lista + câmera procurando) ----
 const locGet=()=>{try{const l=JSON.parse(localStorage.getItem('locLista')||'[]');return (Array.isArray(l)?l:[]).filter(x=>x&&x.cod!=null).map(x=>({cod:String(x.cod),al:Array.isArray(x.al)?x.al.map(String):[],alvo:+x.alvo||null,n:+x.n||(x.ok?1:0),ult:x.ult?String(x.ult):'',uh:x.uh?String(x.uh):''}));}catch(e){return [];}};
@@ -260,7 +297,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
-function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.0.5</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 27/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?`<div class="card"><b id="nvStatus">☁️ Nuvem</b>${Nuvem.on?'':'<button class="big" id="nvEntrar">☁️ Entrar na equipe</button>'}${Nuvem.admin?'<button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
+function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.1.0</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 29/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?`<div class="card"><b id="nvStatus">☁️ Nuvem</b>${Nuvem.on?'':'<button class="big" id="nvEntrar">☁️ Entrar na equipe</button>'}${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.tipo){f.tipo=d.tipo;nova();}else if(d.cli!==undefined){f.cliente=d.cli;nova();}else if(d.forn!==undefined){f.forn=d.forn;nova();}
@@ -281,6 +318,8 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-ope
   else if(t.id==='confLimpar')confirmar('Limpar a lista de produtos conferidos?',()=>{f.confLidos=[];nova();},'Sim, limpar');
   else if(t.id==='nvEntrar'){Nuvem.pedirEntrada();}
   else if(t.id==='nvAdm'){Nuvem.painel();}
+  else if(t.id==='arqAbrir'){tab='arquivo';render();}
+  else if(t.id==='arqFazer'){fazerArquivo(t.dataset.mes);}
   else if((t.id==='resetCli'||d.rmforn!==undefined||d.rmcli!==undefined)&&window.Nuvem&&!Nuvem.pode())toast('Só o administrador pode apagar nomes');
   else if(t.id==='resetCli')confirmar('Apagar a lista de transportadoras salvas? Os registros continuam.',()=>{setClientes([]);toast('Lista apagada');sobre();},'Sim, apagar lista');
   else if((d.edcli!==undefined||d.edforn!==undefined)&&window.Nuvem&&!Nuvem.pode())toast('Só o administrador pode mudar nomes');
@@ -332,3 +371,64 @@ async function lerRomFoto(file){toast('Lendo o romaneio...');try{const d=await c
   const m=$('#modal');m.innerHTML=`<p style="font-size:20px;margin-top:0"><b>🧾 Romaneio lido</b></p>${r.pre.length?'<p>✅ Preenchi: <b>'+esc(r.pre.join(', '))+'</b><br><small>Confira os campos em amarelo.</small></p>':'<p>Não preenchi nada novo (os campos já tinham valor ou não achei).</p>'}${r.falta.length?'<p>❓ Não achei: '+esc(r.falta.join(', '))+'</p>':''}${r.nova?'<button class="big alt" id="rmAdd">➕ Adicionar "'+esc(r.nova)+'" às transportadoras</button>':''}<button class="big ok" id="rmOk">Ok</button>`;m.classList.add('on');$('#rmOk').onclick=()=>m.classList.remove('on');
   if(r.nova)$('#rmAdd').onclick=()=>{const l=clientes();if(!l.some(c=>L.semAcento(c)===L.semAcento(r.nova)))setClientes(l.concat(r.nova));if(!f.cliente.trim()){f.cliente=r.nova;f.auto=(f.auto||[]).concat('cliente');}m.classList.remove('on');toast('Transportadora adicionada');nova();};
   }catch(e){toast('Não consegui ler a foto. Tente com mais luz e mais perto.');}}
+
+// ===== v4.1: foto leve para a nuvem (~150 KB) =====
+function fotoLeve(d){return new Promise(ok=>{if(L.tamDataUrl(d)<=L.FOTO_ALVO)return ok(d);const i=new Image();
+  i.onload=()=>{let r=d;for(const [m,q] of L.leveTentativas()){const k=Math.min(1,m/Math.max(i.width,i.height)),c=document.createElement('canvas');
+      c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);r=c.toDataURL('image/jpeg',q);if(L.tamDataUrl(r)<=L.FOTO_ALVO)break;}ok(r);};
+  i.onerror=()=>ok(d);i.src=d;});}
+window.fotoLeve=fotoLeve;
+// ===== v4.1: arquivo mensal =====
+const podeArquivar=()=>!(window.Nuvem&&Nuvem.ativo())||Nuvem.admin;
+const arqFeitos=()=>window.Nuvem&&Nuvem.on?Nuvem.feitos:JSON.parse(localStorage.getItem('arqLocal')||'[]').map(x=>x.mes);
+const arqLista=()=>window.Nuvem&&Nuvem.on?Nuvem.arquivos:JSON.parse(localStorage.getItem('arqLocal')||'[]');
+function arquivoTela(){const pend=podeArquivar()?L.mesArquivar(regs,Date.now(),arqFeitos()):'',l=arqLista();
+  $('#main').innerHTML=`<div class="card"><b style="font-size:22px">📦 Arquivo</b>
+  <p style="font-size:18px">Todo mês, os registros do mês que passou viram um arquivo <b>Qlog_ANO-MÊS.zip</b> com uma planilha e as fotos. Depois disso, registros com mais de 30 dias saem da nuvem (continuam neste celular).</p>
+  ${pend?`<button class="big ok" id="arqFazer" data-mes="${pend}">📦 Arquivar ${esc(L.nomeMes(pend))} agora</button>`:'<p>✅ Nada para arquivar agora.</p>'}</div>
+  <div class="card"><b>Meses arquivados</b>${l.length?l.map(x=>`<div style="font-size:19px;padding:6px 0;border-bottom:1px solid #ddd">📦 <b>${esc(L.nomeMes(x.mes))}</b> — ${x.regs||0} registros, ${x.fotos||0} fotos<br><small>${esc(x.nome||'Qlog_'+x.mes+'.zip')} · feito em ${L.fmtData(x.criado||0)}${x.onde?' · '+esc(x.onde):''}</small>${window.AndroidArq&&AndroidArq.existe(x.nome||'')?`<button class="big alt" data-arqenv="${esc(x.nome)}" style="margin-top:6px">📤 Enviar de novo</button>`:''}</div>`).join(''):'<p>Nenhum mês arquivado ainda.</p>'}</div>
+  <div class="card" style="background:#e8f1fb"><b>Como abrir um mês arquivado</b><ol style="font-size:18px;padding-left:22px">
+  <li>Abra o <b>Google Drive</b> e entre na pasta <b>Qlog Arquivo</b> (ou na pasta <b>Download › Qlog Arquivo</b> do celular).</li>
+  <li>Toque no arquivo <b>Qlog_ANO-MÊS.zip</b> e escolha <b>Extrair</b> (no computador: botão direito › Extrair tudo).</li>
+  <li>Abra <b>registros.csv</b> no Excel ou no Planilhas Google: uma linha por registro.</li>
+  <li>As fotos ficam na pasta <b>fotos</b>, uma pasta para cada registro (ex.: EXP-0014_03-09-2026).</li></ol></div>
+  <button class="big alt" id="arqVoltar">⬅️ Voltar</button>`;
+  $('#arqVoltar').onclick=()=>{tab='sobre';render();};
+  document.querySelectorAll('[data-arqenv]').forEach(b=>b.onclick=()=>AndroidArq.compartilhar(b.dataset.arqenv));}
+function b64de(u){let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
+async function fazerArquivo(mes){if(!podeArquivar())return toast('Só o administrador pode arquivar');const m=$('#modal');
+  const msg=t=>{m.innerHTML=`<div><p style="font-size:20px">⏳ ${t}</p></div>`;m.classList.add('on');};
+  try{msg('Juntando as fotos de '+L.nomeMes(mes)+'...');
+    if(window.Nuvem&&Nuvem.on)for(const r of regs.filter(r=>L.mesId(r.ts)===mes)){if(!L.precisaFotos(r,r))continue;
+      try{const fn=await Nuvem.fotosDe(r.id);const x=L.regMescla(r,r,fn);await tx('readwrite',s=>s.put(x));}catch(e){}}
+    await load();const A=L.arquivoItens(regs,mes),nome='Qlog_'+mes+'.zip',z=L.Zip();if(!A.regs){m.classList.remove('on');return toast('Nenhum registro em '+L.nomeMes(mes));}
+    msg('Montando o arquivo '+nome+'...');let onde='',blob=null;
+    if(window.AndroidArq){AndroidArq.inicio(nome);for(const it of A.itens)AndroidArq.parte(b64de(z.add(it.nome,L.itemBytes(it))));AndroidArq.parte(b64de(z.fim()));
+      onde=AndroidArq.fim()||'';if(!onde)throw new Error('não consegui gravar o arquivo');}
+    else{const parts=A.itens.map(it=>z.add(it.nome,L.itemBytes(it)));parts.push(z.fim());blob=new Blob(parts,{type:'application/zip'});}
+    arquivoPronto(mes,nome,A,onde,blob);}catch(e){m.classList.remove('on');toast('Erro ao arquivar: '+(e.message||e));}}
+function arquivoPronto(mes,nome,A,onde,blob){const m=$('#modal');let ok=!!onde&&onde!=='cache';
+  const nuvem=window.Nuvem&&Nuvem.on;
+  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px">📦 ${esc(nome)}</b>
+   <p style="font-size:18px">${A.regs} registros e ${A.fotos} fotos de ${esc(L.nomeMes(mes))}.</p>
+   ${onde&&onde!=='cache'?`<p style="font-size:18px">✅ Salvo neste celular em <b>${esc(onde)}</b>.</p>`:''}
+   <p style="font-size:18px">Agora guarde no Google Drive: toque em <b>Enviar para o Drive</b>, escolha <b>Drive</b> e a pasta <b>Qlog Arquivo</b> (crie a pasta na primeira vez).</p>
+   <button class="big" id="arqEnv">📤 Enviar para o Drive</button>${blob?'<button class="big alt" id="arqBaixar">⬇️ Baixar o arquivo</button>':''}
+   <button class="big ok" id="arqOk" ${ok?'':'disabled style="opacity:.5"'}>✅ Pronto, já salvei</button><button class="big alt" id="arqDepois">Depois</button>
+   <p><small>${nuvem?'Quando tocar em “Pronto”, os registros com mais de 30 dias deste mês saem da nuvem. Eles continuam nos celulares.':'O arquivo fica marcado como feito.'}</small></p></div>`;m.classList.add('on');
+  const liberar=()=>{ok=true;const b=$('#arqOk');b.disabled=false;b.style.opacity=1;};
+  $('#arqEnv').onclick=async()=>{if(window.AndroidArq){AndroidArq.compartilhar(nome);liberar();return;}
+    const f=new File([blob],nome,{type:'application/zip'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:nome});liberar();}catch(e){}}else{baixar();toast('Arquivo baixado. Envie para o Drive pelo app Arquivos.');}};
+  const baixar=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},60000);liberar();};
+  if(blob)$('#arqBaixar').onclick=baixar;
+  $('#arqDepois').onclick=()=>m.classList.remove('on');
+  $('#arqOk').onclick=async()=>{if(!ok)return;const info={mes,nome,regs:A.regs,fotos:A.fotos,onde:onde&&onde!=='cache'?onde:'compartilhado'};
+    try{if(nuvem){await Nuvem.marcarArquivo(info);Nuvem.feitos=[...new Set(Nuvem.feitos.concat(mes))];const n=await Nuvem.limpar();toast('✅ Arquivado. '+n+' registros saíram da nuvem.');}
+      else{const l=JSON.parse(localStorage.getItem('arqLocal')||'[]').filter(x=>x.mes!==mes);l.unshift(Object.assign({criado:Date.now()},info));localStorage.setItem('arqLocal',JSON.stringify(l));toast('✅ Arquivado');}
+      m.classList.remove('on');tab='arquivo';render();}catch(e){toast('Precisa de internet para terminar. Tente de novo.');}};}
+// administrador abriu o app: pergunta se quer arquivar o mês que passou e limpa o que já foi arquivado
+window.arquivoAoAbrir=async()=>{if(!(window.Nuvem&&Nuvem.admin))return;try{const n=await Nuvem.limpar();if(n)toast('☁️ '+n+' registros antigos saíram da nuvem (continuam no celular)');}catch(e){}
+  const mes=L.mesArquivar(regs,Date.now(),Nuvem.feitos),hoje=L.fmtData(Date.now());if(!mes||localStorage.getItem('arqPerguntou')===mes+hoje||$('#modal').classList.contains('on'))return;
+  localStorage.setItem('arqPerguntou',mes+hoje);
+  confirmar('📦 '+L.nomeMes(mes)+' terminou. Quer arquivar agora? Vou montar o arquivo com a planilha e as fotos para você guardar no Google Drive.',()=>fazerArquivo(mes),'Sim, arquivar');};

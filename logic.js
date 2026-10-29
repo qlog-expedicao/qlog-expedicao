@@ -140,12 +140,79 @@ function sha256(str){const K=[],H=[];let n=2,c=0;const fr=x=>((x-Math.floor(x))*
   return h.map(v=>('00000000'+(v>>>0).toString(16)).slice(-8)).join('');}
 function senhaHash(s){return sha256('qlog-equipe-v1:'+String(s||'').trim());}
 const FOTO_CAMPOS=['fotos','romaneio','caminhao'];
-function regNuvem(r,autor,uid){const o={};for(const k in r){if(FOTO_CAMPOS.includes(k)){o['n_'+k]=Array.isArray(r[k])?r[k].length:(r[k]?1:0);continue;}if(r[k]!==undefined)o[k]=r[k];}
-  delete o.autor;o.autorUid=r.autorUid||uid||'';return JSON.parse(JSON.stringify(o));}
+function regNuvem(r,autor,uid){const o={};for(const k in r){if(FOTO_CAMPOS.includes(k)||FOTO_CAMPOS.some(f=>k==='n_'+f))continue;if(r[k]!==undefined)o[k]=r[k];}
+  // v4.1: conta as fotos do celular; se o celular não tem as fotos (registro de outro), mantém a contagem da nuvem
+  for(const k of FOTO_CAMPOS){const v=r[k],n=Array.isArray(v)?v.length:(v?1:0);if(n||k in r||('n_'+k) in r)o['n_'+k]=n||(Number(r['n_'+k])||0);}
+  delete o.autor;delete o.fotosDaNuvem;delete o.fotosBaixadas;delete o.limpo;o.autorUid=r.autorUid||uid||'';return JSON.parse(JSON.stringify(o));}
 // v4.0.4: nome de quem fez nunca vai para a nuvem nem fica no celular de membros
 function semAutor(r){if(!r||!('autor' in r))return r;const o=Object.assign({},r);delete o.autor;return o;}
 // v4.0.5: nunca troca fotos que já estão no celular por lista vazia
-function regMescla(local,nuvem){const o=Object.assign({},nuvem);for(const k of FOTO_CAMPOS){const v=local&&local[k];o[k]=Array.isArray(v)?v.slice():(v?[v]:[]);}o.nuvem=true;return o;}
+function regMescla(local,nuvem,fn){const o=Object.assign({},nuvem);
+  if(fn){for(const k of FOTO_CAMPOS)o[k]=(fn[k]||[]).slice();o.fotosDaNuvem=true;o.fotosBaixadas=nuvem.fotosTs||0;o.nuvem=true;return o;}
+  for(const k of FOTO_CAMPOS){const v=local&&local[k];o[k]=Array.isArray(v)?v.slice():(v?[v]:[]);}
+  if(local&&local.fotosDaNuvem){o.fotosDaNuvem=true;o.fotosBaixadas=local.fotosBaixadas||0;}o.nuvem=true;return o;}
+// v4.1: fotos leves na nuvem (Firestore, subcoleção registros/{id}/fotos/{campo_i})
+const FOTO_ALVO=150*1024;
+function tamDataUrl(d){d=String(d||'');const b=d.slice(d.indexOf(',')+1);return Math.floor(b.length*3/4)-(b.endsWith('==')?2:b.endsWith('=')?1:0);}
+function leveTentativas(){return [[1600,0.72],[1600,0.6],[1400,0.55],[1280,0.5],[1100,0.45],[960,0.42],[800,0.4],[640,0.38]];}
+function fotoSig(d){d=String(d||'');return d.length+':'+d.slice(-48)+':'+d.slice(Math.floor(d.length/2),Math.floor(d.length/2)+24);}
+function fotoDocs(r){const o=[];for(const k of FOTO_CAMPOS)(r[k]||[]).forEach((d,i)=>o.push({fid:k+'_'+i,campo:k,i,d}));return o;}
+function fotosDeDocs(docs){const o={fotos:[],romaneio:[],caminhao:[]};(docs||[]).filter(x=>x&&FOTO_CAMPOS.includes(x.campo)&&typeof x.d==='string').sort((a,b)=>a.i-b.i).forEach(x=>o[x.campo].push(x.d));return o;}
+// o celular precisa baixar fotos da nuvem? (nunca no celular que tem as originais)
+function precisaFotos(local,nv){if(!nv||!FOTO_CAMPOS.some(k=>Number(nv['n_'+k])>0))return false;
+  const tem=local&&FOTO_CAMPOS.some(k=>(local[k]||[]).length);if(tem&&!local.fotosDaNuvem)return false;
+  if(!tem)return true;return FOTO_CAMPOS.some(k=>(local[k]||[]).length<(Number(nv['n_'+k])||0))||(local.fotosBaixadas||0)!==(nv.fotosTs||0);}
+// quais fotos subir/apagar: só mexe numa categoria se o celular tem todas as fotos dela
+function fotosSync(r,sigs){sigs=sigs||{};const subir=[],apagar=[],nsig={};
+  for(const k of FOTO_CAMPOS){const a=r[k]||[],n=Number(r['n_'+k]);if(!a.length&&n>0)continue;
+    a.forEach((d,i)=>{const fid=k+'_'+i,sg=fotoSig(d);nsig[fid]=sg;if(sigs[fid]!==sg)subir.push({fid,campo:k,i,d});});
+    const ant=Math.max(Number(r['n_'+k])||0,Object.keys(sigs).filter(f=>f.indexOf(k+'_')===0).length);for(let i=a.length;i<Math.max(ant,a.length);i++)apagar.push(k+'_'+i);}
+  return {subir,apagar,sigs:nsig};}
+// v4.1: arquivo mensal
+function mesId(ts){const d=new Date(ts);return d.getFullYear()+'-'+pad(d.getMonth()+1);}
+const DIA=86400000;
+function mesArquivar(regs,hoje,feitos){const atual=mesId(hoje);feitos=feitos||[];
+  const ms=[...new Set((regs||[]).map(r=>mesId(r.ts)))].filter(m=>m<atual&&!feitos.includes(m)).sort();return ms[0]||'';}
+function paraLimpar(regs,hoje,feitos){feitos=feitos||[];return (regs||[]).filter(r=>r.ts<hoje-30*DIA&&feitos.includes(mesId(r.ts))).map(r=>r.id);}
+function manterAoRemover(loc,feitos){return !!loc&&(feitos||[]).includes(mesId(loc.ts));}
+function nomeMes(m){const N=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];return N[+m.slice(5,7)-1]+' de '+m.slice(0,4);}
+function pastaReg(r){return codigo(r)+'_'+fmtData(r.ts).replace(/\//g,'-')+(cheio(r.cliente)?'_'+semAcento(r.cliente).replace(/ /g,'-').slice(0,30):'');}
+function arquivoItens(regs,mes){const v=(regs||[]).filter(r=>mesId(r.ts)===mes).sort((a,b)=>a.ts-b.ts),raiz='Qlog_'+mes+'/',o=[{nome:raiz+'registros.csv',texto:csv(v)}];
+  const T={romaneio:'romaneio',caminhao:'caminhao',fotos:'produto'};
+  for(const r of v){const p=raiz+'fotos/'+pastaReg(r)+'/';o.push({nome:p+'resumo.txt',texto:resumo(r)+(r.editadoEm?'\n'+editadoTxt(r):'')});
+    for(const k of FOTO_CAMPOS)(r[k]||[]).forEach((d,i)=>o.push({nome:p+T[k]+'_'+(i+1)+'.jpg',dataUrl:d}));}
+  return {itens:o,regs:v.length,fotos:o.filter(x=>x.dataUrl).length};}
+// zip simples (sem compressão; JPEG já é comprimido), em pedaços para não estourar a memória
+const CRC=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function utf8(s){return new Uint8Array(unescape(encodeURIComponent(String(s))).split('').map(c=>c.charCodeAt(0)));}
+const B64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function b64bytes(s){s=String(s||'').replace(/^data:[^,]*,/,'').replace(/[^A-Za-z0-9+/]/g,'');const o=new Uint8Array(Math.floor(s.length*3/4));let j=0,b=0,n=0;
+  for(let i=0;i<s.length;i++){b=(b<<6)|B64.indexOf(s[i]);n+=6;if(n>=8){n-=8;o[j++]=(b>>n)&255;}}return o.subarray(0,j);}
+function bytesB64(u){let o='';for(let i=0;i<u.length;i+=3){const a=u[i],b=u[i+1],c=u[i+2];o+=B64[a>>2]+B64[((a&3)<<4)|(b>>4&15)]+(i+1<u.length?B64[((b&15)<<2)|(c>>6&3)]:'=')+(i+2<u.length?B64[c&63]:'=');}return o;}
+function Zip(){const cen=[];let off=0;const u16=(v)=>[v&255,v>>8&255],u32=v=>[v&255,v>>8&255,v>>16&255,v>>>24&255];
+  return {add(nome,dados){const n=utf8(nome),c=crc32(dados);// data fixa 01/01/1980
+      const h=new Uint8Array([0x50,0x4b,3,4,...u16(20),...u16(0x0800),...u16(0),0,0,0x21,0,...u32(c),...u32(dados.length),...u32(dados.length),...u16(n.length),...u16(0)]);
+      const out=new Uint8Array(h.length+n.length+dados.length);out.set(h);out.set(n,h.length);out.set(dados,h.length+n.length);
+      cen.push({n,c,len:dados.length,off});off+=out.length;return out;},
+    fim(){const parts=cen.map(e=>{const h=new Uint8Array([0x50,0x4b,1,2,...u16(20),...u16(20),...u16(0x0800),...u16(0),0,0,0x21,0,...u32(e.c),...u32(e.len),...u32(e.len),...u16(e.n.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(e.off)]);
+        const o=new Uint8Array(h.length+e.n.length);o.set(h);o.set(e.n,h.length);return o;});const tam=parts.reduce((s,p)=>s+p.length,0);
+      const end=new Uint8Array([0x50,0x4b,5,6,0,0,0,0,...u16(cen.length),...u16(cen.length),...u32(tam),...u32(off),0,0]);
+      const o=new Uint8Array(tam+end.length);let p=0;parts.forEach(x=>{o.set(x,p);p+=x.length;});o.set(end,p);return o;}};}
+function itemBytes(it){return it.dataUrl?b64bytes(it.dataUrl):utf8(/\.csv$/.test(it.nome)&&it.texto[0]!=='\ufeff'?'\ufeff'+it.texto:it.texto);}
+
+// v4.1: editar registro do Histórico
+function podeEditar(r,u){u=u||{};if(!r)return false;if(!u.on)return true;if(u.admin)return true;return !!u.uid&&r.autorUid===u.uid;}
+function editadoTxt(r){if(!r||!r.editadoEm)return '';const d=new Date(r.editadoEm);return '✏️ Editado em '+pad(d.getDate())+'/'+pad(d.getMonth()+1)+' às '+fmtHora(r.editadoEm);}
+function fotoOp(arr,op,i,nova){const a=(arr||[]).slice();if(op==='remover'){if(i>=0&&i<a.length)a.splice(i,1);}else if(op==='trocar'){if(nova&&i>=0&&i<a.length)a[i]=nova;}else if(op==='adicionar'){if(nova)a.push(nova);}return a;}
+function regEditar(r,c,fotos,ts){const o=Object.assign({},r);c=c||{};const t=v=>String(v==null?'':v).trim();
+  if('cliente' in c)o.cliente=t(c.cliente);if('nfs' in c)o.nfs=parseNFs(c.nfs);
+  if('motorista' in c)o.motorista=t(c.motorista);if('placa' in c)o.placa=t(c.placa).toUpperCase();if('obs' in c)o.obs=t(c.obs);
+  if(r.tipo!=='recebimento'&&('palete' in c||'volume' in c)){const v={palete:Math.max(0,parseInt(c.palete,10)||0),volume:Math.max(0,parseInt(c.volume,10)||0)};o.vtipos=v;o.volumes=volTotal(v);}
+  if(fotos)for(const k of FOTO_CAMPOS)if(Array.isArray(fotos[k])){const antes=(r[k]||[]).length,depois=fotos[k];o[k]=depois.slice();
+    if(antes||depois.length||fotos.mexeu&&fotos.mexeu[k])o['n_'+k]=depois.length;}
+  delete o.autor;o.editadoEm=ts||Date.now();return o;}
+function editValidar(r){const e=validar(r);return e;}
 function renomearNome(lista,velho,novo){novo=String(novo==null?'':novo).replace(/\s+/g,' ').trim();
   if(!novo)return{erro:'O nome não pode ficar vazio'};
   if(lista.some(c=>c!==velho&&c.toLowerCase()===novo.toLowerCase()))return{erro:'Já existe "'+novo+'" na lista'};
@@ -199,5 +266,5 @@ function preencherVazios(f,d,lista){const pre=[],falta=[],auto=[];let nova='';
   if(!d.volume)falta.push('volumes');else if(vazio(f.vt&&f.vt.volume)){f.vt.volume=d.volume;pre.push(d.volume+' volumes');auto.push('volume');}
   if(!d.placa)falta.push(d.placaRotulo?'placa não lida, digite':'placa');else if(vazio(f.placa)){f.placa=d.placa;pre.push('placa '+d.placa);auto.push('placa');}
   return{pre,falta,auto,nova};}
-const L={nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla};
+const L={nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
