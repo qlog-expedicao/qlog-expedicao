@@ -14,8 +14,8 @@ function parseCods(s){return String(s||'').split(/[\s,;]+/).map(normCod).filter(
 function conferir(esperados,lido){const l=normCod(lido);return {cod:l,ok:!!l&&esperados.map(normCod).includes(l)};}
 function confStatus(c){if(!c||!(c.lidos||[]).length)return '';if(c.lidos.some(x=>!x.ok))return 'DIVERGENTE';
   const lid=c.lidos.map(x=>x.cod);return (c.esperados||[]).every(e=>lid.includes(normCod(e)))?'OK':'INCOMPLETA';}
-const PFX={coleta:'COL-',saida:'EXP-',recebimento:'REC-'};
-const tipoNome=t=>t==='coleta'?'Coleta':t==='recebimento'?'Recebimento':'Saída';
+const PFX={coleta:'COL-',saida:'EXP-',recebimento:'REC-',estorno:'EST-'};
+const tipoNome=t=>t==='coleta'?'Coleta':t==='recebimento'?'Recebimento':t==='estorno'?'Estorno':'Saída';
 function codigo(r){return (PFX[r.tipo]||'EXP-')+String(r.seq||0).padStart(4,'0');}
 function proxSeq(regs,tipo){return regs.filter(r=>r.tipo===tipo).reduce((m,r)=>Math.max(m,r.seq||0),0)+1;}
 // v2.8 Recebimento: itens {cod,qtd}; lista de SKU esperada pode chegar depois
@@ -46,17 +46,17 @@ function resumoRec(r){const t=itensTot(r.itens),c=conferirSku(r.itens,r.skuEsp);
   if(t.cods)x.push('Itens: '+t.cods+' códigos · '+t.un+' unidades');resumoFim(r,x);
   if(r.skuEsp&&r.skuEsp.length){x.push('Conferência SKU: '+c.status);if(c.status==='DIVERGENTE')x.push('OK '+c.ok.length+' · Qtd diferente '+c.dif.length+' · Faltou '+c.faltou.length+' · A mais '+c.amais.length);}
   const it=r.itens||[],M=30;if(it.length){x.push('Códigos:');it.slice(0,M).forEach(i=>x.push(i.cod+' x '+i.qtd));if(it.length>M)x.push('... e mais '+(it.length-M)+' códigos');}
-  if(cheio(r.obs))x.push('Obs: '+r.obs.trim());const f=fotosTxt(r);if(f)x.push('Fotos: '+f);return x.join('\n');}
+  if(r.tipo==='estorno'&&cheio(r.motivo))x.push('Motivo: '+r.motivo.trim());if(cheio(r.obs))x.push('Obs: '+r.obs.trim());const f=fotosTxt(r);if(f)x.push('Fotos: '+f);return x.join('\n');}
 function resumo(r){if(r.tipo==='recebimento')return resumoRec(r);
-  const x=resumoBase(r,r.tipo==='coleta'?'📦 COLETA':'🚚 SAÍDA','Transportadora');const v=Number(r.volumes)||0;
+  const x=resumoBase(r,r.tipo==='coleta'?'📦 COLETA':r.tipo==='estorno'?'↩️ ESTORNO':'🚚 SAÍDA','Transportadora');const v=Number(r.volumes)||0;
   if(v)x.push('Volumes: '+v);resumoFim(r,x);
   const cs=confStatus(r.conf);if(cs){x.push('Conferência: '+cs);const bad=r.conf.lidos.filter(z=>!z.ok).map(z=>z.cod);if(bad.length)x.push('Códigos diferentes: '+bad.join(', '));}
-  if(cheio(r.obs))x.push('Obs: '+r.obs.trim());const f=fotosTxt(r);if(f)x.push('Fotos: '+f);return x.join('\n');}
+  if(r.tipo==='estorno'&&cheio(r.motivo))x.push('Motivo: '+r.motivo.trim());if(cheio(r.obs))x.push('Obs: '+r.obs.trim());const f=fotosTxt(r);if(f)x.push('Fotos: '+f);return x.join('\n');}
 function filtrar(regs,q){q=String(q||'').trim().toLowerCase(); if(!q)return regs;
-  return regs.filter(r=>(r.cliente||'').toLowerCase().includes(q)||(r.nfs||[]).some(n=>n.toLowerCase().includes(q))||fmtData(r.ts).includes(q)||(r.placa||'').toLowerCase().includes(q)||codigo(r).toLowerCase().includes(q)||(r.itens||[]).some(i=>String(i.cod).toLowerCase().includes(q)));}
+  return regs.filter(r=>(r.cliente||'').toLowerCase().includes(q)||(r.nfs||[]).some(n=>n.toLowerCase().includes(q))||fmtData(r.ts).includes(q)||(r.placa||'').toLowerCase().includes(q)||codigo(r).toLowerCase().includes(q)||(r.itens||[]).some(i=>String(i.cod).toLowerCase().includes(q))||tipoNome(r.tipo).toLowerCase().includes(q)||String(r.motivo||'').toLowerCase().includes(q));}
 function relatorio(regs){const dia={},cli={};
   for(const r of regs){const d=fmtData(r.ts),c=r.cliente||'Sem transportadora',v=Number(r.volumes)||0;
-    for(const [o,k] of [[dia,d],[cli,c]]){o[k]=o[k]||{reg:0,vol:0,coleta:0,saida:0,receb:0,palete:0,volume:0};o[k].reg++;o[k].vol+=v;for(const [t] of VT)o[k][t]+=vtNorm(r.vtipos)[t];o[k][r.tipo==='coleta'?'coleta':r.tipo==='recebimento'?'receb':'saida']++;}}
+    for(const [o,k] of [[dia,d],[cli,c]]){o[k]=o[k]||{reg:0,vol:0,coleta:0,saida:0,receb:0,palete:0,volume:0};o[k].reg++;o[k].vol+=v;for(const [t] of VT)o[k][t]+=vtNorm(r.vtipos)[t];{const z=r.tipo==='coleta'?'coleta':r.tipo==='recebimento'?'receb':r.tipo==='estorno'?'estorno':'saida';o[k][z]=(o[k][z]||0)+1;};}}
   return {dia,cli};}
 function csv(regs){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
   const h=['Código','Tipo','Transportadora','NFs','Volumes','Paletes','Volumes (qtd)','Data','Hora','Motorista','Placa','Observação','Fotos produtos','Fotos romaneio','Fotos caminhão','Conferência','Itens'];
@@ -207,7 +207,7 @@ function editadoTxt(r){if(!r||!r.editadoEm)return '';const d=new Date(r.editadoE
 function fotoOp(arr,op,i,nova){const a=(arr||[]).slice();if(op==='remover'){if(i>=0&&i<a.length)a.splice(i,1);}else if(op==='trocar'){if(nova&&i>=0&&i<a.length)a[i]=nova;}else if(op==='adicionar'){if(nova)a.push(nova);}return a;}
 function regEditar(r,c,fotos,ts){const o=Object.assign({},r);c=c||{};const t=v=>String(v==null?'':v).trim();
   if('cliente' in c)o.cliente=t(c.cliente);if('nfs' in c)o.nfs=parseNFs(c.nfs);
-  if('motorista' in c)o.motorista=t(c.motorista);if('placa' in c)o.placa=t(c.placa).toUpperCase();if('obs' in c)o.obs=t(c.obs);
+  if('motorista' in c)o.motorista=t(c.motorista);if('placa' in c)o.placa=t(c.placa).toUpperCase();if('obs' in c)o.obs=t(c.obs);if(r.tipo==='estorno'&&'motivo' in c)o.motivo=t(c.motivo);
   if(r.tipo!=='recebimento'&&('palete' in c||'volume' in c)){const v={palete:Math.max(0,parseInt(c.palete,10)||0),volume:Math.max(0,parseInt(c.volume,10)||0)};o.vtipos=v;o.volumes=volTotal(v);}
   if(fotos)for(const k of FOTO_CAMPOS)if(Array.isArray(fotos[k])){const antes=(r[k]||[]).length,depois=fotos[k];o[k]=depois.slice();
     if(antes||depois.length||fotos.mexeu&&fotos.mexeu[k])o['n_'+k]=depois.length;}
@@ -339,7 +339,7 @@ function baixouOk(lido,esperado){return esperado>1000000&&lido===esperado;}
 
 // v4.2.6: avisos de alteração no histórico (só o dono da equipe recebe; ele mesmo não gera aviso)
 function avisoPrecisa(atorUid,adminUid){return !!atorUid&&!!adminUid&&atorUid!==adminUid;}
-const AV_CAMPOS=[['cliente','Transportadora/cliente'],['nfs','NFs'],['palete','Paletes'],['volume','Volumes'],['placa','Placa'],['motorista','Motorista'],['obs','Observação']];
+const AV_CAMPOS=[['cliente','Transportadora/cliente'],['nfs','NFs'],['palete','Paletes'],['volume','Volumes'],['placa','Placa'],['motorista','Motorista'],['obs','Observação'],['motivo','Motivo']];
 function avVal(r,k){r=r||{};if(k==='nfs')return (r.nfs||[]).join('-');if(k==='palete'||k==='volume')return String((r.vtipos||{})[k]||0);return String(r[k]==null?'':r[k]).trim();}
 function avCurto(v){v=String(v);return v.length>40?v.slice(0,40)+'…':v||'(vazio)';}
 function avisoMudancas(a,d){const m=[];for(const [k,n] of AV_CAMPOS){const x=avVal(a,k),y=avVal(d,k);if(x!==y)m.push(n+': '+avCurto(x)+' → '+avCurto(y));}
@@ -351,7 +351,12 @@ function avisoCriar(acao,antes,depois,ator,adminUid,ts){ator=ator||{};if(!avisoP
   const mud=acao==='editou'?avisoMudancas(antes,depois):[];if(acao==='editou'&&!mud.length)return null;
   return {acao,quemUid:ator.uid,quem:String(ator.nome||'').slice(0,60),regId:String(antes.id||''),tipo:antes.tipo||'',cliente:String(antes.cliente||'').slice(0,80),
     nfs:(antes.nfs||[]).slice(0,10).join('-'),regTs:antes.ts||0,mud:mud.slice(0,12),ts:ts||Date.now()};}
-function avisoTxt(a){if(!a)return '';const t={coleta:'Coleta',saida:'Saída',recebimento:'Recebimento'}[a.tipo]||'Registro';
+function avisoTxt(a){if(!a)return '';const t={coleta:'Coleta',saida:'Saída',recebimento:'Recebimento',estorno:'Estorno'}[a.tipo]||'Registro';
   return (a.quem||'Alguém')+' '+(a.acao==='apagou'?'apagou':'editou')+' '+t+(a.cliente?' · '+a.cliente:'')+(a.nfs?' · NF '+a.nfs:'')+(a.regTs?' ('+fmtData(a.regTs)+')':'');}
-const L={avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
+// v4.2.8: estorno ligado ao registro de origem
+function estOrigens(regs,q){return filtrar((regs||[]).filter(r=>r.tipo==='coleta'||r.tipo==='saida'),q).slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,30);}
+function origemTxt(r){return codigo(r)+' · '+tipoNome(r.tipo)+(cheio(r.cliente)?' · '+r.cliente.trim():'')+((r.nfs||[]).length?' · NF '+r.nfs.join('-'):'')+' · '+fmtData(r.ts);}
+function estDeOrigem(o){const vt=vtNorm(o.vtipos);return {tipo:'estorno',motivo:'',origem:o.id,origemOk:1,cliente:o.cliente||'',nfs:(o.nfs||[]).join('-'),vt:{palete:vt.palete?String(vt.palete):'',volume:vt.volume?String(vt.volume):''},confEsp:'',confLidos:[],motorista:o.motorista||'',placa:o.placa||'',obs:'',fotos:[],romaneio:[],caminhao:[],itens:[],forn:''};}
+function estornosDe(regs,id){return id?(regs||[]).filter(r=>r.tipo==='estorno'&&r.origem===id):[];}
+const L={estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
