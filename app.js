@@ -172,11 +172,11 @@ async function scan(file){try{const bd=new BarcodeDetector();const b=await creat
 async function salvar(enviar){if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,volume:+f.vt.volume||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
   motorista:f.motorista.trim(),placa:f.placa.trim().toUpperCase(),obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:f.caminhao};if(f.tipo==='estorno'){r.motivo=f.motivo.trim();if(f.origem)r.origem=f.origem;}
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
-  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
 async function salvarRec(enviar){const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,'recebimento'),tipo:'recebimento',cliente:f.forn,nfs:L.parseNFs(f.nfs),volumes:0,
   itens:f.itens.map(x=>({cod:x.cod,qtd:x.qtd})),skuEsp:null,obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:[]};
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
-  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();f.tipo='recebimento';toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();f.tipo='recebimento';toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
 function grpHTML(c){return [['c-ok','✔ OK',c.ok],['c-dif','⚠ Quantidade diferente',c.dif],['c-bad','✖ Faltou',c.faltou],['c-mais','➕ A mais',c.amais]].map(([k,t,a])=>
   `<div class="grp"><div class="gh ${k}">${t} (${a.length})</div>${a.length?'<table><tr><th>Código</th><th>Esperado</th><th>Lido</th></tr>'+a.map(x=>`<tr><td>${esc(x.cod)}</td><td>${x.esp}</td><td>${x.lido}</td></tr>`).join('')+'</table>':'<p><small>Nenhum</small></p>'}</div>`).join('');}
 function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card">${tagHTML(r)} <span class="st ${stCls(c.status)}">${c.status}</span>
@@ -244,7 +244,7 @@ function edTela(){const rec=ed.tipo==='recebimento',lst=rec?fornecedores():clien
   <label>Observação</label><textarea data-ec="obs" rows="3">${esc(ed.c.obs)}</textarea></div>
   <div class="card">${edFotos('romaneio','🧾 Romaneio')}${rec?'':edFotos('caminhao','🚛 Caminhão carregado')}${edFotos('fotos','📷 Produtos')}</div>
   <p id="edErro" style="color:#c62828"></p><button class="big ok" id="edOk">💾 Salvar alterações</button><button class="big alt" id="edX2">Cancelar</button>`;
-  const sair=()=>{ed=null;render();};$('#edX').onclick=sair;$('#edX2').onclick=sair;$('#edOk').onclick=()=>confirmar('Salvar as alterações?',edSalvar,'Sim','ok','Cancelar');}
+  const sair=()=>{ed=null;rascLimpar();render();};$('#edX').onclick=sair;$('#edX2').onclick=sair;$('#edOk').onclick=()=>confirmar('Salvar as alterações?',edSalvar,'Sim','ok','Cancelar');}
 // câmera primeiro; galeria como segunda opção
 function edPegar(fn){const m=$('#modal');m.innerHTML=`<div><p style="font-size:20px;margin-top:0"><b>Escolha a foto</b></p><button class="big ok" id="pfC">📷 Tirar foto</button><button class="big alt" id="pfG">🖼️ Pegar da galeria</button><button class="big alt" id="pfX">Cancelar</button></div>`;m.classList.add('on');
   const pega=cam=>{m.classList.remove('on');const i=document.createElement('input');i.type='file';i.accept='image/*';if(cam)i.setAttribute('capture','environment');i.onchange=async()=>{const fl=i.files[0];if(!fl)return;const u=await compress(fl);if(!u)return toast('Não consegui ler a foto');fn(u);};i.click();};
@@ -261,7 +261,7 @@ async function edSalvar(){edLer();const id=ed.id;
   const n=L.regEditar(r,c,ed.fotos,Date.now());const er=L.editValidar(n);if(er.length){$('#edErro').innerHTML=er.map(esc).join('<br>');return;}
   const salvo=(window.Nuvem&&!Nuvem.admin)?L.semAutor(n):n;
   if(salvo.cliente){if(ed.tipo==='recebimento'){const l=fornecedores();if(!l.includes(salvo.cliente)){l.push(salvo.cliente);setFornecedores(l);}}else{const l=clientes();if(!l.includes(salvo.cliente)){l.push(salvo.cliente);setClientes(l);}}}
-  await tx('readwrite',s=>s.put(salvo));await load();window.Nuvem&&Nuvem.salvar(salvo);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('editou',r,Object.assign({},salvo,{fotosMexeu:ed.fotos&&ed.fotos.mexeu}));ed=null;detalhe=id;toast('✅ Alterações salvas');render();}
+  await tx('readwrite',s=>s.put(salvo));await load();window.Nuvem&&Nuvem.salvar(salvo);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('editou',r,Object.assign({},salvo,{fotosMexeu:ed.fotos&&ed.fotos.mexeu}));ed=null;rascLimpar();detalhe=id;toast('✅ Alterações salvas');render();}
 
 // ---- v3.2: Localizar códigos (lista + câmera procurando) ----
 const locGet=()=>{try{const l=JSON.parse(localStorage.getItem('locLista')||'[]');return (Array.isArray(l)?l:[]).filter(x=>x&&x.cod!=null).map(x=>({cod:String(x.cod),al:Array.isArray(x.al)?x.al.map(String):[],alvo:+x.alvo||null,n:+x.n||(x.ok?1:0),ult:x.ult?String(x.ult):'',uh:x.uh?String(x.uh):''}));}catch(e){return [];}};
@@ -318,7 +318,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.2.8';let updNova=null,updChecou=0;
+const APP_V='4.2.9';let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();};
 function checarUpd(){if(Date.now()-updChecou<60000)return;updChecou=Date.now();try{if(window.AndroidUpd&&AndroidUpd.checar){AndroidUpd.checar();return;}
@@ -327,7 +327,7 @@ async function atualizarApp(){if(window.AndroidUpd){updMsg('Procurando versão n
   updMsg('Atualizando...',-1);try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.update().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
   location.replace(location.pathname+'?v='+Date.now());}
 window.nvMudou=()=>{if(tab==='sobre'&&!detalhe)render();};
-function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.2.8</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 30/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:12px">© 2026 Desenvolvedor Rodolfo Pereira</p></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}<div id="updBox">${updHTML()}</div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.admin?`<div class="card">${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
+function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.2.9</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 30/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:12px">© 2026 Desenvolvedor Rodolfo Pereira</p></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}<div id="updBox">${updHTML()}</div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.admin?`<div class="card">${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preventDefault();Nuvem.pedirEntrada();return;}const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(t.id==='updApp'){atualizarApp();return;}
@@ -343,7 +343,7 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(d.del){f[d.del].splice(+d.i,1);nova();}else if(d.open){if(hist.sel){hist.sel.has(d.open)?hist.sel.delete(d.open):hist.sel.add(d.open);lista();$('#selN').textContent=hist.sel.size;document.querySelectorAll('.selN2').forEach(x=>x.textContent=hist.sel.size);}else{detalhe=d.open;render();}}
   else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr)abrirScanner(d.ocr);
   else if(t.id==='confScan')abrirScanner('lido');
-  else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{const tp=f.tipo;f=novo();f.tipo=tp;nova();toast('🔄 Tela limpa');},'Sim, limpar');
+  else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{const tp=f.tipo;f=novo();f.tipo=tp;rascLimpar();nova();toast('🔄 Tela limpa');},'Sim, limpar');
   else if(t.id==='lerRom')lerRomaneio();
   else if(d.confit!==undefined)confOpcoes(+d.confit);
   else if(d.confrm!==undefined){f.confLidos.splice(+d.confrm,1);nova();}
@@ -369,7 +369,7 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(t.id==='expMes'){const m=mesAt;if(!doMes().length)return toast('Sem registros neste mês');const h=L.htmlMes(regs,m),n='qlog_'+m.replace('/','-')+'.html';toast('Gerando arquivo...');
     shareArquivo(h,n,'text/html');}
   else if(t.id==='salvar')salvar(false);else if(t.id==='salvarEnv')salvar(true);});
-openDB().then(x=>{db=x;return load();}).then(()=>{render();window.Nuvem&&Nuvem.iniciar();}).catch(e=>{$('#main').textContent='Erro no banco: '+e;});
+openDB().then(x=>{db=x;return load();}).then(()=>{render();window.Nuvem&&Nuvem.iniciar();rascVerificar();}).catch(e=>{$('#main').textContent='Erro no banco: '+e;});
 
 function isIOSSafari(){const u=navigator.userAgent,ios=/iPad|iPhone|iPod/.test(u)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   const st=navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);return ios&&/Safari/.test(u)&&!/CriOS|FxiOS|EdgiOS/.test(u)&&!st;}
@@ -518,3 +518,31 @@ function estPick(q){q=q||'';const v=L.estOrigens(regs,q);$('#main').innerHTML=ti
   const i=$('#estQ');i.oninput=()=>{const w=L.estOrigens(regs,i.value);$('#estLst').innerHTML=w.map(r=>`<button class="big alt" data-orig="${r.id}" style="text-align:left">${esc(L.origemTxt(r))}</button>`).join('')||'<p>Nenhum registro encontrado.</p>';};}
 function estLigacoes(r){let h='';if(r.tipo==='estorno'){const o=r.origem&&regs.find(x=>x.id===r.origem);h+=r.origem?`<div class="card" ${o?`data-open="${o.id}"`:''} style="background:#fdeeee;margin-top:8px">↩️ <b>Estorno de:</b> ${o?esc(L.origemTxt(o)):'registro não encontrado'}</div>`:'';}
   else{for(const e of L.estornosDe(regs,r.id))h+=`<div class="card" data-open="${e.id}" style="background:#fdeeee;margin-top:8px">↩️ <b>Teve estorno</b> · ${esc(L.codigo(e))} · ${esc(L.fmtData(e.ts))}${e.motivo?' · '+esc(e.motivo):''}</div>`;}return h;}
+
+// v4.2.9: rascunho automático (campos no localStorage, fotos no IndexedDB)
+const RASC_K='rascunho';let rascH=0,rascPend=true,rascPerg=false;
+function rascDB(){return new Promise((ok,er)=>{try{const q=indexedDB.open('qlogRasc',1);q.onupgradeneeded=()=>q.result.createObjectStore('r');q.onsuccess=()=>ok(q.result);q.onerror=()=>er(q.error);}catch(e){er(e);}});}
+async function rascFotos(v){const d=await rascDB();return new Promise((ok,er)=>{const t=d.transaction('r',v===undefined?'readonly':'readwrite'),s=t.objectStore('r');
+  const q=v===undefined?s.get('fotos'):v===null?s.delete('fotos'):s.put(v,'fotos');t.oncomplete=()=>ok(q.result);t.onerror=()=>er(t.error);});}
+function rascCampos(){try{return JSON.parse(localStorage.getItem(RASC_K)||'null');}catch(e){return null;}}
+function rascGravar(){clearTimeout(rascH);if(rascPend)return;
+  if(ed&&tab==='hist'&&document.querySelector('[data-ec]'))edLer();
+  let p=null;if(ed)p=L.rascSeparar('edit',ed);else if(L.rascTem(f))p=L.rascSeparar('nova',f);
+  if(!p)return rascLimpar();
+  try{localStorage.setItem(RASC_K,JSON.stringify(p.campos));}catch(e){}
+  rascFotos(p.fotos).catch(()=>{});}
+function rascAgendar(){clearTimeout(rascH);rascH=setTimeout(rascGravar,1000);}
+function rascLimpar(){clearTimeout(rascH);try{localStorage.removeItem(RASC_K);}catch(e){}rascFotos(null).catch(()=>{});}
+async function rascVerificar(){if(rascPerg)return;const c=rascCampos();if(!c){rascPend=false;return;}rascPerg=true;rascPend=true;
+  let fo={};try{fo=(await rascFotos())||{};}catch(e){}const j=L.rascJuntar(c,fo);if(!j){rascPend=false;return rascLimpar();}
+  const mostrar=()=>{const m=$('#modal');if(!rascPend)return;if($('#rcSim'))return setTimeout(mostrar,1000);if(m.classList.contains('on'))return setTimeout(mostrar,1000);
+  m.innerHTML=`<div><p style="font-size:20px">Continuar o registro que ficou pela metade?</p><button class="big ok" id="rcSim">Continuar</button><button class="big red" id="rcNao">Descartar</button></div>`;m.classList.add('on');
+  $('#rcSim').onclick=()=>{m.classList.remove('on');rascPend=false;if(j.modo==='edit'){ed=j.d;tab='hist';detalhe=ed.id;}else{f=Object.assign(novo(),j.d);ed=null;tab='nova';detalhe=null;}render();toast('Registro recuperado');};
+  $('#rcNao').onclick=()=>{m.classList.remove('on');rascPend=false;rascLimpar();toast('Rascunho descartado');};setTimeout(mostrar,1000);};
+  setTimeout(mostrar,800);}
+{const _n=nova,_e=edTela;nova=function(){const r=_n.apply(this,arguments);if(!rascPerg&&!L.rascTem(f)&&rascCampos())rascVerificar();else rascAgendar();return r;};
+  edTela=function(){const r=_e.apply(this,arguments);rascAgendar();return r;};}
+document.addEventListener('input',rascAgendar,true);document.addEventListener('change',rascAgendar,true);
+document.addEventListener('click',()=>setTimeout(rascAgendar,0));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')rascGravar();});
+window.addEventListener('pagehide',rascGravar);

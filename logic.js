@@ -353,10 +353,23 @@ function avisoCriar(acao,antes,depois,ator,adminUid,ts){ator=ator||{};if(!avisoP
     nfs:(antes.nfs||[]).slice(0,10).join('-'),regTs:antes.ts||0,mud:mud.slice(0,12),ts:ts||Date.now()};}
 function avisoTxt(a){if(!a)return '';const t={coleta:'Coleta',saida:'Saída',recebimento:'Recebimento',estorno:'Estorno'}[a.tipo]||'Registro';
   return (a.quem||'Alguém')+' '+(a.acao==='apagou'?'apagou':'editou')+' '+t+(a.cliente?' · '+a.cliente:'')+(a.nfs?' · NF '+a.nfs:'')+(a.regTs?' ('+fmtData(a.regTs)+')':'');}
+// v4.2.9: rascunho automático
+const RASC_FOTOS=['fotos','romaneio','caminhao'];
+function rascTem(f){if(!f)return false;const t=v=>String(v==null?'':v).trim()!=='';
+  return !!(t(f.cliente)||t(f.nfs)||t(f.confEsp)||t(f.motorista)||t(f.placa)||t(f.obs)||t(f.motivo)||t(f.forn)||f.origem||(f.vt&&(t(f.vt.palete)||t(f.vt.volume)))||
+    (f.confLidos||[]).length||(f.itens||[]).length||RASC_FOTOS.some(k=>(f[k]||[]).length));}
+function rascSeparar(modo,obj,ts){const o=JSON.parse(JSON.stringify(obj||{}));let fotos={};
+  if(modo==='edit'){const fo=o.fotos||{};RASC_FOTOS.forEach(k=>{fotos[k]=fo[k]||[];});o.fotos={mexeu:fo.mexeu||{}};}
+  else RASC_FOTOS.forEach(k=>{fotos[k]=o[k]||[];delete o[k];});
+  return {campos:{v:1,modo:modo==='edit'?'edit':'nova',ts:ts||Date.now(),d:o},fotos};}
+function rascJuntar(campos,fotos){if(!campos||!campos.d)return null;const d=JSON.parse(JSON.stringify(campos.d));fotos=fotos||{};
+  if(campos.modo==='edit'){d.fotos=d.fotos||{};RASC_FOTOS.forEach(k=>{d.fotos[k]=(fotos[k]||[]).slice();});d.fotos.mexeu=d.fotos.mexeu||{};}
+  else RASC_FOTOS.forEach(k=>{d[k]=(fotos[k]||[]).slice();});
+  return {modo:campos.modo,d};}
 // v4.2.8: estorno ligado ao registro de origem
 function estOrigens(regs,q){return filtrar((regs||[]).filter(r=>r.tipo==='coleta'||r.tipo==='saida'),q).slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,30);}
 function origemTxt(r){return codigo(r)+' · '+tipoNome(r.tipo)+(cheio(r.cliente)?' · '+r.cliente.trim():'')+((r.nfs||[]).length?' · NF '+r.nfs.join('-'):'')+' · '+fmtData(r.ts);}
 function estDeOrigem(o){const vt=vtNorm(o.vtipos);return {tipo:'estorno',motivo:'',origem:o.id,origemOk:1,cliente:o.cliente||'',nfs:(o.nfs||[]).join('-'),vt:{palete:vt.palete?String(vt.palete):'',volume:vt.volume?String(vt.volume):''},confEsp:'',confLidos:[],motorista:o.motorista||'',placa:o.placa||'',obs:'',fotos:[],romaneio:[],caminhao:[],itens:[],forn:''};}
 function estornosDe(regs,id){return id?(regs||[]).filter(r=>r.tipo==='estorno'&&r.origem===id):[];}
-const L={estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
+const L={RASC_FOTOS,rascTem,rascSeparar,rascJuntar,estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
