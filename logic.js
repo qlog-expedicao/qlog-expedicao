@@ -336,5 +336,22 @@ const SITE_URL='https://qlog-expedicao.github.io/qlog-expedicao/';
 function versaoNum(v){return String(v||'').replace(/^[^0-9]*/,'').split(/[^0-9]+/).filter(x=>x!=='').slice(0,3).map(Number);}
 function versaoNova(nova,atual){const a=versaoNum(nova),b=versaoNum(atual);if(!a.length)return false;for(let i=0;i<3;i++){const x=a[i]||0,y=b[i]||0;if(x!==y)return x>y;}return false;}
 function baixouOk(lido,esperado){return esperado>1000000&&lido===esperado;}
-const L={APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
+
+// v4.2.6: avisos de alteração no histórico (só o dono da equipe recebe; ele mesmo não gera aviso)
+function avisoPrecisa(atorUid,adminUid){return !!atorUid&&!!adminUid&&atorUid!==adminUid;}
+const AV_CAMPOS=[['cliente','Transportadora/cliente'],['nfs','NFs'],['palete','Paletes'],['volume','Volumes'],['placa','Placa'],['motorista','Motorista'],['obs','Observação']];
+function avVal(r,k){r=r||{};if(k==='nfs')return (r.nfs||[]).join('-');if(k==='palete'||k==='volume')return String((r.vtipos||{})[k]||0);return String(r[k]==null?'':r[k]).trim();}
+function avCurto(v){v=String(v);return v.length>40?v.slice(0,40)+'…':v||'(vazio)';}
+function avisoMudancas(a,d){const m=[];for(const [k,n] of AV_CAMPOS){const x=avVal(a,k),y=avVal(d,k);if(x!==y)m.push(n+': '+avCurto(x)+' → '+avCurto(y));}
+  const fc={fotos:'Fotos produtos',romaneio:'Fotos romaneio',caminhao:'Fotos caminhão'};
+  for(const k of FOTO_CAMPOS){const x=Math.max((a&&a[k]||[]).length,Number(a&&a['n_'+k])||0),y=Math.max((d&&d[k]||[]).length,Number(d&&d['n_'+k])||0);
+    const mx=d&&d.fotosMexeu&&d.fotosMexeu[k];if(x!==y)m.push((fc[k]||k)+': '+x+' → '+y);else if(mx)m.push((fc[k]||k)+': trocadas');}
+  return m;}
+function avisoCriar(acao,antes,depois,ator,adminUid,ts){ator=ator||{};if(!avisoPrecisa(ator.uid,adminUid)||!antes)return null;
+  const mud=acao==='editou'?avisoMudancas(antes,depois):[];if(acao==='editou'&&!mud.length)return null;
+  return {acao,quemUid:ator.uid,quem:String(ator.nome||'').slice(0,60),regId:String(antes.id||''),tipo:antes.tipo||'',cliente:String(antes.cliente||'').slice(0,80),
+    nfs:(antes.nfs||[]).slice(0,10).join('-'),regTs:antes.ts||0,mud:mud.slice(0,12),ts:ts||Date.now()};}
+function avisoTxt(a){if(!a)return '';const t={coleta:'Coleta',saida:'Saída',recebimento:'Recebimento'}[a.tipo]||'Registro';
+  return (a.quem||'Alguém')+' '+(a.acao==='apagou'?'apagou':'editou')+' '+t+(a.cliente?' · '+a.cliente:'')+(a.nfs?' · NF '+a.nfs:'')+(a.regTs?' ('+fmtData(a.regTs)+')':'');}
+const L={avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);

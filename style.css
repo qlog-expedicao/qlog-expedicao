@@ -46,3 +46,5 @@ nav button{flex:none;min-width:0;padding:6px 1px 4px;display:flex;flex-direction
 nav button .ni{font-size:22px;line-height:1.1}
 nav button .nl{font-size:clamp(10px,3.1vw,15px);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:clip;max-width:100%;letter-spacing:-.2px}
 nav button.on{background:#0b4f8a;color:#fff;border-bottom:4px solid #3f8a5f}
+
+#avBanner{position:fixed;top:10px;left:10px;right:10px;background:#c62828;color:#fff;padding:14px;border-radius:12px;font-size:18px;z-index:13;display:none;box-shadow:0 4px 12px #0005;margin-top:env(safe-area-inset-top)}

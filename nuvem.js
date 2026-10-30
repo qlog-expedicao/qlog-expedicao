@@ -15,7 +15,7 @@ async function iniciar(){if(!cfgOk())return;
       N.uid=u.uid;await papel();});
   }catch(e){N.erro=String(e.message||e);}}
 async function papel(){N.admin=false;N.membro=false;
-  try{const e=await docE().get();N.existe=e.exists;if(e.exists&&e.data().admin===N.uid)N.admin=true;}catch(e){N.existe=null;}
+  try{const e=await docE().get();N.existe=e.exists;N.adminUid=e.exists?e.data().admin:null;if(e.exists&&e.data().admin===N.uid)N.admin=true;}catch(e){N.existe=null;}
   try{const m=await docM().get();N.membro=m.exists&&!m.data().bloq;if(m.exists&&m.data().nome)N.nome=m.data().nome;}catch(e){N.membro=false;}
   if(N.admin||N.membro){N.on=true;await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();}
   else{N.on=false;N.pedirEntrada();}
@@ -46,6 +46,7 @@ function ouvirArquivo(){return new Promise(ok=>{let p=false;const fim=()=>{if(!p
     N.arquivos=l;N.feitos=l.map(x=>x.mes);localStorage.setItem('arqFeitos',JSON.stringify(N.feitos));localStorage.setItem('arqLista',JSON.stringify(l));if(tab==='arquivo')render();fim();},()=>fim()));});}
 async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();
   if(N.admin)N.unsub.push(N.fs.collection('membros').onSnapshot(q=>{const o={};q.forEach(d=>{o[d.id]=d.data().nome||'';});N.nomes=o;if(tab==='hist')render();},()=>{}));
+  if(N.admin)ouvirAvisos();else{N.avisos=[];sinoMostrar();}
   await ouvirArquivo();
   N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{const baixar=[];for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
       let loc=null;try{loc=await tx('readonly',s=>s.get(d.id));}catch(e){}if(!loc)loc=regs.find(r=>r.id===d.id);
@@ -113,5 +114,27 @@ N.painel=async()=>{const m=document.getElementById('modal');let ms=[];try{ms=awa
   document.getElementById('nvTs').onclick=async()=>{const s=document.getElementById('nvNs').value;if(s.trim().length<6)return toast('Senha com pelo menos 6 letras/números');
     try{await N.trocarSenha(s);toast('✅ Senha trocada');m.classList.remove('on');}catch(e){toast('Não consegui trocar. Precisa de internet.');}};
   document.getElementById('nvF').onclick=()=>m.classList.remove('on');};
+// v4.2.6: avisos de alteração no histórico (só o dono da equipe vê; os avisos dele mesmo nem são criados)
+N.avisos=[];
+N.avisar=async(acao,antes,depois)=>{if(!N.on||N.admin)return;try{const a=L.avisoCriar(acao,antes,depois,{uid:N.uid,nome:N.nome},N.adminUid,Date.now());
+  if(a)await N.fs.collection('avisos').add(a);}catch(e){}};
+function sinoMostrar(){const b=document.getElementById('sino');if(!b)return;const n=N.admin?N.avisos.length:0;b.style.display=n?'inline-block':'none';b.textContent='🔔 '+n;}
+function banner(t){let b=document.getElementById('avBanner');if(!b){b=document.createElement('div');b.id='avBanner';document.body.appendChild(b);b.onclick=()=>{b.style.display='none';N.verAvisos();};}
+  b.textContent='🔔 '+t;b.style.display='block';clearTimeout(b._h);b._h=setTimeout(()=>b.style.display='none',8000);}
+function ouvirAvisos(){let primeiro=true;
+  N.unsub.push(N.fs.collection('avisos').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({id:d.id},d.data())));l.sort((a,b)=>(b.ts||0)-(a.ts||0));N.avisos=l;
+    if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites);if(novos.length)banner(novos.length>1?novos.length+' alterações novas no histórico':L.avisoTxt(novos[0].doc.data()));}
+    primeiro=false;sinoMostrar();const m=document.getElementById('modal');if(m&&m.dataset.av&&m.classList.contains('on'))N.verAvisos();},()=>{}));}
+N.confirmarAviso=async id=>{await N.fs.doc('avisos/'+id).delete();};
+N.confirmarTodos=async()=>{const ids=N.avisos.map(a=>a.id);for(let i=0;i<ids.length;i+=400){const b=N.fs.batch();ids.slice(i,i+400).forEach(id=>b.delete(N.fs.doc('avisos/'+id)));await b.commit();}};
+N.verAvisos=()=>{const m=document.getElementById('modal');if(!m)return;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');m.dataset.av='1';
+  const fecha=()=>{m.classList.remove('on');delete m.dataset.av;};
+  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">🔔 Alterações no histórico</b>
+   ${N.avisos.length?N.avisos.map(a=>`<div class="card" style="margin:6px 0"><div style="font-size:18px"><b>${e(L.avisoTxt(a))}</b></div><small>${a.ts?L.fmtData(a.ts)+' às '+L.fmtHora(a.ts):''}</small>${(a.mud||[]).length?'<ul style="margin:6px 0;padding-left:20px">'+a.mud.map(x=>'<li>'+e(x)+'</li>').join('')+'</ul>':''}<button class="big ok" data-avok="${e(a.id)}">✅ Confirmar</button></div>`).join('')+'<button class="big ok" id="avTodos">✅ Confirmar todos</button>':'<p>Nenhuma alteração nova.</p>'}
+   <button class="big alt" id="avF">Fechar</button></div>`;m.classList.add('on');
+  m.querySelectorAll('[data-avok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.confirmarAviso(b.dataset.avok);}catch(x){b.disabled=false;toast('Sem internet');}});
+  const t=document.getElementById('avTodos');if(t)t.onclick=async()=>{t.disabled=true;try{await N.confirmarTodos();fecha();toast('✅ Confirmados');}catch(x){t.disabled=false;toast('Sem internet');}};
+  document.getElementById('avF').onclick=fecha;};
+document.addEventListener('click',ev=>{if(ev.target.closest('#sino')){ev.preventDefault();N.verAvisos();}});
 N.iniciar=iniciar;
 })();
