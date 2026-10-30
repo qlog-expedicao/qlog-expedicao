@@ -11,7 +11,7 @@ async function iniciar(){if(!cfgOk())return;
   try{firebase.initializeApp(window.QLOG_FB);N.fs=firebase.firestore();
     try{N.fs.settings({experimentalAutoDetectLongPolling:true,merge:true});}catch(e){}
     try{await N.fs.enablePersistence({synchronizeTabs:false});}catch(e){}
-    firebase.auth().onAuthStateChanged(async u=>{if(!u){try{await firebase.auth().signInAnonymously();}catch(e){N.erro='sem internet';N.status();}return;}
+    firebase.auth().onAuthStateChanged(async u=>{if(!u){try{await firebase.auth().signInAnonymously();}catch(e){N.erro='sem internet';if(window.nvMudou)window.nvMudou();}return;}
       N.uid=u.uid;await papel();});
   }catch(e){N.erro=String(e.message||e);}}
 async function papel(){N.admin=false;N.membro=false;
@@ -20,7 +20,7 @@ async function papel(){N.admin=false;N.membro=false;
   if(N.admin||N.membro){N.on=true;await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();}
   else{N.on=false;N.pedirEntrada();}
   N.status();}
-N.status=()=>{const e=document.getElementById('nvStatus');if(e)e.textContent=N.on?('☁️ Nuvem ligada'+(N.admin?' (administrador)':'')+' — '+N.nome):('☁️ Nuvem desligada'+(N.erro?' ('+N.erro+')':''));};
+N.status=()=>{N.checado=true;if(window.nvMudou)window.nvMudou();};
 // primeira abertura: nome + senha
 N.pedirEntrada=()=>{const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;m.dataset.nv='1';
   const cria=N.existe===false;
