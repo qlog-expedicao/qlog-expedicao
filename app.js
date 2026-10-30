@@ -48,12 +48,13 @@ function nova(){if(f.tipo==='recebimento')return novaRec();const cl=clientes();$
 <p class="tot">Total: <b id="vtp">${+f.vt.palete||0}</b> paletes · <b id="vtv">${+f.vt.volume||0}</b> volumes</p>
 <details ${f.confEsp||f.confLidos.length?'open':''}><summary style="padding:12px 0;font-weight:bold">🔎 Conferência de código (opcional)</summary>
 <label>Código(s) da NF (esperado)</label><div class="row"><input id="confEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(f.confEsp)}"><button class="big alt" data-ocr="esp" style="flex:0 0 120px;margin:0">📷 Ler texto</button></div>
+<div id="confRes">${confMiniHTML(f.confLidos)}</div>
 <label>Código da etiqueta</label><div class="row"><input id="confLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="confOk" style="flex:0 0 110px;margin:0">✔ Conferir</button></div>
 <button class="big alt" data-ocr="lido">📷 Ler texto da etiqueta</button>
-${HAS_BD?'<button class="big alt" id="confScan">📷 Ler código com a câmera</button>':'<p><small>Leitor de código de barras não disponível neste celular: use 📷 Ler texto ou digite o código.</small></p>'}
-<div id="confRes">${confListaHTML(f.confLidos,1)}</div></details>
+<button class="big alt" id="confScan">📷 Ler código com a câmera</button>
+</details>
 <label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
-<label>🧾 Romaneio (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio</button><button class="big" id="lerRom">📷 Ler romaneio (preencher sozinho)</button>
+<label>🧾 Romaneio (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio</button><button class="big" id="lerRom">📷 Ler romaneio</button>
 <label>🚛 Caminhão carregado (${f.caminhao.length})</label>${fotosHTML(f.caminhao,'caminhao',1)}<button class="big alt" data-foto="caminhao">🚛 Tirar foto do caminhão carregado</button>
 <p><small>No WhatsApp vão só as fotos do romaneio e do caminhão. As fotos dos produtos ficam guardadas no app.</small></p>
 <details><summary style="padding:12px 0;font-weight:bold">Mais (motorista, placa, observação)</summary>
@@ -77,18 +78,23 @@ async function ocrTexto(dataUrl){
   if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true,
     logger:m=>{if(m.status==='recognizing text')ocrProg(m.progress);}});
   const r=await tessW.recognize(dataUrl);return r.data.text||'';}
-function ocrModal(alvo,cands,texto){if(alvo==='lido'){const m=L.casarEsperado(cands,L.parseCods(f.confEsp));cands=m.concat(cands.filter(c=>!m.includes(c)));}const m=$('#modal');
-  m.innerHTML=`<div><p style="font-size:22px;margin-top:0"><b>${alvo==='esp'?'Código da NF':'Código da etiqueta'}</b></p>
-  ${cands.length?'<p>Toque no código certo:</p>'+cands.map(c=>`<button class="big alt" data-cand="${esc(c)}" style="font-size:24px">${esc(c)}</button>`).join(''):'<p>Não achei código no texto. Digite abaixo.</p>'}
-  <label>Confirme ou corrija</label><input id="ocrVal" style="text-transform:uppercase;font-size:24px" value="${esc(cands[0]||'')}">
-  <button class="big ok" id="ocrOk">✔ Usar este código</button><button class="big alt" id="ocrNao">Cancelar</button>
-  <details><summary style="padding:8px 0">Texto lido</summary><pre style="white-space:pre-wrap;font-size:13px">${esc(texto)}</pre></details></div>`;
+function ocrModal(alvo,cands,texto){const esp=L.parseCods(f.confEsp);
+  if(alvo==='lido'&&esp.length){cands=cands.map(c=>L.corrigirOCR(c,esp));const m=L.casarEsperado(cands,esp);cands=m.concat(cands.filter(c=>!m.includes(c)));cands=cands.filter((c,i)=>cands.indexOf(c)===i);}
+  const m=$('#modal'),cod=cands[0]||'';
+  m.innerHTML=`<div style="text-align:center"><p style="font-size:20px;margin-top:0"><b>${alvo==='esp'?'Código da NF':'Código da etiqueta'}</b></p>
+  ${cod?`<p>Código lido:</p><div id="ocrBig" style="font-size:44px;font-weight:bold;letter-spacing:3px;word-break:break-all;background:#eef3f8;border-radius:12px;padding:14px">${esc(cod)}</div>`:'<p>Não achei código. Digite abaixo.</p>'}
+  <button class="big ok" id="ocrOk" style="font-size:24px">✅ Usar</button><button class="big" id="ocrDeNovo" style="font-size:22px">🔁 Ler de novo</button>
+  <details style="text-align:left"><summary style="padding:10px 0">✏️ Corrigir / outros códigos</summary>${cands.slice(1).map(c=>`<button class="big alt" data-cand="${esc(c)}" style="font-size:22px">${esc(c)}</button>`).join('')}
+  <input id="ocrVal" style="text-transform:uppercase;font-size:24px" value="${esc(cod)}"><button class="big alt" id="ocrNao">Cancelar</button>
+  <details><summary style="padding:8px 0">Texto lido</summary><pre style="white-space:pre-wrap;font-size:13px">${esc(texto)}</pre></details></details></div>`;
   m.classList.add('on');
-  m.querySelectorAll('[data-cand]').forEach(b=>b.onclick=()=>{$('#ocrVal').value=b.dataset.cand;});
-  $('#ocrNao').onclick=()=>m.classList.remove('on');
-  $('#ocrOk').onclick=()=>{const v=$('#ocrVal').value.trim().toUpperCase();m.classList.remove('on');if(!v)return;
+  m.querySelectorAll('[data-cand]').forEach(b=>b.onclick=()=>{$('#ocrVal').value=b.dataset.cand;const g=$('#ocrBig');if(g)g.textContent=b.dataset.cand;});
+  $('#ocrVal').oninput=()=>{const g=$('#ocrBig');if(g)g.textContent=$('#ocrVal').value.toUpperCase();};
+  $('#ocrNao').onclick=()=>{relerIdx=-1;m.classList.remove('on');};
+  $('#ocrDeNovo').onclick=()=>{m.classList.remove('on');abrirScanner(alvo);};
+  $('#ocrOk').onclick=()=>{const v=$('#ocrVal').value.trim().toUpperCase();m.classList.remove('on');if(!v){relerIdx=-1;return;}
     if(alvo==='esp'){const cur=L.parseCods(f.confEsp);if(!cur.includes(L.normCod(v)))f.confEsp=(f.confEsp.trim()?f.confEsp.trim()+' ':'')+v;nova();toast('Código da NF: '+v);}
-    else {if(!L.parseCods(f.confEsp).length){toast('Coloque primeiro o código esperado da NF');$('#confLido').value=v;return;}conferirCod(v);}};}
+    else {if(!L.parseCods(f.confEsp).length){toast('Coloque primeiro o código esperado da NF');$('#confLido').value=v;relerIdx=-1;return;}conferirCod(v);}};}
 function fotoOcr(al){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&lerTexto(ev.target.files[0],al);};$('#cam').click();}
 // ---- v2.6: scanner ao vivo (só para os campos de código) ----
 let SC=null;
@@ -117,7 +123,7 @@ async function abrirScanner(al,multi){
   <div class="scTop">${multi?esc(multi.titulo):al==='esp'?'Código da NF':'Código da etiqueta'}<br><small id="scMsg">Aponte o código dentro do quadro</small><div id="scLast" class="scLast"></div></div>
   <div class="scBot">${multi?(multi.zerar?'<button class="big alt" id="scZera">🔄 Zerar</button>':'')+'<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big ok" id="scFim">✔ Concluir</button>':`<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big alt" id="scFoto">📷 Tirar foto</button><button class="big red" id="scCancel">✖ Cancelar</button>`}</div>`;
   document.body.appendChild(o);SC={on:true,al,busy:false,torch:false,multi,seen:{}};
-  if(multi)$('#scFim').onclick=fecharScanner;if($('#scZera'))$('#scZera').onclick=()=>{if(confirm('Zerar a contagem? A lista continua.')){multi.zerar();SC.seen={};const z=$('#scLast');if(z)z.textContent='Contagem zerada';}};else{$('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};}
+  if(multi)$('#scFim').onclick=fecharScanner;if($('#scZera'))$('#scZera').onclick=()=>{if(confirm('Zerar a contagem? A lista continua.')){multi.zerar();SC.seen={};SC.ms={};const z=$('#scLast');if(z)z.textContent='Contagem zerada';}};else{$('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};}
   let st;try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});}
   catch(e){fecharScanner();if(multi){toast('Câmera ao vivo não liberada. Digite os códigos.');return;}toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
   if(!SC||!SC.on){st.getTracks().forEach(t=>t.stop());return;}SC.stream=st;
@@ -129,24 +135,37 @@ function scCrop(){const v=$('#scVid'),b=$('#scBox');if(!v||!v.videoWidth)return 
   const ox=(vr.width-v.videoWidth*k)/2,oy=(vr.height-v.videoHeight*k)/2;
   const sx=Math.max(0,(br.left-vr.left-ox)/k),sy=Math.max(0,(br.top-vr.top-oy)/k),sw=Math.min(v.videoWidth-sx,br.width/k),sh=Math.min(v.videoHeight-sy,br.height/k);
   const c=document.createElement('canvas');const z=Math.min(1,1000/sw);c.width=Math.round(sw*z);c.height=Math.round(sh*z);c.getContext('2d').drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);return c;}
-async function scLoop(){if(!SC||!SC.on)return;const me=SC,t0=Date.now();
-  try{const c=scCrop();if(c){let cands=[],texto='',bars=false;
-    if(me.bd){try{const r=await me.bd.detect(c);r.forEach(x=>{const t=String(x.rawValue||'').trim().toUpperCase();if(t&&!cands.includes(t))cands.push(t);});texto=cands.join('\n');bars=cands.length>0;}catch(e){}}
-    if(!cands.length||(me.multi&&me.multi.match&&!me.multi.match(texto).length)){const bt=texto;texto=await ocrTexto(c.toDataURL('image/jpeg',0.85));cands=L.extrairCods(texto);if(bt)texto=bt+'\n'+texto;}
-    const mix=cands.some(c=>/[A-Z]/.test(c)&&/[0-9]/.test(c)),key=cands.join('|'),firme=mix||(cands.length&&me.last===key);me.last=key;
-    if(me.multi){const now=Date.now(),win=Math.max(me.multi.cool||1500,2*(now-t0)+700),acc=me.multi.match?me.multi.match(texto):bars?cands:(firme&&cands.length?[cands[0]]:[]);
-      for(const cd of acc){const prev=me.seen[cd];me.seen[cd]=now;if(prev&&now-prev<win)continue;if(SC!==me||!me.on)break;const n=me.multi.onItem(cd,texto);if(!me.multi.noBip||!me.multi.noBip())bip();
-        const z=$('#scLast'),tx2=me.multi.match?'✔ '+cd+'  ×'+n:'✔ '+cd+'  ×'+n;if(z)z.textContent=tx2;toast(tx2);}
-      if(SC===me&&me.on)me.h=setTimeout(scLoop,400);return;}
-    if(SC===me&&me.on&&cands.length&&firme){const al=me.al;fecharScanner();ocrModal(al,cands,texto);return;}
-    const m=$('#scMsg');if(m)m.textContent='Procurando código... aproxime e deixe reto';}}catch(e){}
-  if(SC===me&&me.on)me.h=setTimeout(scLoop,600);}
+// v4.2: OCR com tamanho das letras (para avisar "Aproxime o celular")
+async function ocrCaixas(url){
+  if(window.AndroidOcr&&window.AndroidOcr.lerLinhas){const js=await new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.lerLinhas(url,id);});const a=JSON.parse(js||'[]');
+    return {texto:a.map(x=>x.t).join('\n'),ls:a};}
+  if(window.AndroidOcr)return {texto:await ocrTexto(url),ls:[]};
+  if(!window.Tesseract)await loadScript('ocr/tesseract.min.js');if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true});
+  const r=await tessW.recognize(url);const ls=(r.data.lines||[]).map(l=>({t:l.text.trim(),x:l.bbox.x0,y:l.bbox.y0,w:l.bbox.x1-l.bbox.x0,h:l.bbox.y1-l.bbox.y0}));return {texto:r.data.text||'',ls};}
+function scMsg(t,cor){const m=$('#scMsg');if(m){m.textContent=t;m.style.color=cor||'';}}
+async function scLoop(){if(!SC||!SC.on)return;const me=SC;let rapido=false;
+  try{const c=scCrop();if(c){let cands=[],texto='',bars=false,longe=false;
+    if(me.bd){try{const r=await me.bd.detect(c);r.forEach(x=>{const t=String(x.rawValue||'').trim().toUpperCase();if(t&&!cands.includes(t))cands.push(t);});texto=cands.join('\n');bars=cands.length>0;
+      if(bars&&r.every(x=>x.boundingBox&&L.longeBar(x.boundingBox.width,c.width)))longe=true;}catch(e){}}
+    if(!cands.length||(me.multi&&me.multi.match&&!me.multi.match(texto).length)){const bt=texto;const o=await ocrCaixas(c.toDataURL('image/jpeg',0.85));texto=o.texto;cands=L.extrairCods(texto);
+      const hs=o.ls.filter(l=>L.extrairCods(l.t).length).map(l=>l.h);if(cands.length&&hs.length&&L.longeTxt(Math.max(...hs),c.height))longe=true;if(bt)texto=bt+'\n'+texto;}
+    if(SC!==me||!me.on)return;
+    if(longe){me.st=null;me.ms={};scMsg('🔍 Aproxime o celular','#ff0');}
+    else if(me.multi){const acc=me.multi.match?me.multi.match(texto):cands.length?(bars?cands:[cands[0]]):[];
+      const r=L.estavelMulti(me.ms,acc);me.ms=r.st;rapido=acc.length>0;
+      if(acc.length&&!r.ok.length)scMsg('Lendo... '+Math.max(...acc.map(a=>r.st[a]))+'/'+L.LEITURAS+' · segure parado');
+      for(const cd of r.ok){if(SC!==me||!me.on)break;const n=me.multi.onItem(cd,texto);if(!me.multi.noBip||!me.multi.noBip())bip();
+        const z=$('#scLast'),tx2='✔ '+cd+'  ×'+n;if(z)z.textContent=tx2;toast(tx2);}}
+    else{const esp=me.al==='lido'?L.parseCods(f.confEsp):[];const key=cands.length?L.corrigirOCR(cands[0],esp):'';me.st=L.estavel(me.st,key);
+      if(me.st.ok){const al=me.al;fecharScanner();ocrModal(al,[key],texto);return;}
+      if(key){rapido=true;scMsg('Lendo... '+me.st.c+'/'+L.LEITURAS+' · segure parado');}else scMsg('Procurando código... coloque dentro do quadro');}}}catch(e){}
+  if(SC===me&&me.on)me.h=setTimeout(scLoop,rapido?120:400);}
 async function lerTexto(file,alvo){const m=$('#modal');m.innerHTML='<div style="text-align:center"><p style="font-size:26px">⏳ Lendo texto...</p><p id="ocrPct" style="font-size:22px"></p><p><small>Pode levar alguns segundos.</small></p></div>';m.classList.add('on');
   try{const d=await compress(file);if(!d)throw new Error('foto');const t=await ocrTexto(d);ocrModal(alvo,L.extrairCods(t),t);}
   catch(e){m.classList.remove('on');toast('Não consegui ler o texto. Digite o código.');}}
 function alerta(ok,cod){const m=$('#modal');m.innerHTML=`<div style="text-align:center"><div class="conf ${ok?'c-ok':'c-bad'}" style="font-size:34px">${ok?'✔ Confere':'✖ Código diferente!'}</div><p>Lido: <b>${esc(cod)}</b>${ok?'':'<br>Esperado: <b>'+esc(L.parseCods(f.confEsp).join(', '))+'</b>'}</p><button class="big" id="mOk">OK</button></div>`;m.classList.add('on');$('#mOk').onclick=()=>m.classList.remove('on');}
 function conferirCod(v){const esp=L.parseCods(f.confEsp);if(!esp.length){$('#erro').textContent='Coloque primeiro o código esperado da NF';return;}
-  const c=L.conferir(esp,v);if(!c.cod)return;f.confLidos=L.confAdd(f.confLidos,c,Date.now());nova();alerta(c.ok,c.cod);}
+  const c=L.conferir(esp,v);if(!c.cod){relerIdx=-1;return;}if(relerIdx>=0&&f.confLidos[relerIdx]){f.confLidos.splice(relerIdx,1);}relerIdx=-1;f.confLidos=L.confAdd(f.confLidos,c,Date.now());nova();alerta(c.ok,c.cod);}
 async function scan(file){try{const bd=new BarcodeDetector();const b=await createImageBitmap(file);const r=await bd.detect(b);
   if(r.length)conferirCod(r[0].rawValue);else toast('Não achei código na foto. Digite o código.');}catch(e){toast('Leitor falhou. Digite o código.');}}
 async function salvar(enviar){if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,volume:+f.vt.volume||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
@@ -256,7 +275,7 @@ function loc(){const l=locGet(),c=locCont();$('#main').innerHTML=`<div class="ca
  <p style="font-size:24px;margin:8px 0">📦 Total contado: <b>${c.t}</b></p>
  <p style="font-size:20px;margin:8px 0"><span style="color:#1b8a3a">✅ Códigos achados: <b>${c.a}</b></span> · <span style="color:#c62828">⏳ Faltam: <b>${c.f}</b></span></p><small>Códigos na lista: ${c.n}</small></div>
  <button class="big ok" id="locCam" style="font-size:24px;padding:22px">📷 Procurar e contar com a câmera</button>
- <p><small>Passe a câmera devagar pelas caixas. Cada código da lista que aparecer soma +1, apita, vibra e fica verde. A mesma etiqueta parada na frente da câmera não conta de novo: tire da frente e espere uns 3 segundos.</small></p>
+ <p><small>Passe a câmera devagar pelas caixas. Cada código da lista que aparecer soma +1, apita, vibra e fica verde. Segure parado: cada código só conta depois de 10 leituras iguais. A mesma etiqueta parada não conta de novo: tire da frente e coloque de novo.</small></p>
  ${window.AndroidScan?'':`<button class="big alt" id="locBip">${localStorage.getItem('locBip')==='0'?'🔇 Bipe: DESLIGADO':'🔊 Bipe: LIGADO'}</button>`}
  <label>Colar a lista (pode colar a tabela do e-mail: SAP, descrição e peças)</label><textarea id="locTxt" rows="4" placeholder="ABC123&#10;7891234567890"></textarea>
  <button class="big" id="locAdd">➕ Colocar na lista</button><button class="big alt" id="locFoto">📷 Ler print/foto da tabela</button><input type="file" id="locImg" accept="image/*" hidden><button class="big alt" id="locArq">📄 Importar arquivo TXT/CSV</button><input type="file" id="locFile" accept=".csv,.txt,text/plain,text/csv" hidden>
@@ -290,14 +309,14 @@ function locCamera(){const l=locGet();if(!l.length)return toast('Coloque os cód
   if(window.AndroidScan&&window.AndroidScan.abrirLocalizar){try{window.AndroidScan.abrirLocalizar(JSON.stringify(l));return;}catch(e){}}
   abrirScanner(null,{titulo:'Localizar e contar',noBip:()=>localStorage.getItem('locBip')==='0',cool:2500,match:t=>L.locCasa(t,locGet()),
     onItem:(cod,raw)=>{const n=locSoma(cod,1);locUlt(cod,raw);const x=locGet().find(i=>i.cod===cod);if(x&&x.alvo&&n===x.alvo){bip();setTimeout(bip,200);toast('✅ '+cod+' COMPLETO');}return x&&x.alvo?n+' de '+x.alvo:n;},zerar:window.locZerar,onFim:()=>{if(tab==='loc')loc();}});}
-window.voltar=()=>{if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
+window.voltar=()=>{if(RC)return fecharRom();if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
 function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora / Fornecedor'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Receb.</th><th>Volumes</th><th>Paletes</th><th>Vol.</th></tr>`+
   Object.entries(o).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.reg}</td><td>${v.coleta}</td><td>${v.saida}</td><td>${v.receb||0}</td><td>${v.vol}</td><td>${v.palete||0}</td><td>${v.volume||0}</td></tr>`).join('')+'</table></div>';
   $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora / fornecedor')}
   <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
-function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.1.0</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 29/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?`<div class="card"><b id="nvStatus">☁️ Nuvem</b>${Nuvem.on?'':'<button class="big" id="nvEntrar">☁️ Entrar na equipe</button>'}${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
+function sobre(){$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.2.0</p><p><b>Criador:</b> Rodolfo Pereira</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 30/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:14px">© 2026 Rodolfo Pereira</p></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?`<div class="card"><b id="nvStatus">☁️ Nuvem</b>${Nuvem.on?'':'<button class="big" id="nvEntrar">☁️ Entrar na equipe</button>'}${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.tipo){f.tipo=d.tipo;nova();}else if(d.cli!==undefined){f.cliente=d.cli;nova();}else if(d.forn!==undefined){f.forn=d.forn;nova();}
@@ -311,9 +330,10 @@ document.addEventListener('click',e=>{const t=e.target.closest('button,[data-ope
   else if(d.foto){fotoAlvo=d.foto;$('#cam').value='';$('#cam').onchange=async ev=>{for(const fl of ev.target.files){const u=await compress(fl);if(u)f[fotoAlvo].push(u);}nova();};$('#cam').click();}
   else if(d.del){f[d.del].splice(+d.i,1);nova();}else if(d.open){if(hist.sel){hist.sel.has(d.open)?hist.sel.delete(d.open):hist.sel.add(d.open);lista();$('#selN').textContent=hist.sel.size;document.querySelectorAll('.selN2').forEach(x=>x.textContent=hist.sel.size);}else{detalhe=d.open;render();}}
   else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr)abrirScanner(d.ocr);
-  else if(t.id==='confScan'){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&scan(ev.target.files[0]);};$('#cam').click();}
+  else if(t.id==='confScan')abrirScanner('lido');
   else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{const tp=f.tipo;f=novo();f.tipo=tp;nova();toast('🔄 Tela limpa');},'Sim, limpar');
   else if(t.id==='lerRom')lerRomaneio();
+  else if(d.confit!==undefined)confOpcoes(+d.confit);
   else if(d.confrm!==undefined){f.confLidos.splice(+d.confrm,1);nova();}
   else if(t.id==='confLimpar')confirmar('Limpar a lista de produtos conferidos?',()=>{f.confLidos=[];nova();},'Sim, limpar');
   else if(t.id==='nvEntrar'){Nuvem.pedirEntrada();}
@@ -360,17 +380,63 @@ function renomearModal(velho,receb){const m=$('#modal');
 
 function autoCls(k){return (f.auto||[]).includes(k)?' style="background:#fff3a0"':'';}
 function autoDica(k){return (f.auto||[]).includes(k)?'<small style="color:#a07000">⚠️ preenchido pelo romaneio, confira</small>':'';}
+// v4.2: lista pequena dos códigos lidos (abre e fecha); tocar no código abre opções
+function confMiniHTML(l){l=l||[];if(!l.length)return '';
+  return `<details class="confMini"><summary style="padding:8px 0">📋 Códigos lidos: <b>${L.confResumo(l)}</b> <small>(toque para ver)</small></summary>${l.map((x,i)=>`<button class="confIt" data-confit="${i}" style="display:block;width:100%;text-align:left;border:0;border-radius:8px;margin:3px 0;padding:8px;font-size:17px;background:${x.ok?'#dff5e3':'#fde0e0'};color:${x.ok?'#14632b':'#9b1c1c'}">${x.ok?'✅':'❌'} <b>${esc(x.cod)}</b> <small>${x.ts?L.fmtHora(x.ts):''}${(x.n||1)>1?' · '+x.n+' vezes':''}</small></button>`).join('')}<button class="big alt" id="confLimpar">🔄 Limpar lista</button></details>`;}
+let relerIdx=-1;
+function confOpcoes(i){const x=f.confLidos[i];if(!x)return;const m=$('#modal');
+  m.innerHTML=`<div style="text-align:center"><p style="font-size:30px;margin:6px 0"><b>${esc(x.cod)}</b></p><p>${x.ok?'✅ Confere':'❌ Diferente'}</p>
+  <button class="big" id="coLer">🔁 Ler de novo</button><button class="big alt" id="coCor">✏️ Corrigir</button><button class="big red" id="coRem">❌ Remover</button><button class="big alt" id="coX">Voltar</button></div>`;m.classList.add('on');
+  $('#coX').onclick=()=>m.classList.remove('on');
+  $('#coRem').onclick=()=>{m.classList.remove('on');f.confLidos.splice(i,1);nova();toast('Código removido');};
+  $('#coLer').onclick=()=>{m.classList.remove('on');relerIdx=i;abrirScanner('lido');};
+  $('#coCor').onclick=()=>{m.innerHTML=`<div><label>Corrigir código</label><input id="coVal" style="text-transform:uppercase;font-size:26px" value="${esc(x.cod)}"><button class="big ok" id="coOk">✅ Salvar</button><button class="big alt" id="coX2">Cancelar</button></div>`;
+    $('#coX2').onclick=()=>m.classList.remove('on');$('#coOk').onclick=()=>{const v=$('#coVal').value.trim().toUpperCase();m.classList.remove('on');if(!v)return;relerIdx=i;conferirCod(v);};};}
 function confListaHTML(l,ed){l=l||[];if(!l.length)return '';
   return `<div class="card" style="padding:10px"><b>📦 Produtos conferidos</b><p style="margin:4px 0"><b>${L.confResumo(l)}</b></p>${l.map((x,i)=>`<div class="row" style="align-items:center;border-radius:8px;margin:4px 0;padding:6px;background:${x.ok?'#dff5e3':'#fde0e0'};color:${x.ok?'#14632b':'#9b1c1c'}"><span style="flex:1">${x.ok?'✅':'❌'} <b>${esc(x.cod)}</b><br><small>${x.ts?L.fmtHora(x.ts):''}${(x.n||1)>1?' · '+x.n+' vezes':''}</small></span>${ed?`<button class="red" data-confrm="${i}" style="flex:0 0 56px;margin:0">🗑</button>`:''}</div>`).join('')}${ed?'<button class="big alt" id="confLimpar">🔄 Limpar lista</button>':''}</div>`;}
-function lerRomaneio(){const m=$('#modal');m.innerHTML='<p style="font-size:20px;margin-top:0"><b>📷 Ler romaneio</b></p><p>O app lê as NFs, os volumes e a placa e preenche só o que estiver vazio.</p><button class="big ok" id="rmCam">📷 Tirar foto</button><button class="big alt" id="rmGal">🖼 Escolher da galeria</button><button class="big alt" id="rmX">Cancelar</button>';m.classList.add('on');
-  const pega=cam=>{const i=document.createElement('input');i.type='file';i.accept='image/*';if(cam)i.setAttribute('capture','environment');i.onchange=()=>{m.classList.remove('on');i.files[0]&&lerRomFoto(i.files[0]);};i.click();};
-  $('#rmCam').onclick=()=>pega(1);$('#rmGal').onclick=()=>pega(0);$('#rmX').onclick=()=>m.classList.remove('on');}
-async function lerRomFoto(file){toast('Lendo o romaneio...');try{const d=await compress(file);if(!d)throw 0;let txt;
-  if(window.AndroidOcr&&window.AndroidOcr.lerLinhas){const js=await new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.lerLinhas(d,id);});txt=L.ocrLinhas(JSON.parse(js||'[]'));}else txt=await ocrTexto(d);
-  const r=L.preencherVazios(f,L.lerRomaneio(txt),clientes());f.auto=[...new Set((f.auto||[]).concat(r.auto))];nova();
-  const m=$('#modal');m.innerHTML=`<p style="font-size:20px;margin-top:0"><b>🧾 Romaneio lido</b></p>${r.pre.length?'<p>✅ Preenchi: <b>'+esc(r.pre.join(', '))+'</b><br><small>Confira os campos em amarelo.</small></p>':'<p>Não preenchi nada novo (os campos já tinham valor ou não achei).</p>'}${r.falta.length?'<p>❓ Não achei: '+esc(r.falta.join(', '))+'</p>':''}${r.nova?'<button class="big alt" id="rmAdd">➕ Adicionar "'+esc(r.nova)+'" às transportadoras</button>':''}<button class="big ok" id="rmOk">Ok</button>`;m.classList.add('on');$('#rmOk').onclick=()=>m.classList.remove('on');
-  if(r.nova)$('#rmAdd').onclick=()=>{const l=clientes();if(!l.some(c=>L.semAcento(c)===L.semAcento(r.nova)))setClientes(l.concat(r.nova));if(!f.cliente.trim()){f.cliente=r.nova;f.auto=(f.auto||[]).concat('cliente');}m.classList.remove('on');toast('Transportadora adicionada');nova();};
-  }catch(e){toast('Não consegui ler a foto. Tente com mais luz e mais perto.');}}
+// ===== v4.2: 📷 Ler romaneio (câmera com moldura da folha + leitura por campo + conferência) =====
+let RC=null;
+function fecharRom(){if(!RC)return;try{RC.stream&&RC.stream.getTracks().forEach(t=>t.stop());}catch(e){}const o=$('#romCam');o&&o.remove();RC=null;}
+function romGaleria(cam){const i=document.createElement('input');i.type='file';i.accept='image/*';if(cam)i.setAttribute('capture','environment');i.onchange=()=>{i.files[0]&&compress(i.files[0]).then(d=>d?lerRomImg(d,null):toast('Não consegui abrir a foto.'));};i.click();}
+async function lerRomaneio(){
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))return romGaleria(1);
+  const o=document.createElement('div');o.id='romCam';o.className='scanner';o.style.cssText='position:fixed;inset:0;background:#000;z-index:60';
+  o.innerHTML=`<video id="rcVid" playsinline muted autoplay style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-bottom:120px"><div id="rcBox" style="height:68%;aspect-ratio:${L.ROM.aspecto.toFixed(4)};max-width:90%;border:4px solid #3f3;border-radius:6px;box-shadow:0 0 0 2000px #0009"></div></div>
+  <div style="position:absolute;top:0;left:0;right:0;color:#fff;text-align:center;padding:14px;font-size:20px"><b>🧾 Ler romaneio</b><br><small>Encaixe a borda da tabela da folha no quadro verde. Folha reta e com luz.</small></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;padding:10px"><button class="big ok" id="rcFoto" style="font-size:24px">📸 Fotografar</button><div class="row"><button class="big alt" id="rcGal" style="margin:4px">🖼 Galeria</button><button class="big red" id="rcX" style="margin:4px">✖ Cancelar</button></div></div>`;
+  document.body.appendChild(o);RC={};
+  $('#rcX').onclick=fecharRom;$('#rcGal').onclick=()=>{fecharRom();romGaleria(0);};
+  try{RC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});}
+  catch(e){fecharRom();toast('Câmera não liberada. Usando foto.');return romGaleria(1);}
+  if(!RC){return;}const v=$('#rcVid');v.srcObject=RC.stream;try{await v.play();}catch(e){}
+  $('#rcFoto').onclick=()=>{const b=$('#rcBox');if(!v.videoWidth)return;const vr=v.getBoundingClientRect(),br=b.getBoundingClientRect(),k=Math.max(vr.width/v.videoWidth,vr.height/v.videoHeight);
+    const ox=(vr.width-v.videoWidth*k)/2,oy=(vr.height-v.videoHeight*k)/2;const sx=Math.max(0,(br.left-vr.left-ox)/k),sy=Math.max(0,(br.top-vr.top-oy)/k),sw=Math.min(v.videoWidth-sx,br.width/k),sh=Math.min(v.videoHeight-sy,br.height/k);
+    const c=document.createElement('canvas'),z=Math.min(1,1600/sh);c.width=Math.round(sw*z);c.height=Math.round(sh*z);c.getContext('2d').drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);
+    const d=c.toDataURL('image/jpeg',0.85);fecharRom();lerRomImg(d,true);};}
+async function lerRomImg(d,recorte){const m=$('#modal');m.innerHTML='<div style="text-align:center"><p style="font-size:26px">⏳ Lendo o romaneio...</p><p><small>Pode levar alguns segundos.</small></p></div>';m.classList.add('on');
+  try{const im=await new Promise((ok,er)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=er;i.src=d;});let ls=[],txt='';
+    if(window.AndroidOcr&&window.AndroidOcr.lerLinhas){const js=await new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.lerLinhas(d,id);});ls=JSON.parse(js||'[]');txt=L.ocrLinhas(ls);}
+    else if(window.AndroidOcr){txt=await ocrTexto(d);}
+    else{if(!window.Tesseract)await loadScript('ocr/tesseract.min.js');if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true});
+      const r=await tessW.recognize(d);const ws=(r.data.words||[]).map(w=>({t:w.text,x:w.bbox.x0,y:w.bbox.y0,w:w.bbox.x1-w.bbox.x0,h:w.bbox.y1-w.bbox.y0}));ls=L.juntarPalavras(ws);txt=L.ocrLinhas(ls)||r.data.text||'';}
+    let dd=L.romRegioes(ls,im.width,im.height);if(!recorte&&!dd.ancoras)dd={transp:'',motorista:'',placa:'',data:'',linhas:[],nfs:[],volume:''};
+    dd=L.romJuntar(dd,L.lerRomaneio(txt));
+    // a foto (com CPF) só fica nas fotos do romaneio, que só a equipe autorizada vê
+    f.romaneio.push(await romFoto(d));romRevisar(dd);}
+  catch(e){m.classList.remove('on');toast('Não consegui ler a foto. Tente com mais luz e mais perto.');}}
+async function romFoto(d){try{const b=await (await fetch(d)).blob();return (await compress(b))||d;}catch(e){return d;}}
+function romRevisar(d){const m=$('#modal'),ls=d.linhas||[],uni=a=>a.filter((x,i)=>x&&a.indexOf(x)===i).join(', ');
+  const campo=(id,rot,val,dica)=>`<label>${rot}</label><input id="${id}" value="${esc(val||'')}" style="font-size:20px">${dica?'<small style="color:#a07000">'+dica+'</small>':''}`;
+  m.innerHTML=`<div><p style="font-size:22px;margin-top:0"><b>🧾 Confira o romaneio</b></p><p><small>Corrija o que estiver errado. O que foi escrito à mão pode vir errado. O CPF não é copiado.</small></p>
+  ${campo('rvTra','Transportadora',d.transp)}${campo('rvNfs','NFs (separe com -)',(d.nfs||[]).join('-'))}${campo('rvVol','Volumes (total)',d.volume)}
+  ${campo('rvCli','Cliente(s)',uni(ls.map(x=>x.cliente)))}${campo('rvRas','Rastreio',uni(ls.map(x=>x.rastreio)))}
+  ${campo('rvPla','Placa',d.placa,'✍️ escrito à mão, confira')}${campo('rvMot','Motorista',d.motorista,'✍️ escrito à mão, confira')}${campo('rvDat','Data do romaneio',d.data,'✍️ escrito à mão, confira')}
+  <button class="big ok" id="rvOk" style="font-size:24px">✅ Usar estes dados</button><button class="big alt" id="rvX">Cancelar</button></div>`;m.classList.add('on');
+  $('#rvX').onclick=()=>{m.classList.remove('on');nova();toast('A foto do romaneio ficou salva. Nada foi preenchido.');};
+  $('#rvOk').onclick=()=>{const g=id=>$('#'+id).value;const r=L.romAplicar(f,{transp:g('rvTra'),nfs:g('rvNfs'),volume:g('rvVol'),clientes:g('rvCli'),rastreio:g('rvRas'),placa:g('rvPla'),motorista:g('rvMot'),data:g('rvDat')},clientes());
+    if(r.nova){const l=clientes();if(!l.some(c=>L.semAcento(c)===L.semAcento(r.nova)))setClientes(l.concat(r.nova));}
+    f.auto=[...new Set((f.auto||[]).concat(r.auto))];m.classList.remove('on');nova();toast('Romaneio preenchido. Confira os campos em amarelo.');};}
 
 // ===== v4.1: foto leve para a nuvem (~150 KB) =====
 function fotoLeve(d){return new Promise(ok=>{if(L.tamDataUrl(d)<=L.FOTO_ALVO)return ok(d);const i=new Image();

@@ -266,5 +266,69 @@ function preencherVazios(f,d,lista){const pre=[],falta=[],auto=[];let nova='';
   if(!d.volume)falta.push('volumes');else if(vazio(f.vt&&f.vt.volume)){f.vt.volume=d.volume;pre.push(d.volume+' volumes');auto.push('volume');}
   if(!d.placa)falta.push(d.placaRotulo?'placa não lida, digite':'placa');else if(vazio(f.placa)){f.placa=d.placa;pre.push('placa '+d.placa);auto.push('placa');}
   return{pre,falta,auto,nova};}
-const L={nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
+// ===== v4.2: leitura confirmada, quadro e correção de letras/números =====
+const LEITURAS=10;
+function estavel(st,key,n){n=n||LEITURAS;key=key?String(key):'';if(!key)return {k:'',c:0,ok:false};const c=st&&st.k===key?st.c+1:1;return {k:key,c,ok:c>=n};}
+// contagem por código (modo contínuo): conta quando o código aparece 10 vezes seguidas
+function estavelMulti(st,codes,n){n=n||LEITURAS;const o={},ok=[];for(const c of codes||[]){o[c]=((st||{})[c]||0)+1;if(o[c]===n)ok.push(c);}return {st:o,ok};}
+function longeTxt(hLinha,hQuadro){return !!(hLinha&&hQuadro)&&hLinha/hQuadro<0.08;}
+function longeBar(wCod,wQuadro){return !!(wCod&&wQuadro)&&wCod/wQuadro<0.25;}
+const TROCA={O:'0','0':'O',I:'1','1':'I',S:'5','5':'S',B:'8','8':'B',Z:'2','2':'Z'};
+function corrigirOCR(c,esp){c=normCod(c).replace(/\s+/g,'');for(const e0 of esp||[]){const e=normCod(e0);if(!e||e.length!==c.length)continue;let ok=true;
+  for(let i=0;i<e.length;i++){if(c[i]===e[i])continue;if(TROCA[c[i]]!==e[i]){ok=false;break;}}if(ok)return e;}return c;}
+// ===== v4.2: romaneio por regiões (modelo Qlog "Romaneio de Saída") =====
+// coordenadas relativas à borda da tabela (u = 0..1 da esquerda p/ direita, v = 0..1 de cima p/ baixo)
+const ROM={split:0.66,cols:[0,0.1747,0.4700,0.66,1],v:{mot:[0.1305,0.1697],ass:[0.1697,0.2089],tra:[0.2089,0.2480],tip:[0.2480,0.2872],tab:[0.3264,0.9530]},rowH:0.03916,aspecto:515.27/766};
+const ROM_ANC=[[/^MOTORISTA/,'L',0.0078,0.150],[/^ASSINATURA/,'L',0.0078,0.189],[/^TRANSPORTADORA/,'L',0.0078,0.228],[/^TIPO DE VE/,'L',0.0078,0.267],
+  [/^CPF/,'L',0.668,0.150],[/^B ?U\b/,'L',0.668,0.189],[/^PLACA/,'L',0.668,0.267],[/^RESPONSAVEL/,'L',0.0078,0.976],[/^DATA\b/,'L',0.668,0.976],
+  [/^NFS$/,'C',0.0873,0.307],[/^CLIENTE$/,'C',0.3224,0.307],[/^RASTREIO$/,'C',0.5651,0.307],[/^VOLUME$/,'C',0.830,0.307],[/^ROMANEIO DE SAIDA$/,'C',0.5,0.111]];
+const ROM_ROT=[['mot',/^\W*MOTORISTA\s*[:;.]?/i],['cpf',/^\W*CPF/i],['ass',/^\W*ASSINATURA/i],['bu',/^\W*B\.?\s?U\b\s*[:;.]?/i],['tra',/^\W*TRANSPORTADORA\s*[:;.]?/i],
+  ['tip',/^\W*TIPO\s+DE\s+VE[IÍ]CULO\s*[:;.]?/i],['pla',/^\W*PLACA\s*[:;.]?/i],['res',/^\W*RESPONS[AÁ]VEL(\s+CARREGAMENTO)?\s*[:;.]?/i],['dat',/^\W*DATA\s*[:;.]?/i]];
+const SEM_CPF=s=>String(s||'').replace(/\d{3}\.?\d{3}\.?\d{3}\s*-?\s*\d{2}/g,' ').replace(/\b\d{11}\b/g,' ');
+function ajuste(p){if(!p.length)return null;const n=p.length,mu=p.reduce((a,q)=>a+q[0],0)/n,mx=p.reduce((a,q)=>a+q[1],0)/n;let sxx=0,sxy=0;p.forEach(q=>{sxx+=(q[0]-mu)**2;sxy+=(q[0]-mu)*(q[1]-mx);});
+  if(sxx<0.02)return null;const a=sxy/sxx;return a>0?{a,b:mx-a*mu}:null;}
+// linhas: [{t,x,y,w,h}] em pixels da imagem; W,H = tamanho da imagem (recortada no quadro)
+function romRegioes(linhas,W,H){const ls=(linhas||[]).filter(l=>l&&String(l.t||'').trim()).map(l=>({t:String(l.t).trim(),x:+l.x||0,y:+l.y||0,w:+l.w||0,h:+l.h||10}));
+  const px=[],py=[];for(const l of ls){const k=semAcento(l.t).toUpperCase();for(const [re,m,u,v] of ROM_ANC)if(re.test(k)){if(m==='L')px.push([u,l.x]);else if(l.w)px.push([u,l.x+l.w/2]);py.push([v,l.y+l.h/2]);break;}}
+  const fx=ajuste(px)||{a:W||1,b:0},fy=ajuste(py)||{a:H||1,b:0};
+  const out={mot:[],tra:[],tip:[],pla:[],dat:[],rows:{}};
+  const put=(k,u,t)=>{if(out[k])out[k].push({u,t});};
+  for(const l of ls){let t=l.t,lab='';for(const [k,re] of ROM_ROT)if(re.test(t)){lab=k;t=t.replace(re,'');break;}
+    if(lab==='mot')t=t.split(/\bCPF\b/i)[0];if(lab==='tip'&&/PLACA/i.test(t)){const [a,b]=t.split(/PLACA\s*[:;.]?/i);put('pla',1,b);t=a;}if(lab==='res'&&/DATA/i.test(t)){put('dat',1,t.split(/DATA\s*[:;.]?/i)[1]);continue;}
+    t=SEM_CPF(t).trim();const u=((l.x+(l.w||0)/2)-fx.b)/fx.a,v=((l.y+l.h/2)-fy.b)/fy.a;
+    if(lab){if(['cpf','ass','bu','res'].includes(lab))continue;if(t)put(lab,u,t);continue;}
+    if(!t||/^(NFS?|CLIENTE|RASTREIO|VOLUME|QLOG|ROMANEIO.*)$/i.test(semAcento(t).toUpperCase()))continue;
+    const V=ROM.v,dentro=r=>v>=r[0]&&v<r[1];
+    if(dentro(V.mot)){if(u<ROM.split)put('mot',u,t);}else if(dentro(V.ass))continue;else if(dentro(V.tra))put('tra',u,t);
+    else if(dentro(V.tip))put(u<ROM.split?'tip':'pla',u,t);
+    else if(dentro(V.tab)){const i=Math.floor((v-V.tab[0])/ROM.rowH),c=Math.max(0,ROM.cols.findIndex((x,j)=>u>=x&&u<ROM.cols[j+1]));(out.rows[i]=out.rows[i]||[[],[],[],[]])[c].push({u,t});}
+    else if(v>=V.tab[1]&&u>=ROM.split)put('dat',u,t);}
+  const J=a=>(a||[]).sort((p,q)=>p.u-q.u).map(x=>String(x.t).trim()).filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+  const linhasTab=Object.keys(out.rows).map(Number).sort((a,b)=>a-b).map(i=>{const r=out.rows[i];const nf=(J(r[0]).match(/\d{2,9}/)||[''])[0].replace(/^0+(?=\d)/,'');const vm=J(r[3]).match(/\d{1,5}/);
+    return {nf,cliente:J(r[1]),rastreio:J(r[2]),volume:vm?vm[0]:''};}).filter(r=>r.nf||r.cliente||r.rastreio||r.volume);
+  const nfs=[];linhasTab.forEach(r=>{if(r.nf&&!nfs.includes(r.nf))nfs.push(r.nf);});
+  const cv=linhasTab.filter(r=>r.volume);let volume='';if(cv.length&&cv.length===linhasTab.filter(r=>r.nf).length)volume=String(cv.reduce((a,r)=>a+(+r.volume),0));else if(cv.length===1)volume=cv[0].volume;
+  const pl=J(out.pla),placa=acharPlacas(pl).join(' / ')||(/^[A-Z0-9-]{7,8}$/i.test(pl.replace(/\s/g,''))?pl.replace(/\s/g,'').toUpperCase():'');
+  const dt=J(out.dat).match(/(\d{1,2})\s*[\/.\-\s]\s*(\d{1,2})\s*[\/.\-\s]\s*(\d{2,4})/);const data=dt?pad(dt[1])+'/'+pad(dt[2])+'/'+dt[3]:'';
+  const motorista=J(out.mot).replace(/[^A-Za-zÀ-ú .']/g,' ').replace(/\s+/g,' ').trim();
+  const transp=J(out.tra).replace(/[^A-Za-zÀ-ú0-9 &.\-]/g,' ').replace(/\s+/g,' ').trim();
+  return {transp,motorista,placa,data,tipo:J(out.tip),linhas:linhasTab,nfs,volume,ancoras:px.length+py.length};}
+// junta palavras soltas (Tesseract) em pedaços por linha, separando colunas distantes
+function juntarPalavras(ws){const a=(ws||[]).filter(w=>w&&String(w.t||'').trim()).map(w=>({t:String(w.t).trim(),x:+w.x||0,y:+w.y||0,w:+w.w||0,h:Math.max(1,+w.h||10)}));
+  a.sort((p,q)=>(p.y+p.h/2)-(q.y+q.h/2));const g=[];for(const l of a){const cy=l.y+l.h/2,r=g[g.length-1];if(r&&Math.abs(cy-r.cy)<Math.max(r.h,l.h)*0.6)r.c.push(l);else g.push({cy,h:l.h,c:[l]});}
+  const out=[];for(const r of g){r.c.sort((p,q)=>p.x-q.x);let cur=null;for(const w of r.c){if(cur&&w.x-(cur.x+cur.w)<1.5*Math.max(cur.h,w.h)){cur.t+=' '+w.t;cur.w=w.x+w.w-cur.x;cur.h=Math.max(cur.h,w.h);cur.y=Math.min(cur.y,w.y);}else{cur=Object.assign({},w);out.push(cur);}}}return out;}
+// mistura com a leitura antiga (texto corrido) só onde ficou vazio
+function romJuntar(d,velho){velho=velho||{};const o=Object.assign({},d);if(!o.nfs.length&&(velho.nfs||[]).length)o.nfs=velho.nfs.slice();if(!o.volume&&velho.volume)o.volume=velho.volume;
+  if(!o.placa&&velho.placa)o.placa=velho.placa;if(!o.transp&&velho.transp)o.transp=velho.transp;return o;}
+// tela de conferência -> formulário. Nunca leva CPF.
+function romAplicar(f,v,lista){const auto=[],t=s=>SEM_CPF(String(s==null?'':s)).replace(/\s+/g,' ').trim();
+  const tr=t(v.transp);if(tr){f.cliente=acharNaLista(tr,lista)||tr;auto.push('cliente');}
+  const n=parseNFs(t(v.nfs)).filter(x=>/^\d+$/.test(x)).map(x=>x.replace(/^0+(?=\d)/,''));if(n.length){f.nfs=n.join('-');auto.push('nfs');}
+  const vo=t(v.volume).match(/\d{1,5}/);if(vo){f.vt=f.vt||{};f.vt.volume=vo[0];auto.push('volume');}
+  const pl=t(v.placa).toUpperCase();if(pl){f.placa=pl;auto.push('placa');}
+  const mo=t(v.motorista).replace(/\d/g,'').trim();if(mo){f.motorista=mo;auto.push('motorista');}
+  const ex=[];if(t(v.clientes))ex.push('Cliente: '+t(v.clientes));if(t(v.rastreio))ex.push('Rastreio: '+t(v.rastreio));if(t(v.data))ex.push('Data do romaneio: '+t(v.data));
+  if(ex.length){const o=ex.join(' · ');if(!String(f.obs||'').includes(o))f.obs=(String(f.obs||'').trim()?String(f.obs).trim()+' · ':'')+o;}
+  return {auto,nova:tr&&!acharNaLista(tr,lista)?tr:''};}
+const L={LEITURAS,estavel,estavelMulti,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
