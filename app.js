@@ -79,8 +79,8 @@ async function ocrTexto(dataUrl){
   if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true,
     logger:m=>{if(m.status==='recognizing text')ocrProg(m.progress);}});
   const r=await tessW.recognize(dataUrl);return r.data.text||'';}
-function ocrModal(alvo,cands,texto){const esp=L.parseCods(f.confEsp);
-  if(alvo==='lido'&&esp.length){cands=cands.map(c=>L.corrigirOCR(c,esp));const m=L.casarEsperado(cands,esp);cands=m.concat(cands.filter(c=>!m.includes(c)));cands=cands.filter((c,i)=>cands.indexOf(c)===i);}
+function ocrModal(alvo,cands,texto,modo){const esp=L.parseCods(f.confEsp);
+  if(alvo==='lido'&&esp.length&&(!modo||modo==='texto')){cands=cands.map(c=>L.corrigirOCR(c,esp));const m=L.casarEsperado(cands,esp);cands=m.concat(cands.filter(c=>!m.includes(c)));cands=cands.filter((c,i)=>cands.indexOf(c)===i);}
   const m=$('#modal'),cod=cands[0]||'';
   m.innerHTML=`<div style="text-align:center"><p style="font-size:20px;margin-top:0"><b>${alvo==='esp'?'Código da NF':'Código da etiqueta'}</b></p>
   ${cod?`<p>Código lido:</p><div id="ocrBig" style="font-size:44px;font-weight:bold;letter-spacing:3px;word-break:break-all;background:#eef3f8;border-radius:12px;padding:14px">${esc(cod)}</div>`:'<p>Não achei código. Digite abaixo.</p>'}
@@ -101,6 +101,27 @@ function fotoOcr(al){$('#cam').value='';$('#cam').removeAttribute('multiple');$(
 let SC=null;
 function fecharScanner(){if(!SC)return;const mu=SC.multi;SC.on=false;setTimeout(()=>mu&&mu.onFim(),0);clearTimeout(SC.h);try{SC.stream&&SC.stream.getTracks().forEach(t=>t.stop());}catch(e){}const o=$('#scanner');o&&o.remove();SC=null;}
 const scanCbs={};let scanSeq=0;
+// v4.3.0: tipo de leitura escolhido em cada tela (barras / texto / QR), lembrado no celular
+function scanModoGet(k){try{return L.scanModoOk(localStorage.getItem(k));}catch(e){return 'barra';}}
+function scanModoSet(k,m){try{localStorage.setItem(k,L.scanModoOk(m));}catch(e){}}
+window.scanModoSalvo=(k,m)=>{if(k)scanModoSet(k,m);};
+function scModosHTML(m){return '<div class="scModos">'+L.SCAN_MODOS.map(x=>`<button type="button" data-scmodo="${x.id}" class="${x.id===m?'on':''}">${x.nome}</button>`).join('')+'</div>';}
+let zxP=null;function zxCarregar(){return zxP||(zxP=loadScript('zxing/zxing.min.js'));}
+function zxLer(c,m){const Z=window.ZXing;if(!Z)return [];const h=new Map();h.set(Z.DecodeHintType.POSSIBLE_FORMATS,L.zxFormatosModo(m).map(x=>Z.BarcodeFormat[x]));h.set(Z.DecodeHintType.TRY_HARDER,true);
+  const rd=m==='qr'?new Z.QRCodeReader():new Z.MultiFormatOneDReader(h);try{const r=rd.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c))),h);
+    if(!L.zxFormatosModo(m).map(x=>Z.BarcodeFormat[x]).includes(r.getBarcodeFormat()))return [];
+    const xs=(r.getResultPoints()||[]).map(p=>p.getX());return [{v:String(r.getText()||'').trim(),w:xs.length>1?Math.max(...xs)-Math.min(...xs):0}];}catch(e){return [];}}
+async function scDetector(me){const m=me.modo;if(!HAS_BD)return null;me.bds=me.bds||{};if(m in me.bds)return me.bds[m];
+  let d=null;try{const sup=BarcodeDetector.getSupportedFormats?await BarcodeDetector.getSupportedFormats():L.formatosModo(m);const fm=L.formatosModo(m).filter(x=>sup.includes(x));if(fm.length)d=new BarcodeDetector({formats:fm});}catch(e){d=null;}
+  me.bds[m]=d;return d;}
+// lê só o tipo escolhido: barras/QR = valor exato; texto = OCR
+async function scDetectar(me,c){const m=me.modo;let cands=[],texto='',longe=false;
+  if(m==='texto'){const o=await ocrCaixas(c.toDataURL('image/jpeg',0.85));texto=o.texto;cands=L.extrairCods(texto);
+    const hs=o.ls.filter(l=>L.extrairCods(l.t).length).map(l=>l.h);if(cands.length&&hs.length&&L.longeTxt(Math.max(...hs),c.height))longe=true;return {cands,texto,longe};}
+  let r=[];const d=await scDetector(me);
+  if(d){try{r=(await d.detect(c)).filter(x=>!x.format||L.modoAceitaFormato(m,x.format)).map(x=>({v:String(x.rawValue||'').trim(),w:x.boundingBox&&x.boundingBox.width}));}catch(e){r=[];}}
+  else{try{await zxCarregar();}catch(e){}r=zxLer(c,m);}
+  r=r.filter(x=>x.v);cands=L.candsModo(m,r.map(x=>x.v).join('\n'));texto=cands.join('\n');if(r.length&&r.every(x=>L.longeBar(x.w,c.width)))longe=true;return {cands,texto,longe};}
 // ---- v2.8: leitura contínua (Recebimento). Android = ScanActivity modo multi; iPhone/PWA = loop JS ----
 const multiCbs={};
 function bip(){try{const A=window.AudioContext||window.webkitAudioContext;if(A){bip.c=bip.c||new A();const o=bip.c.createOscillator(),g=bip.c.createGain();o.frequency.value=1800;g.gain.value=0.2;o.connect(g);g.connect(bip.c.destination);o.start();o.stop(bip.c.currentTime+0.12);}}catch(e){}try{navigator.vibrate&&navigator.vibrate(80);}catch(e){}}
@@ -110,27 +131,29 @@ window.scanFim=(id,json,err)=>{const c=multiCbs[id];if(!c)return;delete multiCbs
   if(err==='permissao')toast('Câmera não liberada.');else if(err&&err!=='cancelado')toast('Scanner falhou: '+err);c.onFim();};
 function abrirMulti(titulo,onItem,onFim,atuais){
   if(window.AndroidScan&&window.AndroidScan.abrirMulti){const id='m'+(++scanSeq);multiCbs[id]={onItem,onFim,got:{}};
-    try{window.AndroidScan.abrirMulti(id,titulo,JSON.stringify(atuais||[]));return;}catch(e){delete multiCbs[id];}}
+    try{const ch=L.scanChave(null,titulo);if(window.AndroidScan.abrirMultiModo)window.AndroidScan.abrirMultiModo(id,titulo,JSON.stringify(atuais||[]),scanModoGet(ch),ch);else window.AndroidScan.abrirMulti(id,titulo,JSON.stringify(atuais||[]));return;}catch(e){delete multiCbs[id];}}
   abrirScanner(null,{titulo,onItem,onFim});}
 window.scanResult=(id,text,err)=>{const al=scanCbs[id];if(!al)return;delete scanCbs[id];
   if(err==='foto')return fotoOcr(al);if(err==='cancelado')return;if(err==='permissao'){toast('Câmera não liberada. Usando foto.');return fotoOcr(al);}
   if(err||text==null){toast('Scanner falhou. Usando foto.');return fotoOcr(al);}
-  ocrModal(al,L.extrairCods(text),text);};
+  const md=scanModoGet(L.scanChave(al));ocrModal(al,L.candsModo(md,text),text,md);};
 async function abrirScanner(al,multi){
-  if(window.AndroidScan&&!multi){const id='s'+(++scanSeq);scanCbs[id]=al;try{window.AndroidScan.abrir(id,al==='esp'?'Código da NF':'Código da etiqueta');}catch(e){delete scanCbs[id];fotoOcr(al);}return;}
+  if(window.AndroidScan&&!multi){const id='s'+(++scanSeq);scanCbs[id]=al;try{const tt=al==='esp'?'Código da NF':'Código da etiqueta',ch=L.scanChave(al);if(window.AndroidScan.abrirModo)window.AndroidScan.abrirModo(id,tt,scanModoGet(ch),ch);else window.AndroidScan.abrir(id,tt);}catch(e){delete scanCbs[id];fotoOcr(al);}return;}
   if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){if(multi){toast('Câmera ao vivo indisponível. Digite os códigos.');return multi.onFim();}return fotoOcr(al);}
   const o=document.createElement('div');o.id='scanner';
   o.innerHTML=`<video id="scVid" playsinline muted autoplay></video><div class="scMask"><div class="scBox" id="scBox"></div></div>
-  <div class="scTop">${multi?esc(multi.titulo):al==='esp'?'Código da NF':'Código da etiqueta'}<br><small id="scMsg">Aponte o código dentro do quadro</small><div id="scLast" class="scLast"></div></div>
+  <div class="scTop">${multi?esc(multi.titulo):al==='esp'?'Código da NF':'Código da etiqueta'}${scModosHTML(scanModoGet(L.scanChave(al,multi&&multi.titulo)))}<small id="scMsg">Aponte o código dentro do quadro</small><div id="scLast" class="scLast"></div></div>
   <div class="scBot">${multi?(multi.zerar?'<button class="big alt" id="scZera">🔄 Zerar</button>':'')+'<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big ok" id="scFim">✔ Concluir</button>':`<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big alt" id="scFoto">📷 Tirar foto</button><button class="big red" id="scCancel">✖ Cancelar</button>`}</div>`;
-  document.body.appendChild(o);SC={on:true,al,busy:false,torch:false,multi,seen:{}};
+  document.body.appendChild(o);const sch=L.scanChave(al,multi&&multi.titulo);SC={on:true,al,busy:false,torch:false,multi,seen:{},chave:sch,modo:scanModoGet(sch)};
+  o.querySelectorAll('[data-scmodo]').forEach(b=>b.onclick=()=>{if(!SC)return;SC.modo=L.scanModoOk(b.dataset.scmodo);scanModoSet(SC.chave,SC.modo);SC.st=null;SC.ms={};
+    o.querySelectorAll('[data-scmodo]').forEach(x=>x.classList.toggle('on',x===b));scMsg('Aponte o código dentro do quadro');});
   if(multi)$('#scFim').onclick=fecharScanner;if($('#scZera'))$('#scZera').onclick=()=>{if(confirm('Zerar a contagem? A lista continua.')){multi.zerar();SC.seen={};SC.ms={};const z=$('#scLast');if(z)z.textContent='Contagem zerada';}};else{$('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};}
   let st;try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});}
   catch(e){fecharScanner();if(multi){toast('Câmera ao vivo não liberada. Digite os códigos.');return;}toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
   if(!SC||!SC.on){st.getTracks().forEach(t=>t.stop());return;}SC.stream=st;
   const v=$('#scVid');v.srcObject=SC.stream;try{await v.play();}catch(e){}
   const tr=SC.stream.getVideoTracks()[0];try{if(tr.getCapabilities&&tr.getCapabilities().torch){const b=$('#scTorch');b.style.display='';b.onclick=async()=>{SC.torch=!SC.torch;try{await tr.applyConstraints({advanced:[{torch:SC.torch}]});b.textContent=SC.torch?'🔦 Desligar lanterna':'🔦 Lanterna';}catch(e){}};}}catch(e){}
-  SC.bd=HAS_BD?new BarcodeDetector():null;scLoop();}
+  scLoop();}
 function scCrop(){const v=$('#scVid'),b=$('#scBox');if(!v||!v.videoWidth)return null;
   const vr=v.getBoundingClientRect(),br=b.getBoundingClientRect(),k=Math.max(vr.width/v.videoWidth,vr.height/v.videoHeight);
   const ox=(vr.width-v.videoWidth*k)/2,oy=(vr.height-v.videoHeight*k)/2;
@@ -145,11 +168,7 @@ async function ocrCaixas(url){
   const r=await tessW.recognize(url);const ls=(r.data.lines||[]).map(l=>({t:l.text.trim(),x:l.bbox.x0,y:l.bbox.y0,w:l.bbox.x1-l.bbox.x0,h:l.bbox.y1-l.bbox.y0}));return {texto:r.data.text||'',ls};}
 function scMsg(t,cor){const m=$('#scMsg');if(m){m.textContent=t;m.style.color=cor||'';}}
 async function scLoop(){if(!SC||!SC.on)return;const me=SC;let rapido=false;
-  try{const c=scCrop();if(c){let cands=[],texto='',bars=false,longe=false;
-    if(me.bd){try{const r=await me.bd.detect(c);r.forEach(x=>{const t=String(x.rawValue||'').trim().toUpperCase();if(t&&!cands.includes(t))cands.push(t);});texto=cands.join('\n');bars=cands.length>0;
-      if(bars&&r.every(x=>x.boundingBox&&L.longeBar(x.boundingBox.width,c.width)))longe=true;}catch(e){}}
-    if(!cands.length||(me.multi&&me.multi.match&&!me.multi.match(texto).length)){const bt=texto;const o=await ocrCaixas(c.toDataURL('image/jpeg',0.85));texto=o.texto;cands=L.extrairCods(texto);
-      const hs=o.ls.filter(l=>L.extrairCods(l.t).length).map(l=>l.h);if(cands.length&&hs.length&&L.longeTxt(Math.max(...hs),c.height))longe=true;if(bt)texto=bt+'\n'+texto;}
+  try{const c=scCrop();if(c){const md=me.modo;const dt=await scDetectar(me,c);let {cands,texto,longe}=dt;const bars=md!=='texto';
     if(SC!==me||!me.on)return;
     if(longe){me.st=null;me.ms={};scMsg('🔍 Aproxime o celular','#ff0');}
     else if(me.multi){const acc=me.multi.match?me.multi.match(texto):cands.length?(bars?cands:[cands[0]]):[];
@@ -157,8 +176,8 @@ async function scLoop(){if(!SC||!SC.on)return;const me=SC;let rapido=false;
       if(acc.length&&!r.ok.length)scMsg('Lendo... '+Math.max(...acc.map(a=>r.st[a]))+'/'+L.LEITURAS+' · segure parado');
       for(const cd of r.ok){if(SC!==me||!me.on)break;const n=me.multi.onItem(cd,texto);if(!me.multi.noBip||!me.multi.noBip())bip();
         const z=$('#scLast'),tx2='✔ '+cd+'  ×'+n;if(z)z.textContent=tx2;toast(tx2);}}
-    else{const esp=me.al==='lido'?L.parseCods(f.confEsp):[];const key=cands.length?L.corrigirOCR(cands[0],esp):'';me.st=L.estavel(me.st,key);
-      if(me.st.ok){const al=me.al;fecharScanner();ocrModal(al,[key],texto);return;}
+    else{const esp=me.al==='lido'?L.parseCods(f.confEsp):[];const key=cands.length?(md==='texto'?L.corrigirOCR(cands[0],esp):cands[0]):'';me.st=L.estavel(me.st,key);
+      if(me.st.ok){const al=me.al;fecharScanner();ocrModal(al,[key],texto,md);return;}
       if(key){rapido=true;scMsg('Lendo... '+me.st.c+'/'+L.LEITURAS+' · segure parado');}else scMsg('Procurando código... coloque dentro do quadro');}}}catch(e){}
   if(SC===me&&me.on)me.h=setTimeout(scLoop,rapido?120:400);}
 async function lerTexto(file,alvo){const m=$('#modal');m.innerHTML='<div style="text-align:center"><p style="font-size:26px">⏳ Lendo texto...</p><p id="ocrPct" style="font-size:22px"></p><p><small>Pode levar alguns segundos.</small></p></div>';m.classList.add('on');
@@ -307,7 +326,7 @@ async function locFoto(fl){toast('Lendo a imagem...');try{const url=await new Pr
     const r=await tessW.recognize(url);const ls=(r.data.lines||[]).flatMap(l=>(l.words||[]).map(w=>({t:w.text,x:w.bbox.x0,y:w.bbox.y0,h:w.bbox.y1-w.bbox.y0})));txt=ls.length?L.ocrLinhas(ls):(r.data.text||'');}
   if(!txt.trim())return toast('Não achei texto na imagem. Tente um print mais nítido.');locPrev(txt);}catch(e){toast('Não consegui ler a imagem. Tente de novo.');}}
 function locCamera(){const l=locGet();if(!l.length)return toast('Coloque os códigos na lista primeiro');
-  if(window.AndroidScan&&window.AndroidScan.abrirLocalizar){try{window.AndroidScan.abrirLocalizar(JSON.stringify(l));return;}catch(e){}}
+  if(window.AndroidScan&&window.AndroidScan.abrirLocalizar){try{const ch=L.scanChave(null,'Localizar e contar');if(window.AndroidScan.abrirLocalizarModo)window.AndroidScan.abrirLocalizarModo(JSON.stringify(l),scanModoGet(ch),ch);else window.AndroidScan.abrirLocalizar(JSON.stringify(l));return;}catch(e){}}
   abrirScanner(null,{titulo:'Localizar e contar',noBip:()=>localStorage.getItem('locBip')==='0',cool:2500,match:t=>L.locCasa(t,locGet()),
     onItem:(cod,raw)=>{const n=locSoma(cod,1);locUlt(cod,raw);const x=locGet().find(i=>i.cod===cod);if(x&&x.alvo&&n===x.alvo){bip();setTimeout(bip,200);toast('✅ '+cod+' COMPLETO');}return x&&x.alvo?n+' de '+x.alvo:n;},zerar:window.locZerar,onFim:()=>{if(tab==='loc')loc();}});}
 window.voltar=()=>{if(RC)return fecharRom();if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
@@ -318,7 +337,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.2.9';let updNova=null,updChecou=0;
+const APP_V='4.3.0';let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();};
 function checarUpd(){if(Date.now()-updChecou<60000)return;updChecou=Date.now();try{if(window.AndroidUpd&&AndroidUpd.checar){AndroidUpd.checar();return;}
@@ -327,7 +346,7 @@ async function atualizarApp(){if(window.AndroidUpd){updMsg('Procurando versão n
   updMsg('Atualizando...',-1);try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.update().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
   location.replace(location.pathname+'?v='+Date.now());}
 window.nvMudou=()=>{if(tab==='sobre'&&!detalhe)render();};
-function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.2.9</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 30/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:12px">© 2026 Desenvolvedor Rodolfo Pereira</p></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}<div id="updBox">${updHTML()}</div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.admin?`<div class="card">${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
+function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.3.0</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 31/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:12px">© 2026 Desenvolvedor Rodolfo Pereira</p></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}<div id="updBox">${updHTML()}</div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.admin?`<div class="card">${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preventDefault();Nuvem.pedirEntrada();return;}const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(t.id==='updApp'){atualizarApp();return;}

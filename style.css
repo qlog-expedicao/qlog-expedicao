@@ -49,3 +49,7 @@ nav button.on{background:#0b4f8a;color:#fff;border-bottom:4px solid #3f8a5f}
 
 #avBanner{position:fixed;top:10px;left:10px;right:10px;background:#c62828;color:#fff;padding:14px;border-radius:12px;font-size:18px;z-index:13;display:none;box-shadow:0 4px 12px #0005;margin-top:env(safe-area-inset-top)}
 .estorno{background:#c62828}
+
+/* v4.3.0 tipo de leitura */
+.scModos{display:flex;gap:6px;margin:8px 0 4px;pointer-events:auto}.scModos button{flex:1;font-size:14px;font-weight:bold;padding:8px 4px;border-radius:10px;border:2px solid #fff;background:rgba(0,0,0,.55);color:#fff}.scModos button.on{background:#1b8a3a;border-color:#3f3}
+.scTop small{display:block}
