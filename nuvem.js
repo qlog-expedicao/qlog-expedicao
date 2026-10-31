@@ -20,7 +20,7 @@ async function papel(){N.admin=false;N.membro=false;
   if(N.admin||N.membro){N.on=true;await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();}
   else{N.on=false;N.pedirEntrada();}
   N.status();}
-N.status=()=>{N.checado=true;if(window.nvMudou)window.nvMudou();};
+N.status=()=>{setTimeout(()=>N.enviarFila&&N.enviarFila(),1500);N.checado=true;if(window.nvMudou)window.nvMudou();};
 // primeira abertura: nome + senha
 N.pedirEntrada=()=>{const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;m.dataset.nv='1';
   const cria=N.existe===false;
@@ -46,7 +46,7 @@ function ouvirArquivo(){return new Promise(ok=>{let p=false;const fim=()=>{if(!p
     N.arquivos=l;N.feitos=l.map(x=>x.mes);localStorage.setItem('arqFeitos',JSON.stringify(N.feitos));localStorage.setItem('arqLista',JSON.stringify(l));if(tab==='arquivo')render();fim();},()=>fim()));});}
 async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();
   if(N.admin)N.unsub.push(N.fs.collection('membros').onSnapshot(q=>{const o={};q.forEach(d=>{o[d.id]=d.data().nome||'';});N.nomes=o;if(tab==='hist')render();},()=>{}));
-  if(N.admin)ouvirAvisos();else{N.avisos=[];sinoMostrar();}
+  if(N.admin){ouvirAvisos();ouvirProblemas();}else{N.avisos=[];N.problemas=[];sinoMostrar();}
   await ouvirArquivo();
   N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{const baixar=[];for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
       let loc=null;try{loc=await tx('readonly',s=>s.get(d.id));}catch(e){}if(!loc)loc=regs.find(r=>r.id===d.id);
@@ -118,7 +118,7 @@ N.painel=async()=>{const m=document.getElementById('modal');let ms=[];try{ms=awa
 N.avisos=[];
 N.avisar=async(acao,antes,depois)=>{if(!N.on||N.admin)return;try{const a=L.avisoCriar(acao,antes,depois,{uid:N.uid,nome:N.nome},N.adminUid,Date.now());
   if(a)await N.fs.collection('avisos').add(a);}catch(e){}};
-function sinoMostrar(){const b=document.getElementById('sino');if(!b)return;const n=N.admin?N.avisos.length:0;b.style.display=n?'inline-block':'none';b.textContent='🔔 '+n;}
+function sinoMostrar(){const b=document.getElementById('sino');if(!b)return;const n=N.admin?N.avisos.length+(N.problemas||[]).length:0;b.style.display=n?'inline-block':'none';b.textContent='🔔 '+n;}
 function banner(t){let b=document.getElementById('avBanner');if(!b){b=document.createElement('div');b.id='avBanner';document.body.appendChild(b);b.onclick=()=>{b.style.display='none';N.verAvisos();};}
   b.textContent='🔔 '+t;b.style.display='block';clearTimeout(b._h);b._h=setTimeout(()=>b.style.display='none',8000);}
 function ouvirAvisos(){let primeiro=true;
@@ -127,12 +127,31 @@ function ouvirAvisos(){let primeiro=true;
     primeiro=false;sinoMostrar();const m=document.getElementById('modal');if(m&&m.dataset.av&&m.classList.contains('on'))N.verAvisos();},()=>{}));}
 N.confirmarAviso=async id=>{await N.fs.doc('avisos/'+id).delete();};
 N.confirmarTodos=async()=>{const ids=N.avisos.map(a=>a.id);for(let i=0;i<ids.length;i+=400){const b=N.fs.batch();ids.slice(i,i+400).forEach(id=>b.delete(N.fs.doc('avisos/'+id)));await b.commit();}};
+// v4.3.1: 🐞 problemas relatados — qualquer celular do app envia; só o dono da equipe vê e apaga
+N.problemas=[];
+const filaP=()=>{try{return JSON.parse(localStorage.getItem('probFila')||'[]');}catch(e){return [];}};
+N.enviarFila=async()=>{if(!N.fs||!N.uid||!navigator.onLine)return false;let f=filaP();if(!f.length)return true;
+  while(f.length){const p=Object.assign({},f[0],{quemUid:N.uid});if(!p.quem&&N.nome)p.quem=N.nome;try{await N.fs.collection('problemas').add(p);}catch(e){return false;}f.shift();localStorage.setItem('probFila',JSON.stringify(f));}return true;};
+N.reportar=async p=>{if(!p)return false;try{localStorage.setItem('probFila',JSON.stringify(L.probFilaAdd(filaP(),p)));}catch(e){try{const q=Object.assign({},p);delete q.img;localStorage.setItem('probFila',JSON.stringify(L.probFilaAdd(filaP(),q)));}catch(x){}}
+  if(!N.fs||!N.uid)return false;return await Promise.race([N.enviarFila(),new Promise(r=>setTimeout(()=>r(false),8000))]);};
+window.addEventListener('online',()=>N.enviarFila());
+function ouvirProblemas(){let primeiro=true;
+  N.unsub.push(N.fs.collection('problemas').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({id:d.id},d.data())));l.sort((a,b)=>(b.ts||0)-(a.ts||0));N.problemas=l;
+    if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites);if(novos.length)banner(novos.length>1?novos.length+' problemas relatados':'🐞 Problema relatado: '+String(novos[0].doc.data().txt||'').slice(0,60));}
+    primeiro=false;sinoMostrar();const m=document.getElementById('modal');if(m&&m.dataset.av&&m.classList.contains('on'))N.verAvisos();},()=>{}));}
+N.resolverProblema=async id=>{await N.fs.doc('problemas/'+id).delete();};
+function probHTML(e){const l=N.problemas||[];if(!l.length)return '';
+  return '<b style="font-size:21px;display:block;margin:12px 0 6px">🐞 Problemas relatados</b>'+l.map(p=>`<div class="card" style="margin:6px 0;border-left:5px solid #c62828"><div style="font-size:18px;white-space:pre-wrap"><b>${e(p.txt)}</b></div>
+   <small>${p.ts?L.fmtData(p.ts)+' às '+L.fmtHora(p.ts):''}${p.quem?' · '+e(p.quem):''}</small><details style="margin:6px 0"><summary>Detalhes</summary><small>Versão ${e(p.versao)} · ${e(p.plataforma)} · tela: ${e(p.tela)}<br>${e(p.aparelho)}</small>
+   ${(p.erros||[]).length?'<ul style="margin:6px 0;padding-left:20px;font-size:13px">'+p.erros.map(x=>'<li>'+(x.ts?L.fmtHora(x.ts)+' ':'')+e(x.m)+(x.o?' ('+e(x.o)+')':'')+'</li>').join('')+'</ul>':'<p><small>Nenhum erro registrado.</small></p>'}</details>
+   ${p.img?`<img src="${e(p.img)}" style="max-width:100%;max-height:300px;margin:4px 0">`:''}<button class="big ok" data-probok="${e(p.id)}">✅ Resolvido</button></div>`).join('');}
 N.verAvisos=()=>{const m=document.getElementById('modal');if(!m)return;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');m.dataset.av='1';
   const fecha=()=>{m.classList.remove('on');delete m.dataset.av;};
   m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">🔔 Alterações no histórico</b>
-   ${N.avisos.length?N.avisos.map(a=>`<div class="card" style="margin:6px 0"><div style="font-size:18px"><b>${e(L.avisoTxt(a))}</b></div><small>${a.ts?L.fmtData(a.ts)+' às '+L.fmtHora(a.ts):''}</small>${(a.mud||[]).length?'<ul style="margin:6px 0;padding-left:20px">'+a.mud.map(x=>'<li>'+e(x)+'</li>').join('')+'</ul>':''}<button class="big ok" data-avok="${e(a.id)}">✅ Confirmar</button></div>`).join('')+'<button class="big ok" id="avTodos">✅ Confirmar todos</button>':'<p>Nenhuma alteração nova.</p>'}
+   ${N.avisos.length?N.avisos.map(a=>`<div class="card" style="margin:6px 0"><div style="font-size:18px"><b>${e(L.avisoTxt(a))}</b></div><small>${a.ts?L.fmtData(a.ts)+' às '+L.fmtHora(a.ts):''}</small>${(a.mud||[]).length?'<ul style="margin:6px 0;padding-left:20px">'+a.mud.map(x=>'<li>'+e(x)+'</li>').join('')+'</ul>':''}<button class="big ok" data-avok="${e(a.id)}">✅ Confirmar</button></div>`).join('')+'<button class="big ok" id="avTodos">✅ Confirmar todos</button>':'<p>Nenhuma alteração nova.</p>'}${probHTML(e)}
    <button class="big alt" id="avF">Fechar</button></div>`;m.classList.add('on');
   m.querySelectorAll('[data-avok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.confirmarAviso(b.dataset.avok);}catch(x){b.disabled=false;toast('Sem internet');}});
+  m.querySelectorAll('[data-probok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.resolverProblema(b.dataset.probok);}catch(x){b.disabled=false;toast('Sem internet');}});
   const t=document.getElementById('avTodos');if(t)t.onclick=async()=>{t.disabled=true;try{await N.confirmarTodos();fecha();toast('✅ Confirmados');}catch(x){t.disabled=false;toast('Sem internet');}};
   document.getElementById('avF').onclick=fecha;};
 document.addEventListener('click',ev=>{if(ev.target.closest('#sino')){ev.preventDefault();N.verAvisos();}});

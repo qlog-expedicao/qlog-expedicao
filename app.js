@@ -1,4 +1,8 @@
 'use strict';
+// v4.3.1: guarda os últimos erros do app (para o relato de problema)
+(function(){const g=e=>{try{const l=L.errosAdd(JSON.parse(localStorage.getItem('errosApp')||'[]'),e);localStorage.setItem('errosApp',JSON.stringify(l));}catch(x){}};
+  window.addEventListener('error',ev=>g({msg:ev.message||String(ev.error||'erro'),onde:(ev.filename||'').split('/').pop()+':'+(ev.lineno||0)}));
+  window.addEventListener('unhandledrejection',ev=>g({msg:'Promise: '+String((ev.reason&&ev.reason.message)||ev.reason||'erro'),onde:''}));})();
 const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let db, regs=[], tab='nova', detalhe=null;
 const novo=()=>({tipo:'estorno',motivo:'',origem:'',origemOk:0,cliente:'',nfs:'',vt:{palete:'',volume:''},confEsp:'',confLidos:[],motorista:'',placa:'',obs:'',fotos:[],romaneio:[],caminhao:[],itens:[],forn:''});
@@ -41,7 +45,7 @@ function confirmar(msg,sim,lb,cor,nao){const m=$('#modal');m.innerHTML=`<div><p 
 function compress(file){return new Promise(ok=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement('canvas');
   c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',0.75));};i.onerror=()=>ok(null);i.src=u;});}
 function fotosHTML(arr,key,edit){return '<div class="fotos">'+arr.map((d,i)=>`<div><img src="${d}">${edit?`<b data-del="${key}" data-i="${i}">✕</b>`:''}</div>`).join('')+'</div>';}
-function render(){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));({nova,hist,rel,sobre,loc,arquivo:arquivoTela})[tab]();}
+function render(){if(tab!=='sobre')telaAnt=tab;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));({nova,hist,rel,sobre,loc,arquivo:arquivoTela})[tab]();}
 function nova(){if(f.tipo==='recebimento')return novaRec();const cl=clientes();$('#main').innerHTML=tipoRow()+`
 ${f.tipo==='estorno'?estCab():''}<label>Transportadora</label><div class="cli">${cl.map(c=>`<button data-cli="${esc(c)}" class="${f.cliente===c?'on':''}"${f.cliente===c?autoCls('cliente'):''}>${esc(c)}</button>`).join('')}<button id="addCli">➕ Nova transportadora</button></div>
 <label>NFs (separe com - ou espaço)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs aqui" value="${esc(f.nfs)}"${autoCls('nfs')}>${autoDica('nfs')}
@@ -337,7 +341,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.0';let updNova=null,updChecou=0;
+const APP_V='4.3.1';let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();};
 function checarUpd(){if(Date.now()-updChecou<60000)return;updChecou=Date.now();try{if(window.AndroidUpd&&AndroidUpd.checar){AndroidUpd.checar();return;}
@@ -346,7 +350,7 @@ async function atualizarApp(){if(window.AndroidUpd){updMsg('Procurando versão n
   updMsg('Atualizando...',-1);try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.update().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
   location.replace(location.pathname+'?v='+Date.now());}
 window.nvMudou=()=>{if(tab==='sobre'&&!detalhe)render();};
-function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.3.0</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 31/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:12px">© 2026 Desenvolvedor Rodolfo Pereira</p></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}<div id="updBox">${updHTML()}</div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.admin?`<div class="card">${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
+function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2><p><b>Versão:</b> 4.3.1</p><p><b>Empresa:</b> Qlog</p><p><b>Data:</b> 31/10/2026</p><p style="color:#678;font-size:15px">Registro de coleta, saída e recebimento com fotos. Os dados ficam só neste celular.</p><p style="color:#678;font-size:12px">© 2026 Desenvolvedor Rodolfo Pereira</p></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}<div id="updBox">${updHTML()}</div><div class="card"><button class="big alt" id="probAbrir">🐞 Reportar problema</button></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.admin?`<div class="card">${Nuvem.admin?'<button class="big alt" id="arqAbrir">📦 Arquivo</button><button class="big alt" id="nvAdm"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Administrar equipe</button>':''}</div>`:''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}<div class="card"><b>🚚 Transportadoras salvas</b>${clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card"><b>📥 Fornecedores / clientes salvos</b>${fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preventDefault();Nuvem.pedirEntrada();return;}const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(t.id==='updApp'){atualizarApp();return;}
@@ -368,6 +372,7 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(d.confrm!==undefined){f.confLidos.splice(+d.confrm,1);nova();}
   else if(t.id==='confLimpar')confirmar('Limpar a lista de produtos conferidos?',()=>{f.confLidos=[];nova();},'Sim, limpar');
   
+  else if(t.id==='probAbrir'){reportarProblema();}
   else if(t.id==='nvAdm'){Nuvem.painel();}
   else if(t.id==='arqAbrir'){tab='arquivo';render();}
   else if(t.id==='arqFazer'){fazerArquivo(t.dataset.mes);}
@@ -475,6 +480,22 @@ function fotoLeve(d){return new Promise(ok=>{if(L.tamDataUrl(d)<=L.FOTO_ALVO)ret
       c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);r=c.toDataURL('image/jpeg',q);if(L.tamDataUrl(r)<=L.FOTO_ALVO)break;}ok(r);};
   i.onerror=()=>ok(d);i.src=d;});}
 window.fotoLeve=fotoLeve;
+// v4.3.1: 🐞 Reportar problema (todos veem; o relato vai para a nuvem ou fica na fila até ter internet)
+var telaAnt='nova';
+function reportarProblema(){const m=$('#modal');let img='';const tela=telaAnt;
+  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">🐞 Reportar problema</b>
+   <label>O que aconteceu?</label><textarea id="probTxt" rows="5" maxlength="2000" style="width:100%;font-size:19px"></textarea>
+   <input type="file" id="probImg" accept="image/*" hidden><button class="big alt" id="probFoto">📷 Anexar print ou foto (opcional)</button><div id="probPrev"></div>
+   <p style="color:#678;font-size:14px">A versão do app, o modelo do celular e os últimos erros vão junto.</p>
+   <button class="big ok" id="probEnv">📤 Enviar</button><button class="big alt" id="probX">Cancelar</button></div>`;m.classList.add('on');
+  $('#probX').onclick=()=>m.classList.remove('on');$('#probFoto').onclick=()=>$('#probImg').click();
+  $('#probImg').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const r=new FileReader();r.onload=async()=>{img=await fotoLeve(String(r.result));
+    $('#probPrev').innerHTML=`<img src="${img}" style="max-width:100%;max-height:200px;margin:6px 0"><button class="big red" id="probTira">🗑 Tirar foto</button>`;$('#probTira').onclick=()=>{img='';$('#probPrev').innerHTML='';};};r.readAsDataURL(fl);};
+  $('#probEnv').onclick=async()=>{const txt=$('#probTxt').value.trim();if(!txt)return toast('Escreva o que aconteceu');
+    const N=window.Nuvem||{};const p=L.probCriar({txt,img,uid:N.uid||'',nome:N.nome||localStorage.getItem('nvNome')||'',versao:APP_V,plataforma:L.probPlataforma(navigator.userAgent,!!window.AndroidScan),
+      aparelho:navigator.userAgent,tela,erros:JSON.parse(localStorage.getItem('errosApp')||'[]'),ts:Date.now()});
+    m.classList.remove('on');const ok=N.reportar?await N.reportar(p):false;toast(ok?'✅ Problema enviado. Obrigado!':'📥 Guardado. Será enviado quando tiver internet.');};}
+window.reportarProblema=reportarProblema;
 // ===== v4.1: arquivo mensal =====
 const podeArquivar=()=>!(window.Nuvem&&Nuvem.ativo())||Nuvem.admin;
 const arqFeitos=()=>window.Nuvem&&Nuvem.on?Nuvem.feitos:JSON.parse(localStorage.getItem('arqLocal')||'[]').map(x=>x.mes);
