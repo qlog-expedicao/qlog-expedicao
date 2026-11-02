@@ -88,19 +88,19 @@ html[data-tema=escuro] [style*="border-bottom:1px solid #ddd"]{border-color:#334
 html[data-tema=escuro] img[src="logo.png"]{background:#eef2f6;border-radius:14px;padding:8px}
 #updBan{position:fixed;left:10px;right:10px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:12;display:none;align-items:center;gap:8px;background:#1b8a3a;color:#fff;padding:10px 12px;border-radius:12px;box-shadow:0 4px 12px #0005;font-weight:bold}#updBan span{flex:1}#updBan button{border:0;border-radius:8px;padding:10px 12px;font-size:17px;font-weight:bold;background:#fff;color:#1b8a3a}#updBan #updBanX{background:transparent;color:#fff}
 
-/* v4.3.25: ícones próprios no lugar dos emojis */
+/* v4.3.26: ícones próprios no lugar dos emojis */
 .qx{display:inline;white-space:nowrap}.qx .qi{width:1.2em;height:1.2em;vertical-align:-.22em}
 
-/* v4.3.25: sem estouro lateral */
+/* v4.3.26: sem estouro lateral */
 *,*::before,*::after{box-sizing:border-box}html,body{max-width:100%;overflow-x:hidden}img,input,select,textarea,button,.card,table{max-width:100%}.card,label,b,small,span,p{overflow-wrap:anywhere}.eqp{overflow-x:hidden}.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.acts .big{flex:1 1 calc(50% - 6px);min-width:0;width:auto;margin:0;font-size:16px;padding:10px 8px;white-space:normal}
 footer{overflow-wrap:anywhere;line-height:1.5;padding:16px 12px}
 .tipo button span,button span,button b,nav span{overflow-wrap:normal;word-break:normal}.tipo button{min-width:0;padding-left:4px;padding-right:4px}@media(max-width:400px){.tipo button span{font-size:15px}}
-/* v4.3.25 */.supBtn{background:none;border:1.5px solid #0b4f8a;color:#0b4f8a;border-radius:20px;padding:6px 14px;font-size:14px;margin:0 0 8px;cursor:pointer;max-width:100%}.supBtn .qi{width:1.2em;height:1.2em;vertical-align:-.25em;margin-right:4px}footer small{font-size:11px}.chN:not(:empty){background:#e08a00;color:#fff;border-radius:10px;padding:0 7px;margin-left:4px;font-size:14px}.admsubs .big{flex:1 1 calc(50% - 8px);min-width:0}html[data-tema=escuro] .supBtn{color:#8cc4ff;border-color:#8cc4ff}
+/* v4.3.26 */.supBtn{background:none;border:1.5px solid #0b4f8a;color:#0b4f8a;border-radius:20px;padding:6px 14px;font-size:14px;margin:0 0 8px;cursor:pointer;max-width:100%}.supBtn .qi{width:1.2em;height:1.2em;vertical-align:-.25em;margin-right:4px}footer small{font-size:11px}.chN:not(:empty){background:#e08a00;color:#fff;border-radius:10px;padding:0 7px;margin-left:4px;font-size:14px}.admsubs .big{flex:1 1 calc(50% - 8px);min-width:0}html[data-tema=escuro] .supBtn{color:#8cc4ff;border-color:#8cc4ff}
 
-/* 4.3.25: chips de transportadora/fornecedor/cliente menores */
+/* 4.3.26: chips de transportadora/fornecedor/cliente menores */
 .cli{gap:6px}.cli button{padding:6px 10px;font-size:14px;min-height:34px;border-radius:8px;border-width:2px;line-height:1.2;display:inline-flex;align-items:center;gap:4px}.cli button .ic,.cli button svg,.cli button img{width:16px;height:16px}
 
-/* 4.3.25: temas Tecnologia */
+/* 4.3.26: temas Tecnologia */
 /* Qlog Expedição – temas tecnológicos (html[data-estilo=...] + data-tema=escuro) */
 html[data-estilo]{--hd:#0b1020;--hdl:#00e5ff;--bg:#070b16;--tx:#e6f1ff;--gl:#00e5ff;--bgimg:none}
 html[data-estilo] body{background:var(--bg);background-image:var(--bgimg);color:var(--tx)}
@@ -131,10 +131,10 @@ html[data-estilo=neon]{--hd:linear-gradient(110deg,#2a0a52,#6a0f8e 50%,#b3127a);
 html[data-estilo=circuito]{--hd:linear-gradient(120deg,#141c26,#1d2a3a 60%,#1a3350);--hdl:#4da3ff;--gl:#3b8cff;--bg:#121a24;--bgimg:linear-gradient(#3b8cff12 1px,transparent 1px),linear-gradient(90deg,#3b8cff12 1px,transparent 1px),radial-gradient(#3b8cff33 1.5px,transparent 2px);--tx:#e2ebf5;--ac:#2f7de1!important;--act:#7fb8ff!important;--nav:#16202c;--card:#1a2533;--inp:#152030;--btn:linear-gradient(90deg,#2463c9,#3fa0ff);--mut:#8a9db3;--lb:#cfe2f7}
 html[data-estilo=circuito] body{background-size:24px 24px,24px 24px,24px 24px}
 
-/* 4.3.25: opções sem quebrar palavras */
+/* 4.3.26: opções sem quebrar palavras */
 .apg button{overflow-wrap:normal;word-break:normal;font-size:15px;line-height:1.2;text-align:center}.apg button:has(> svg.qi){flex-direction:column;gap:4px}
 
-/* 4.3.25 (prévia): abas Coleta/Estorno/Recebimento com efeito de fichário */
+/* 4.3.26 (prévia): abas Coleta/Estorno/Recebimento com efeito de fichário */
 #main:has(> .tipo:first-child){background:var(--card);border-radius:0 0 16px 16px;margin:12px 8px 16px;padding:12px 12px 16px;box-shadow:0 2px 10px #0002;max-width:704px}
 @media(min-width:736px){#main:has(> .tipo:first-child){margin:12px auto 16px}}
 #main > .tipo:first-child{display:flex;gap:4px;align-items:flex-end;margin:-12px -12px 14px;padding:0 6px;background:var(--bg,#eef2f6);border-bottom:3px solid var(--ac)}
