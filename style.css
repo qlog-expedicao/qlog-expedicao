@@ -150,3 +150,72 @@ html[data-estilo] #main:has(> .tipo:first-child){border:1px solid color-mix(in s
 html[data-estilo] #main > .tipo:first-child{background:var(--bg);border-bottom-color:var(--gl)}
 html[data-estilo] #main > .tipo:first-child button{border-color:color-mix(in srgb,var(--gl) 35%,transparent)!important;background:color-mix(in srgb,var(--card) 55%,#000)!important;color:color-mix(in srgb,var(--act) 70%,#888)!important}
 html[data-estilo] #main > .tipo:first-child button.on{background:var(--card)!important;color:var(--act)!important;border-color:var(--gl)!important;box-shadow:0 -4px 14px -4px var(--gl)!important;text-shadow:0 0 6px var(--gl)}
+
+/* 4.3.29: telas Criar meu acesso / Aguardando liberação */
+#modal>div.qwel{padding:22px 20px 16px;border-radius:18px;box-shadow:0 12px 40px #0004}
+.qwTop{text-align:center;margin-bottom:6px;position:relative}
+.qwLogo{width:72px;height:auto;display:block;margin:0 auto 6px}
+.qwLogoP{animation:qwPulse 2.4s ease-in-out infinite}
+@keyframes qwPulse{50%{transform:scale(1.06)}}
+.qwH{display:block;font-size:22px;line-height:1.2;overflow-wrap:normal;word-break:normal;hyphens:none}
+.qwSub{display:block;font-size:15px;opacity:.7;margin-top:4px;overflow-wrap:normal}
+.qwel label{display:block;font-weight:600;font-size:15px;margin:10px 0 4px}
+.qwel input{font-size:19px;border-radius:10px;padding:10px 12px}
+.qwel .big{width:100%;margin:8px 0 0;overflow-wrap:normal;white-space:normal}
+.qwel .big .qi{width:1.1em;height:1.1em;vertical-align:-.2em}
+.qwErr{color:#c62828;margin:8px 0 0;min-height:0}.qwErr:empty{display:none}
+.qwLink{text-align:center;margin:12px 0 2px}.qwLink a{font-size:17px;font-weight:bold;color:var(--ac,#0b4f8a);text-decoration:none;overflow-wrap:normal}
+.qwRel{position:absolute;left:calc(50% + 24px);top:30px;width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 2px 6px #0003;display:flex;align-items:center;justify-content:center}
+.qwRel .qi{width:20px;height:20px;animation:qwGira 2.4s ease-in-out infinite}
+@keyframes qwGira{0%,40%{transform:rotate(0)}50%,90%{transform:rotate(180deg)}100%{transform:rotate(180deg)}}
+.qwMsg{text-align:center;font-size:18px;margin:10px 0 6px;overflow-wrap:normal}
+.qwUser{text-align:center;background:color-mix(in srgb,var(--ac,#0b4f8a) 10%,transparent);border-radius:12px;padding:10px}
+.qwUser b{display:block;font-size:20px;overflow-wrap:anywhere}.qwUser small{opacity:.7;font-size:14px}
+.qwNota{font-size:14px;opacity:.8;text-align:center;margin:12px 0 4px;overflow-wrap:normal}
+.qwDot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1b8a3a;margin-right:6px;vertical-align:1px;animation:qwPisca 1.4s ease-in-out infinite}
+@keyframes qwPisca{50%{opacity:.25}}
+.qwInfo{color:var(--ac,#0b4f8a);text-align:center;margin:4px 0}.qwInfo:empty{display:none}
+html[data-estilo] .qwRel{background:var(--card,#111)}
+@media (prefers-reduced-motion:reduce){.qwLogoP,.qwRel .qi,.qwDot{animation:none}}
+html[data-estilo] .qwLogo{background:#fff;border-radius:16px;padding:6px 8px;box-sizing:content-box}
+
+/* v4.3.29: trava de acesso bloqueado */
+#nvTrava{position:fixed;inset:0;z-index:2147483000;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow:auto;pointer-events:auto;touch-action:none}
+#nvTrava .nvTrCx{background:var(--card,#fff);border-radius:18px;padding:24px 18px;width:100%;max-width:400px;box-sizing:border-box;box-shadow:0 6px 24px #0002;text-align:center}
+#nvTrava .qwTop{position:relative}
+#nvTrava .nvTrIc{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:#fdecea;margin:6px auto 4px}
+#nvTrava .nvTrIc svg,#nvTrava .nvTrIc img{width:30px;height:30px}
+#nvTrava .qwH{overflow-wrap:normal;word-break:normal;hyphens:none}
+#nvTrava .big{width:100%;margin-top:16px}
+body.travado{overflow:hidden}
+body.travado #modal{z-index:2147483100}
+
+/* v4.3.29: espera em tela cheia */
+#nvEspera{position:fixed;inset:0;z-index:2147482900;background:var(--bg,#fff);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;text-align:center}
+html:not([data-estilo]) #nvEspera{background:#fff}
+#nvEspera .esCx{width:100%;max-width:400px;margin:auto}
+#nvEspera .esLogo{position:relative;width:168px;height:233px;margin:0 auto 6px}
+#nvEspera .esLogo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+html[data-estilo] #nvEspera .esLogo img{background:#fff;border-radius:22px}
+#nvEspera .esRel{position:absolute;left:auto;right:-6px;top:auto;bottom:62px}
+#nvEspera .qwH{font-size:24px;display:block;margin:4px 0}
+#nvEspera .big{width:100%;margin-top:10px}
+body.esperando{overflow:hidden}
+html[data-estilo] #nvEspera .big.red{background:linear-gradient(135deg,#b71c1c,#ef5350);color:#fff;box-shadow:0 0 12px #ef535088}
+
+/* v4.3.29: esteira com a lupa e a marca do Qlog (SVG + CSS, loop de 6 s sem emenda) */
+#nvEspera .esLogo{position:relative;width:100vw;max-width:520px;height:auto;margin:0 0 4px calc(50% - min(50vw,260px));aspect-ratio:auto}
+#nvEspera .esAnim{display:block;width:100%;height:auto;overflow:hidden}
+#nvEspera .esCaixas{animation:esAnda 6s linear infinite}
+#nvEspera .esFita{animation:esFita .5s linear infinite}
+#nvEspera .esRolo{transform-box:fill-box;transform-origin:center;animation:esGira .6s linear infinite}
+#nvEspera .esZoom{transform-origin:180px 134px;animation:esZum 3s ease-in-out infinite}
+#nvEspera .esLupa{animation:esVai 6s ease-in-out infinite}
+#nvEspera .esContra{animation:esVem 6s ease-in-out infinite}
+@keyframes esAnda{from{transform:translateX(0)}to{transform:translateX(240px)}}
+@keyframes esFita{to{stroke-dashoffset:-24}}
+@keyframes esGira{to{transform:rotate(360deg)}}
+@keyframes esZum{0%,100%{transform:scale(1.55)}50%{transform:scale(1.85)}}
+@keyframes esVai{0%,100%{transform:translateX(-22px)}50%{transform:translateX(22px)}}
+@keyframes esVem{0%,100%{transform:translateX(22px)}50%{transform:translateX(-22px)}}
+@media (prefers-reduced-motion:reduce){#nvEspera .esCaixas,#nvEspera .esFita,#nvEspera .esRolo,#nvEspera .esZoom,#nvEspera .esLupa,#nvEspera .esContra{animation:none}}

@@ -194,11 +194,11 @@ function conferirCod(v){const esp=L.parseCods(f.confEsp);if(!esp.length){$('#err
   const c=L.conferir(esp,v);if(!c.cod){relerIdx=-1;return;}if(relerIdx>=0&&f.confLidos[relerIdx]){f.confLidos.splice(relerIdx,1);}relerIdx=-1;f.confLidos=L.confAdd(f.confLidos,c,Date.now());nova();alerta(c.ok,c.cod);}
 async function scan(file){try{const bd=new BarcodeDetector();const b=await createImageBitmap(file);const r=await bd.detect(b);
   if(r.length)conferirCod(r[0].rawValue);else toast('Não achei código na foto. Digite o código.');}catch(e){toast('Leitor falhou. Digite o código.');}}
-async function salvar(enviar){if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,volume:+f.vt.volume||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
+async function salvar(enviar){if(window.Nuvem&&Nuvem.esperando&&Nuvem.esperando())return;if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return toast('Acesso bloqueado pelo ADM');if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,volume:+f.vt.volume||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
   motorista:f.motorista.trim(),placa:f.placa.trim().toUpperCase(),obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:f.caminhao};if(f.tipo==='estorno'){r.motivo=f.motivo.trim();if(f.origem)r.origem=f.origem;}
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
   if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
-async function salvarRec(enviar){const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,'recebimento'),tipo:'recebimento',cliente:f.forn,nfs:L.parseNFs(f.nfs),volumes:0,
+async function salvarRec(enviar){if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return toast('Acesso bloqueado pelo ADM');const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,'recebimento'),tipo:'recebimento',cliente:f.forn,nfs:L.parseNFs(f.nfs),volumes:0,
   itens:f.itens.map(x=>({cod:x.cod,qtd:x.qtd})),skuEsp:null,obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:[]};
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
   if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();f.tipo='recebimento';toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
@@ -349,7 +349,7 @@ function locCamera(){const l=locGet();if(!l.length)return toast('Coloque os cód
   if(window.AndroidScan&&window.AndroidScan.abrirLocalizar){try{const ch=L.scanChave(null,'Localizar e contar');if(window.AndroidScan.abrirLocalizarModo)window.AndroidScan.abrirLocalizarModo(JSON.stringify(l),scanModoGet(ch),ch);else window.AndroidScan.abrirLocalizar(JSON.stringify(l));return;}catch(e){}}
   abrirScanner(null,{titulo:'Localizar e contar',noBip:()=>localStorage.getItem('locBip')==='0',cool:2500,match:t=>L.locCasa(t,locGet()),
     onItem:(cod,raw)=>{const n=locSoma(cod,1);locUlt(cod,raw);const x=locGet().find(i=>i.cod===cod);if(x&&x.alvo&&n===x.alvo){bip();setTimeout(bip,200);toast('✅ '+cod+' COMPLETO');}return x&&x.alvo?n+' de '+x.alvo:n;},zerar:window.locZerar,onFim:()=>{if(tab==='loc')loc();}});}
-window.voltar=()=>{if(RC)return fecharRom();if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
+window.voltar=()=>{if(window.Nuvem&&Nuvem.esperando&&Nuvem.esperando())return;if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return;{const m=$('#modal');if(m.classList.contains('on')&&m.dataset.nv&&window.Nuvem&&Nuvem.ativo()&&!Nuvem.on&&localStorage.getItem('nvFoiMembro'))return;}if(RC)return fecharRom();if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
 function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora / Fornecedor'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Estorno</th><th>Receb.</th><th>Volumes</th><th>Paletes</th><th>Vol.</th></tr>`+
   Object.entries(o).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.reg}</td><td>${v.coleta}</td><td>${v.saida}</td><td>${v.estorno||0}</td><td>${v.receb||0}</td><td>${v.vol}</td><td>${v.palete||0}</td><td>${v.volume||0}</td></tr>`).join('')+'</table></div>';
   $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora / fornecedor')}
@@ -357,7 +357,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.28';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.29';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
@@ -384,10 +384,11 @@ function navAdm(){const b=document.querySelector('nav [data-t="adm"]');if(!b)ret
 window.abrirAdm=sub=>{if(!admOn())return;admSub=sub||'av';tab='adm';detalhe=null;if($('#modal').classList.contains('on')&&!$('#modal').dataset.nv)$('#modal').classList.remove('on');render();};
 window.admAtualizar=sub=>{if(tab==='adm'&&admSub===sub&&!$('#modal').classList.contains('on'))admConteudo();};
 function admTela(){const b=(k,t)=>`<button class="big ${admSub===k?'ok':'alt'}" data-admsub="${k}" style="margin:4px 4px 4px 0;font-size:16px;padding:10px 4px">${t}</button>`;
-  $('#main').innerHTML=`<div class="row admsubs" style="flex-wrap:wrap">${b('av','🔔 Avisos')}${b('ch',(window.Tema?Tema.ic('suporte'):'')+' Chamados <span id="admChN" class="chN">'+chN()+'</span>')}${b('eq','👥 Equipe')}${b('cad','📋 Cadastros')}</div><div id="admBox"></div>`;admConteudo();}
+  $('#main').innerHTML=`<div class="row admsubs" style="flex-wrap:wrap">${b('av','🔔 Avisos')}${b('ch',(window.Tema?Tema.ic('suporte'):'')+' Chamados <span id="admChN" class="chN">'+chN()+'</span>')}${b('eq','👥 Equipe <span id="admEqN" class="chN">'+eqN()+'</span>')}${b('cad','📋 Cadastros')}</div><div id="admBox"></div>`;admConteudo();}
 // 4.3.28: aba 🎧 Chamados (suporte) com a contagem de novos
 const chN=()=>{const n=window.Nuvem&&Nuvem.chamadosTodos?L.chamadosNovos(Nuvem.chamadosTodos()):0;return n?String(n):'';};
-window.admContagem=()=>{const x=$('#admChN');if(x)x.textContent=chN();};
+const eqN=()=>{const n=window.Nuvem&&Nuvem.acessos?Nuvem.acessos.length:0;return n?String(n):'';};
+window.admContagem=()=>{const x=$('#admChN');if(x)x.textContent=chN();const y=$('#admEqN');if(y)y.textContent=eqN();};
 function admConteudo(){const bx=$('#admBox');if(!bx)return;if(admSub==='eq')return Nuvem.painel(bx);if(admSub==='cad')return cadTela(bx);if(admSub==='ch'){Nuvem.pedirNotif();return Nuvem.verChamados(bx);}Nuvem.verAvisos(bx);}
 // Cadastros (versão 4.3.10): ADM › 📋 Cadastros (listas, Arquivo e tempo de edição). Aparência fica só na Info
 function cadTela(bx){const j=Nuvem.janelaMin||60;
