@@ -357,7 +357,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.24';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.25';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
@@ -385,7 +385,7 @@ window.abrirAdm=sub=>{if(!admOn())return;admSub=sub||'av';tab='adm';detalhe=null
 window.admAtualizar=sub=>{if(tab==='adm'&&admSub===sub&&!$('#modal').classList.contains('on'))admConteudo();};
 function admTela(){const b=(k,t)=>`<button class="big ${admSub===k?'ok':'alt'}" data-admsub="${k}" style="margin:4px 4px 4px 0;font-size:16px;padding:10px 4px">${t}</button>`;
   $('#main').innerHTML=`<div class="row admsubs" style="flex-wrap:wrap">${b('av','🔔 Avisos')}${b('ch',(window.Tema?Tema.ic('suporte'):'')+' Chamados <span id="admChN" class="chN">'+chN()+'</span>')}${b('eq','👥 Equipe')}${b('cad','📋 Cadastros')}</div><div id="admBox"></div>`;admConteudo();}
-// 4.3.24: aba 🎧 Chamados (suporte) com a contagem de novos
+// 4.3.25: aba 🎧 Chamados (suporte) com a contagem de novos
 const chN=()=>{const n=window.Nuvem&&Nuvem.chamadosTodos?L.chamadosNovos(Nuvem.chamadosTodos()):0;return n?String(n):'';};
 window.admContagem=()=>{const x=$('#admChN');if(x)x.textContent=chN();};
 function admConteudo(){const bx=$('#admBox');if(!bx)return;if(admSub==='eq')return Nuvem.painel(bx);if(admSub==='cad')return cadTela(bx);if(admSub==='ch'){Nuvem.pedirNotif();return Nuvem.verChamados(bx);}Nuvem.verAvisos(bx);}
@@ -535,7 +535,7 @@ function fotoLeve(d){return new Promise(ok=>{if(L.tamDataUrl(d)<=L.FOTO_ALVO)ret
 window.fotoLeve=fotoLeve;
 // v4.3.1: 🐞 Reportar problema (todos veem; o relato vai para a nuvem ou fica na fila até ter internet)
 var telaAnt='nova';
-// 4.3.24: 🎧 Falar com o suporte (rodapé) — nome, mensagem e foto opcional (comprimida). Vai para a nuvem como chamado.
+// 4.3.25: 🎧 Falar com o suporte (rodapé) — nome, mensagem e foto opcional (comprimida). Vai para a nuvem como chamado.
 function abrirSuporte(){const m=$('#modal');let img='';const N=window.Nuvem||{};const ic=window.Tema?Tema.ic('suporte'):'';
   m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">${ic} Falar com o suporte</b>
    <label>Seu nome</label><input id="supNome" maxlength="60" style="width:100%;font-size:19px" value="${esc(N.nome||localStorage.getItem('nvNome')||'')}">

@@ -420,7 +420,7 @@ function probCriar(o){o=o||{};const t=String(o.txt||'').trim().slice(0,PROB_TXT_
 function probFilaAdd(f,p){f=Array.isArray(f)?f.slice():[];if(p)f.push(p);return f.slice(-PROB_FILA_MAX);}
 function probPlataforma(ua,android){ua=String(ua||'');if(android)return 'Android (app)';if(/iPhone|iPad|iPod/.test(ua))return 'iPhone';if(/Android/.test(ua))return 'Android (site)';return 'Navegador';}
 
-// 4.3.24: chamados do suporte (sem telefone; só nome, mensagem, foto opcional e dados do aparelho)
+// 4.3.25: chamados do suporte (sem telefone; só nome, mensagem, foto opcional e dados do aparelho)
 function chamadoCriar(o){o=o||{};const nome=String(o.nome||'').trim().slice(0,60),msg=String(o.msg||'').trim().slice(0,2000);if(!nome||!msg)return null;
   const c={nome,msg,quemUid:String(o.uid||''),versao:String(o.versao||''),plataforma:String(o.plataforma||''),aparelho:String(o.aparelho||'').slice(0,300),status:'novo',ts:Number(o.ts)||Date.now()};
   if(o.login)c.login=String(o.login).slice(0,30);if(o.img&&String(o.img).length<400000)c.img=String(o.img);return c;}
