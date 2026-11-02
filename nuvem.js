@@ -312,7 +312,7 @@ N.janelaMs=()=>L.janelaMs(N.janelaMin);
 N.salvarJanela=async min=>{if(!L.janelaOk(min))throw new Error('valor');await docE().update({janelaMin:Number(min)});N.janelaMin=Number(min);localStorage.setItem('janMin',String(min));};
 N.iniciar=iniciar;
 
-// 4.3.27: 🎧 Falar com o suporte — chamados (Firestore, plano grátis). Foto comprimida dentro do próprio documento.
+// 4.3.28: 🎧 Falar com o suporte — chamados (Firestore, plano grátis). Foto comprimida dentro do próprio documento.
 N.chamados=[];N.chamadosTodos=()=>L.chamadosLista(N.chamados,N.problemas);
 N.enviarChamado=async c=>{if(!c)return false;if(!N.fs||!N.uid)return false;c.quemUid=N.uid;if(N.login)c.login=N.login;
   const tenta=async()=>{try{await N.fs.collection('chamados').add(c);return true;}catch(e){try{await N.fs.collection('problemas').add(L.chamadoParaProblema(c));return true;}catch(x){return false;}}};
