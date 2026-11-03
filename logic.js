@@ -237,6 +237,9 @@ function regEditar(r,c,fotos,ts){const o=Object.assign({},r);c=c||{};const t=v=>
   if(r.tipo!=='recebimento'&&('palete' in c||'volume' in c)){const v={palete:Math.max(0,parseInt(c.palete,10)||0),volume:Math.max(0,parseInt(c.volume,10)||0)};o.vtipos=v;o.volumes=volTotal(v);}
   if(fotos)for(const k of FOTO_CAMPOS)if(Array.isArray(fotos[k])){const antes=(r[k]||[]).length,depois=fotos[k];o[k]=depois.slice();
     if(antes||depois.length||fotos.mexeu&&fotos.mexeu[k])o['n_'+k]=depois.length;}
+  // v4.3.30: edição também mexe nos produtos (itens do recebimento / códigos conferidos)
+  if(r.tipo==='recebimento'&&Array.isArray(c.itens))o.itens=c.itens.filter(x=>x&&x.cod&&+x.qtd>0).map(x=>({cod:String(x.cod),qtd:+x.qtd}));
+  if(r.tipo!=='recebimento'&&('confEsp' in c||Array.isArray(c.confLidos))){const esp=parseCods(c.confEsp||''),l=(c.confLidos||[]).map(x=>Object.assign({},x,{ok:esp.map(normCod).includes(normCod(x.cod))}));o.conf=l.length?{esperados:esp,lidos:l}:null;}
   delete o.autor;o.editadoEm=ts||Date.now();return o;}
 function editValidar(r){const e=validar(r);return e;}
 function renomearNome(lista,velho,novo){novo=String(novo==null?'':novo).replace(/\s+/g,' ').trim();

@@ -271,8 +271,33 @@ const prazoTxt=()=>'O prazo de '+L.janelaNome(window.Nuvem&&Nuvem.janelaMin)+' a
 function abrirEdicao(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode editar');
   const vt=L.vtNorm(r.vtipos||{volume:r.volumes});
   ed={id:r.id,tipo:r.tipo,c:{cliente:r.cliente||'',nfs:(r.nfs||[]).join('-'),palete:vt.palete||'',volume:vt.volume||'',placa:r.placa||'',motorista:r.motorista||'',obs:r.obs||'',motivo:r.motivo||''},
-    fotos:{fotos:(r.fotos||[]).slice(),romaneio:(r.romaneio||[]).slice(),caminhao:(r.caminhao||[]).slice(),mexeu:{}}};edTela();}
+    fotos:{fotos:(r.fotos||[]).slice(),romaneio:(r.romaneio||[]).slice(),caminhao:(r.caminhao||[]).slice(),mexeu:{}}};
+  ed.c.itens=(r.itens||[]).map(x=>({cod:x.cod,qtd:x.qtd}));ed.c.confEsp=((r.conf&&r.conf.esperados)||[]).join(' ');ed.c.confLidos=((r.conf&&r.conf.lidos)||[]).map(x=>Object.assign({},x));edTela();}
 function edLer(){if(!ed)return;document.querySelectorAll('[data-ec]').forEach(i=>{ed.c[i.dataset.ec]=i.value;});}
+// v4.3.30: produtos e leitores também no Editar (igual ao Novo)
+const ic=k=>window.Tema?Tema.ic(k):'';
+function edItensHTML(){const it=ed.c.itens,t=L.itensTot(it);return (it.length?it.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-eiq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-eiq="1" data-ii="${i}">+</button><button data-eidel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
+function edConfHTML(){const l=ed.c.confLidos;return (l.length?`<p class="tot">${esc(L.confResumo(l))}</p>`+l.map((x,i)=>`<div class="item edCf ${x.ok?'c-ok':'c-bad'}"><span class="icod">${ic(x.ok?'ok':'erro')} ${esc(x.cod)}${(x.n||1)>1?' <small>· '+x.n+' vezes</small>':''}</span><button data-ecrm="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código conferido ainda.</small></p>');}
+function edProdHTML(rec){return rec?`<div class="card edProd"><b class="edTit">${ic('recebimento')} Itens recebidos</b>
+  <button class="big ok" id="edScan">${ic('barras')} Ler códigos (contínuo)</button><div id="edItens">${edItensHTML()}</div>
+  <div class="row edAdd"><input id="edCodTxt" placeholder="Digitar código"><button class="big alt" id="edCodAdd">${ic('adicionar')} Adicionar</button></div></div>`
+ :`<div class="card edProd"><b class="edTit">${ic('lista')} Conferência de código</b>
+  <label>Código(s) da NF (esperado)</label><div class="row edAdd"><input data-ec="confEsp" id="edEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(ed.c.confEsp)}"><button class="big alt" id="edEspScan">${ic('camera')} Ler</button></div>
+  <label>Código da etiqueta</label><div class="row edAdd"><input id="edLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="edLidoOk">${ic('ok')} Conferir</button></div>
+  <button class="big ok" id="edConfScan">${ic('barras')} Ler códigos com a câmera</button><div id="edConf">${edConfHTML()}</div></div>`;}
+function edConferir(v){const esp=L.parseCods(ed.c.confEsp);if(!esp.length){toast('Coloque primeiro o código esperado da NF');return null;}const c=L.conferir(esp,v);if(!c.cod)return null;ed.c.confLidos=L.confAdd(ed.c.confLidos,c,Date.now());const o=$('#edConf');if(o)o.innerHTML=edConfHTML();return c;}
+const edPode=()=>!(window.Nuvem&&((Nuvem.travado&&Nuvem.travado())||(Nuvem.esperando&&Nuvem.esperando())));
+document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[data-eiq],[data-eidel],[data-ecrm],#edScan,#edCodAdd,#edEspScan,#edLidoOk,#edConfScan');if(!t)return;e.stopPropagation();edLer();
+  if(!edPode())return toast('Acesso bloqueado pelo ADM');const d=t.dataset;
+  if(d.eiq){const x=ed.c.itens[+d.ii];if(x){ed.c.itens=L.addItem(ed.c.itens,x.cod,+d.eiq);$('#edItens').innerHTML=edItensHTML();}}
+  else if(d.eidel!==undefined){const x=ed.c.itens[+d.eidel];if(x)confirmar('Tirar o código '+x.cod+' da lista?',()=>{ed.c.itens=ed.c.itens.filter(i=>i!==x);$('#edItens').innerHTML=edItensHTML();},'Sim, tirar');}
+  else if(d.ecrm!==undefined){ed.c.confLidos.splice(+d.ecrm,1);$('#edConf').innerHTML=edConfHTML();}
+  else if(t.id==='edCodAdd'){const i=$('#edCodTxt'),v=i.value.trim();if(!v)return;ed.c.itens=L.addItem(ed.c.itens,v);$('#edItens').innerHTML=edItensHTML();i.value='';i.focus();}
+  else if(t.id==='edLidoOk'){const i=$('#edLido');if(edConferir(i.value)){i.value='';}}
+  else if(t.id==='edScan')abrirMulti('Editar: ler códigos',code=>{if(!ed)return 0;ed.c.itens=L.addItem(ed.c.itens,code);const o=$('#edItens');if(o)o.innerHTML=edItensHTML();return qtdDe(ed.c.itens,code);},()=>{if(ed)edTela();},ed.c.itens);
+  else if(t.id==='edEspScan')abrirMulti('Código da NF',code=>{if(!ed)return 0;const n=L.normCod(code);if(n&&!L.parseCods(ed.c.confEsp).includes(n))ed.c.confEsp=(ed.c.confEsp.trim()?ed.c.confEsp.trim()+' ':'')+n;return 1;},()=>{if(ed)edTela();},[]);
+  else if(t.id==='edConfScan'){if(!L.parseCods(ed.c.confEsp).length)return toast('Coloque primeiro o código esperado da NF');abrirMulti('Editar: conferir códigos',code=>{if(!ed)return 0;const c=edConferir(code);return c?(ed.c.confLidos.find(x=>x.cod===c.cod&&!!x.ok===!!c.ok)||{n:1}).n:0;},()=>{if(ed)edTela();},[]);}
+},true);
 function edFotos(k,titulo){const a=ed.fotos[k];return `<label>${titulo} (${a.length})</label><div class="fotos">${a.map((d,i)=>`<div><img src="${d}"><div class="row" style="gap:4px"><button class="big" data-eft="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">🔄 Trocar</button><button class="big red" data-efr="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">❌ Remover</button></div></div>`).join('')}</div><button class="big alt" data-efa="${k}">📷 Adicionar foto</button>`;}
 function edTela(){const rec=ed.tipo==='recebimento',lst=rec?fornecedores():clientes(),inp=(k,lb,ex)=>`<label>${lb}</label><input data-ec="${k}" value="${esc(ed.c[k])}" ${ex||''}>`;
   $('#main').innerHTML=`<button class="big alt" id="edX">⬅ Cancelar</button><div class="card"><b style="font-size:21px">✏️ Editar registro</b>
@@ -281,8 +306,10 @@ function edTela(){const rec=ed.tipo==='recebimento',lst=rec?fornecedores():clien
   ${rec?'':`<div class="row"><div style="flex:1">${inp('palete','Paletes','type="number" min="0" inputmode="numeric"')}</div><div style="flex:1">${inp('volume','Volumes','type="number" min="0" inputmode="numeric"')}</div></div>
   ${inp('placa','Placa','style="text-transform:uppercase"')}${inp('motorista','Motorista')}`}${ed.tipo==='estorno'?inp('motivo','Motivo do estorno'):''}
   <label>Observação</label><textarea data-ec="obs" rows="3">${esc(ed.c.obs)}</textarea></div>
+  ${edProdHTML(rec)}
   <div class="card">${edFotos('romaneio','🧾 Romaneio')}${rec?'':edFotos('caminhao','🚛 Caminhão carregado')}${edFotos('fotos','📷 Produtos')}</div>
   <p id="edErro" style="color:#c62828"></p><button class="big ok" id="edOk">💾 Salvar alterações</button><button class="big alt" id="edX2">Cancelar</button>`;
+  if($('#edCodTxt'))$('#edCodTxt').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#edCodAdd').click();}};if($('#edLido'))$('#edLido').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#edLidoOk').click();}};
   const sair=()=>{ed=null;rascLimpar();render();};$('#edX').onclick=sair;$('#edX2').onclick=sair;$('#edOk').onclick=()=>confirmar('Salvar as alterações?',edSalvar,'Sim','ok','Cancelar');}
 // câmera primeiro; galeria como segunda opção
 function edPegar(fn){const m=$('#modal');m.innerHTML=`<div><p style="font-size:20px;margin-top:0"><b>Escolha a foto</b></p><button class="big ok" id="pfC">📷 Tirar foto</button><button class="big alt" id="pfG">🖼️ Pegar da galeria</button><button class="big alt" id="pfX">Cancelar</button></div>`;m.classList.add('on');
@@ -292,11 +319,11 @@ document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[d
   if(d.efr)confirmar('Remover esta foto?',()=>{ed.fotos[d.efr]=L.fotoOp(ed.fotos[d.efr],'remover',i);ed.fotos.mexeu[d.efr]=1;edTela();},'Sim, remover');
   else if(d.eft)edPegar(u=>{ed.fotos[d.eft]=L.fotoOp(ed.fotos[d.eft],'trocar',i,u);ed.fotos.mexeu[d.eft]=1;edTela();});
   else if(d.efa)edPegar(u=>{ed.fotos[d.efa]=L.fotoOp(ed.fotos[d.efa],'adicionar',-1,u);ed.fotos.mexeu[d.efa]=1;edTela();});},true);
-async function edSalvar(){edLer();const id=ed.id;
+async function edSalvar(){edLer();if(!edPode())return toast('Acesso bloqueado pelo ADM');const id=ed.id;
   // v4.0.5: lê o registro do celular (com as fotos) antes de mexer
   let r=null;try{r=await tx('readonly',s=>s.get(id));}catch(e){}if(!r)r=regs.find(x=>x.id===id);if(!r){ed=null;return render();}
   if(!L.podeEditar(r,usuario())){ed=null;toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode editar');return render();}
-  const c=Object.assign({},ed.c);if(ed.tipo==='recebimento'){delete c.palete;delete c.volume;delete c.placa;delete c.motorista;}
+  const c=Object.assign({},ed.c);if(ed.tipo==='recebimento'){delete c.palete;delete c.volume;delete c.placa;delete c.motorista;delete c.confEsp;delete c.confLidos;}else delete c.itens;
   const n=L.regEditar(r,c,ed.fotos,Date.now());const er=L.editValidar(n);if(er.length){$('#edErro').innerHTML=er.map(esc).join('<br>');return;}
   const salvo=(window.Nuvem&&!Nuvem.admin)?L.semAutor(n):n;
   if(salvo.cliente){if(ed.tipo==='recebimento'){const l=fornecedores();if(!l.includes(salvo.cliente)){l.push(salvo.cliente);setFornecedores(l);}}else{const l=clientes();if(!l.includes(salvo.cliente)){l.push(salvo.cliente);setClientes(l);}}}
@@ -357,7 +384,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.29';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.30';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
