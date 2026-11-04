@@ -383,7 +383,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.34';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.35';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
@@ -413,7 +413,7 @@ function admTela(){const b=(k,t)=>`<button class="big ${admSub===k?'ok':'alt'}" 
   $('#main').innerHTML=`<div class="row admsubs" style="flex-wrap:wrap">${b('av','🔔 Avisos')}${b('ch',(window.Tema?Tema.ic('suporte'):'')+' Chamados <span id="admChN" class="chN">'+chN()+'</span>')}${b('eq','👥 Equipe <span id="admEqN" class="chN">'+eqN()+'</span>')}${b('cad','📋 Cadastros')}</div><div id="admBox"></div>`;admConteudo();}
 // 4.3.28: aba 🎧 Chamados (suporte) com a contagem de novos
 const chN=()=>{const n=window.Nuvem&&Nuvem.chamadosTodos?L.chamadosNovos(Nuvem.chamadosTodos()):0;return n?String(n):'';};
-const eqN=()=>{const n=window.Nuvem&&Nuvem.acessos?Nuvem.acessos.length:0;return n?String(n):'';};
+const eqN=()=>{const n=window.Nuvem&&Nuvem.acessos?Nuvem.acessos.length+(Nuvem.celulares||[]).length:0;return n?String(n):'';};
 window.admContagem=()=>{const x=$('#admChN');if(x)x.textContent=chN();const y=$('#admEqN');if(y)y.textContent=eqN();};
 function admConteudo(){const bx=$('#admBox');if(!bx)return;if(admSub==='eq')return Nuvem.painel(bx);if(admSub==='cad')return cadTela(bx);if(admSub==='ch'){Nuvem.pedirNotif();return Nuvem.verChamados(bx);}Nuvem.verAvisos(bx);}
 // Cadastros (versão 4.3.10): ADM › 📋 Cadastros (listas, Arquivo e tempo de edição). Aparência fica só na Info

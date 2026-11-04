@@ -267,9 +267,36 @@ html[data-estilo=executivo] .alt,html[data-estilo=executivo] .tipo button:not(.o
 html[data-grupo=premium] #recScan,html[data-grupo=premium] #recScan2,html[data-grupo=premium] #edScan,html[data-grupo=premium] #edScan2,html[data-grupo=premium] #confScan0,html[data-grupo=premium] #edConfScan{background:linear-gradient(135deg,#15803d,#22a04b 55%,#34c062)!important;color:#fff!important;box-shadow:0 0 14px #22c55e88,inset 0 1px 0 #ffffff40!important}
 html[data-grupo=premium] .scLbl{color:#fff}
 
-/* v4.3.34: porta de acesso obrigatória */
+/* v4.3.35: porta de acesso obrigatória */
 #nvPorta{position:fixed;inset:0;z-index:2147482800;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;touch-action:pan-y}
 html:not([data-estilo]) #nvPorta{background:#f2f4f7}
 #nvPorta .nvPoCx{background:var(--card,#fff);border-radius:18px;padding:24px 18px;width:100%;max-width:400px;box-sizing:border-box;box-shadow:0 6px 24px #0002;text-align:center}
 #nvPorta .qwH{overflow-wrap:normal;word-break:normal;hyphens:none}#nvPorta .big{width:100%;margin-top:12px}
 body.semAcesso{overflow:hidden}body.semAcesso #modal{z-index:2147483100}
+
+/* v4.3.35: tela de entrada com a esteira animada de fundo */
+#nvPorta{flex-direction:column;justify-content:flex-start;padding:0 16px 20px}
+#nvPorta .poFundo{position:relative;width:100vw;max-width:520px;margin:0 calc(50% - min(50vw,260px)) -8px;flex:none;pointer-events:none}
+#nvPorta .poFundo .esAnim{display:block;width:100%;height:auto;overflow:hidden}
+#nvPorta .esCaixas{animation:esAnda 6s linear infinite}
+#nvPorta .esFita{animation:esFita .5s linear infinite}
+#nvPorta .esRolo{transform-box:fill-box;transform-origin:center;animation:esGira .6s linear infinite}
+#nvPorta .esZoom{transform-origin:180px 134px;animation:esZum 3s ease-in-out infinite}
+#nvPorta .esLupa{animation:esVai 6s ease-in-out infinite}
+#nvPorta .esContra{animation:esVem 6s ease-in-out infinite}
+#nvPorta .nvPoCx{position:relative;z-index:1;margin:0 auto auto;background:color-mix(in srgb,var(--card,#fff) 92%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+@media (prefers-reduced-motion:reduce){#nvPorta .esCaixas,#nvPorta .esFita,#nvPorta .esRolo,#nvPorta .esZoom,#nvPorta .esLupa,#nvPorta .esContra{animation:none}}
+#nvPorta label{display:block;text-align:left;font-weight:600;margin:10px 0 4px}
+#nvPorta input{width:100%;box-sizing:border-box;font-size:18px;min-height:46px}
+#nvPorta .poAdm{margin:14px 0 0;font-size:14px}#nvPorta .poAdm a{opacity:.75;text-decoration:underline}
+#nvPorta .poAdm .ic,#nvPorta .poAdm svg{width:1em;height:1em;vertical-align:-.15em}
+.celAlerta{margin:6px 0;border-left:5px solid #e65100;background:color-mix(in srgb,#e65100 9%,var(--card,#fff))}
+.celTit{font-weight:700;font-size:18px;overflow-wrap:break-word;word-break:normal;hyphens:none}
+.celAlerta .row{gap:8px;flex-wrap:wrap}.celAlerta .row .big{flex:1 1 120px;margin:6px 0 0}
+.card .row:has([data-acok]){flex-wrap:wrap;gap:8px}.card [data-acok]{flex:1 1 130px;margin:4px 0!important;overflow-wrap:normal;word-break:keep-all;hyphens:none;font-size:17px}
+#nvTroca{position:fixed;inset:0;z-index:2147483050;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;text-align:center}
+html:not([data-estilo]) #nvTroca{background:#f2f4f7}
+#nvTroca .nvPoCx{background:var(--card,#fff);border-radius:18px;padding:24px 18px;width:100%;max-width:400px;box-sizing:border-box;box-shadow:0 6px 24px #0002}
+#nvTroca .trIc .qi{width:64px;height:64px}#nvTroca .qwH{display:block;font-size:23px;margin:8px 0;overflow-wrap:normal;word-break:normal;hyphens:none}#nvTroca .big{width:100%;margin-top:12px}
+/* v4.3.35: ícone visível em botão vermelho (o quadrado vermelho do ícone sumia no fundo vermelho) */
+.big.red .qi>rect{fill:#fff}.big.red .qi>rect+g{stroke:#c62828}
