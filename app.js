@@ -21,9 +21,9 @@ function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.
   `<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
 function novaRec(){const fl=fornecedores();$('#main').innerHTML=tipoRow()+`
 <label>Cliente</label><div class="cli">${fl.map(c=>`<button data-forn="${esc(c)}" class="${f.forn===c?'on':''}">${esc(c)}</button>`).join('')}<button id="addForn">➕ Novo cliente</button></div>
-<button class="big ok" id="recScan" style="font-size:24px;padding:22px">${ic('barras')} Ler código de barras (scanner)</button>
+<button class="big ok" id="recScan" style="font-size:24px;padding:22px">${ic('mira')} Ler código de barras (scanner)</button>
 <label>Itens recebidos</label><div id="itens">${itensHTML()}</div>
-<div class="row edAdd recAdd"><input id="addCodTxt" placeholder="Código"><button class="big ok" id="recScan2" aria-label="Ler com o scanner">${ic('barras')}</button><button class="big alt" id="addCod">${ic('adicionar')} Adicionar</button></div>
+<div class="row edAdd recAdd"><input id="addCodTxt" placeholder="Código"><button class="big ok" id="recScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="addCod">${ic('adicionar')} Adicionar</button></div>
 <label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
 <label>🧾 Romaneio (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio</button>
 <p><small>No WhatsApp vão só as fotos do romaneio.</small></p>
@@ -52,7 +52,7 @@ ${f.tipo==='estorno'?estCab():''}<label>Transportadora</label><div class="cli">$
 <label>NFs (separe com - ou espaço)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs aqui" value="${esc(f.nfs)}"${autoCls('nfs')}>${autoDica('nfs')}
 <label>Volumes</label><div class="row vt">${[['palete','🟫 Paletes'],['volume','📦 Volumes']].map(([k,t])=>`<div><small>${t}</small><input data-vt="${k}" type="number" inputmode="numeric" placeholder="0" value="${esc(f.vt[k])}"${k==='volume'?autoCls('volume'):''}>${k==='volume'?autoDica('volume'):''}</div>`).join('')}</div>
 <p class="tot">Total: <b id="vtp">${+f.vt.palete||0}</b> paletes · <b id="vtv">${+f.vt.volume||0}</b> volumes</p>
-<details ${f.confEsp||f.confLidos.length?'open':''}><summary style="padding:12px 0;font-weight:bold">🔎 Conferência de código (opcional)</summary>
+<details ${f.confEsp||f.confLidos.length?'open':''}><summary class="confSum"><button type="button" class="big ok" id="confScan0" aria-label="Ler código com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><span>Conferência de código (opcional)</span></summary>
 <label>Código(s) da NF (esperado)</label><div class="row"><input id="confEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(f.confEsp)}"><button class="big alt" data-ocr="esp" style="flex:0 0 120px;margin:0">📷 Ler texto</button></div>
 <div id="confRes">${confMiniHTML(f.confLidos)}</div>
 <label>Código da etiqueta</label><div class="row"><input id="confLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="confOk" style="flex:0 0 110px;margin:0">✔ Conferir</button></div>
@@ -278,12 +278,12 @@ const ic=k=>window.Tema?Tema.ic(k):'';
 function edItensHTML(){const it=ed.c.itens,t=L.itensTot(it);return (it.length?it.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-eiq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-eiq="1" data-ii="${i}">+</button><button data-eidel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
 function edConfHTML(){const l=ed.c.confLidos;return (l.length?`<p class="tot">${esc(L.confResumo(l))}</p>`+l.map((x,i)=>`<div class="item edCf ${x.ok?'c-ok':'c-bad'}"><span class="icod">${ic(x.ok?'ok':'erro')} ${esc(x.cod)}${(x.n||1)>1?' <small>· '+x.n+' vezes</small>':''}</span><button data-ecrm="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código conferido ainda.</small></p>');}
 function edProdHTML(rec){return rec?`<div class="card edProd"><b class="edTit">${ic('recebimento')} Itens recebidos</b>
-  <button class="big ok" id="edScan">${ic('barras')} Ler código de barras (scanner)</button><div id="edItens">${edItensHTML()}</div>
-  <div class="row edAdd recAdd"><input id="edCodTxt" placeholder="Código"><button class="big ok" id="edScan2" aria-label="Ler com o scanner">${ic('barras')}</button><button class="big alt" id="edCodAdd">${ic('adicionar')} Adicionar</button></div></div>`
+  <button class="big ok" id="edScan">${ic('mira')} Ler código de barras (scanner)</button><div id="edItens">${edItensHTML()}</div>
+  <div class="row edAdd recAdd"><input id="edCodTxt" placeholder="Código"><button class="big ok" id="edScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="edCodAdd">${ic('adicionar')} Adicionar</button></div></div>`
  :`<div class="card edProd"><b class="edTit">${ic('lista')} Conferência de código</b>
   <label>Código(s) da NF (esperado)</label><div class="row edAdd"><input data-ec="confEsp" id="edEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(ed.c.confEsp)}"><button class="big alt" id="edEspScan">${ic('camera')} Ler</button></div>
   <label>Código da etiqueta</label><div class="row edAdd"><input id="edLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="edLidoOk">${ic('ok')} Conferir</button></div>
-  <button class="big ok" id="edConfScan">${ic('barras')} Ler códigos com a câmera</button><div id="edConf">${edConfHTML()}</div></div>`;}
+  <button class="big ok" id="edConfScan">${ic('mira')} Ler códigos com a câmera</button><div id="edConf">${edConfHTML()}</div></div>`;}
 function edConferir(v){const esp=L.parseCods(ed.c.confEsp);if(!esp.length){toast('Coloque primeiro o código esperado da NF');return null;}const c=L.conferir(esp,v);if(!c.cod)return null;ed.c.confLidos=L.confAdd(ed.c.confLidos,c,Date.now());const o=$('#edConf');if(o)o.innerHTML=edConfHTML();return c;}
 const edPode=()=>!(window.Nuvem&&((Nuvem.travado&&Nuvem.travado())||(Nuvem.esperando&&Nuvem.esperando())));
 document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[data-eiq],[data-eidel],[data-ecrm],#edScan,#edScan2,#edCodAdd,#edEspScan,#edLidoOk,#edConfScan');if(!t)return;e.stopPropagation();edLer();
@@ -383,7 +383,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.31';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.32';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
@@ -444,6 +444,7 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(d.del){f[d.del].splice(+d.i,1);nova();}else if(d.open){if(hist.sel){hist.sel.has(d.open)?hist.sel.delete(d.open):hist.sel.add(d.open);lista();$('#selN').textContent=hist.sel.size;document.querySelectorAll('.selN2').forEach(x=>x.textContent=hist.sel.size);}else{detalhe=d.open;render();}}
   else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr)abrirScanner(d.ocr);
   else if(t.id==='confScan')abrirScanner('lido');
+  else if(t.id==='confScan0'){e.preventDefault();const dt=t.closest('details');if(dt)dt.open=true;abrirScanner('lido');}
   else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{const tp=f.tipo;f=novo();f.tipo=tp;rascLimpar();nova();toast('🔄 Tela limpa');},'Sim, limpar');
   else if(t.id==='lerRom')lerRomaneio();
   else if(d.confit!==undefined)confOpcoes(+d.confit);
