@@ -44,7 +44,7 @@ function fotosTxt(r){const p=[],a=(r.fotos||[]).length,b=(r.romaneio||[]).length
 function resumoBase(r,titulo,rotulo){const x=[titulo+' '+codigo(r)];if(cheio(r.cliente))x.push(rotulo+': '+r.cliente.trim());const n=nfsTxt(r.nfs);if(n)x.push('NFs: '+n);return x;}
 function resumoFim(r,x){if(cheio(r.motorista))x.push('Motorista: '+r.motorista.trim());if(cheio(r.placa))x.push('Placa: '+r.placa.trim());
   x.push('Data: '+fmtData(r.ts)+' às '+fmtHora(r.ts));return x;}
-function resumoRec(r){const t=itensTot(r.itens),c=conferirSku(r.itens,r.skuEsp);const x=resumoBase(r,'📥 RECEBIMENTO','Fornecedor');
+function resumoRec(r){const t=itensTot(r.itens),c=conferirSku(r.itens,r.skuEsp);const x=resumoBase(r,'📥 RECEBIMENTO','Cliente');
   if(t.cods)x.push('Itens: '+t.cods+' códigos · '+t.un+' unidades');resumoFim(r,x);
   if(r.skuEsp&&r.skuEsp.length){x.push('Conferência SKU: '+c.status);if(c.status==='DIVERGENTE')x.push('OK '+c.ok.length+' · Qtd diferente '+c.dif.length+' · Faltou '+c.faltou.length+' · A mais '+c.amais.length);}
   const it=r.itens||[],M=30;if(it.length){x.push('Códigos:');it.slice(0,M).forEach(i=>x.push(i.cod+' x '+i.qtd));if(it.length>M)x.push('... e mais '+(it.length-M)+' códigos');}

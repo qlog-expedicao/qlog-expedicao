@@ -20,19 +20,18 @@ const stCls=s=>s==='CONFERIDO OK'?'c-ok':s==='DIVERGENTE'?'c-bad':'c-wait';
 function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-iq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-iq="1" data-ii="${i}">+</button><button data-idel="${i}" class="idel">🗑</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+
   `<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
 function novaRec(){const fl=fornecedores();$('#main').innerHTML=tipoRow()+`
-<label>Fornecedor / Cliente</label><div class="cli">${fl.map(c=>`<button data-forn="${esc(c)}" class="${f.forn===c?'on':''}">${esc(c)}</button>`).join('')}<button id="addForn">➕ Novo fornecedor / cliente</button></div>
-<label>NFs (opcional)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs (se tiver)" value="${esc(f.nfs)}">
-<button class="big ok" id="recScan" style="font-size:24px;padding:22px">📷 Ler códigos (contínuo)</button>
+<label>Cliente</label><div class="cli">${fl.map(c=>`<button data-forn="${esc(c)}" class="${f.forn===c?'on':''}">${esc(c)}</button>`).join('')}<button id="addForn">➕ Novo cliente</button></div>
+<button class="big ok" id="recScan" style="font-size:24px;padding:22px">${ic('barras')} Ler código de barras (scanner)</button>
 <label>Itens recebidos</label><div id="itens">${itensHTML()}</div>
-<div class="row"><input id="addCodTxt" placeholder="Digitar código"><button class="big alt" id="addCod" style="flex:0 0 150px;margin:0">➕ Adicionar código</button></div>
+<div class="row edAdd recAdd"><input id="addCodTxt" placeholder="Código"><button class="big ok" id="recScan2" aria-label="Ler com o scanner">${ic('barras')}</button><button class="big alt" id="addCod">${ic('adicionar')} Adicionar</button></div>
 <label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
-<label>🧾 Romaneio / NF (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio / NF</button>
-<p><small>No WhatsApp vão só as fotos do romaneio/NF.</small></p>
+<label>🧾 Romaneio (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio</button>
+<p><small>No WhatsApp vão só as fotos do romaneio.</small></p>
 <label>Observação</label><textarea id="obs" rows="2">${esc(f.obs)}</textarea>
 <p>🕒 Data e hora: automática ao salvar</p><div id="erro" class="err"></div>
 <button class="big ok" id="salvar">💾 Salvar</button><button class="big" id="salvarEnv">💾 Salvar e 📤 Compartilhar</button><button class="big alt" id="reset">🔄 Limpar (reset)</button>
 <input type="file" id="cam" accept="image/*" capture="environment" multiple hidden>`;
-  ['nfs','obs'].forEach(k=>$('#'+k).oninput=e=>f[k]=e.target.value);
+  ['obs'].forEach(k=>$('#'+k).oninput=e=>f[k]=e.target.value);
   $('#addCodTxt').onkeydown=e=>{if(e.key==='Enter')addCodManual();};}
 function addCodManual(){const v=$('#addCodTxt').value.trim();if(!v)return;f.itens=L.addItem(f.itens,v);$('#itens').innerHTML=itensHTML();$('#addCodTxt').value='';$('#addCodTxt').focus();}
 const qtdDe=(it,c)=>{const x=it.find(i=>i.cod===L.addItem([],c)[0].cod);return x?x.qtd:0;};
@@ -208,7 +207,7 @@ function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens)
  <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre></div>
  <div class="card"><b>📋 Conferência com lista de SKU</b>${r.skuEsp?`<p>Lista: ${r.skuEsp.length} códigos · ${r.skuEsp.reduce((s,x)=>s+x.qtd,0)} unidades. Lido: ${t.cods} códigos · ${t.un} unidades.</p>`+grpHTML(c):'<p>Lista de SKU ainda não chegou. Quando chegar, toque abaixo.</p>'}
  <button class="big" id="skuBtn">📋 ${r.skuEsp?'Editar lista de SKU':'Conferir com lista de SKU'}</button></div>
- <div class="card"><label>🧾 Romaneio / NF</label>${fotosHTML(r.romaneio||[])}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos||[])}</div>
+ <div class="card"><label>🧾 Romaneio</label>${fotosHTML(r.romaneio||[])}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos||[])}</div>
  ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
   $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);ligarEd(r);$('#skuBtn').onclick=()=>skuModal(r);
   $('#apagar').onclick=()=>(window.Nuvem&&!Nuvem.pode())?toast('Só o administrador pode apagar'):confirmar('Apagar o registro?',async()=>{await tx('readwrite',s=>s.delete(r.id));window.Nuvem&&Nuvem.apagar(r.id);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('apagou',r);await load();detalhe=null;toast('Apagado');render();},'Apagar','red','Cancelar');}
@@ -243,7 +242,7 @@ function hist(){if(ed&&$('#edOk')){edLer();return edTela();}if(ed&&detalhe!==ed.
   ${sm?`<div class="row"><button class="big red" id="selDel" style="margin:0">🗑 Apagar selecionados (<span id="selN">${hist.sel.size}</span>)</button><button class="big alt" id="selX" style="margin:0;flex:0 0 120px">Cancelar</button></div><button class="big ok" id="selEnv">📤 Enviar selecionados (<span class="selN2">${hist.sel.size}</span>)</button><button class="big alt" id="selAll">☑ Marcar todos da lista</button>`:(doMes().length?'<button class="big alt" id="selOn">☑ Selecionar para apagar</button>':'')}<div id="lista"></div>`;
   $('#q').oninput=e=>{hist.q=e.target.value;lista();};$('#mesAt').onchange=e=>{mesAt=e.target.value;hist.sel=null;hist();};lista();}
 function lista(){const v=L.filtrar(doMes(),hist.q);$('#lista').innerHTML=v.length?v.map(r=>`<div class="card${hist.sel&&hist.sel.has(r.id)?' selc':''}" data-open="${r.id}">${hist.sel?`<span style="font-size:26px;float:right">${hist.sel.has(r.id)?'☑':'☐'}</span>`:''}${tagHTML(r)}${r.tipo==='recebimento'?` <span class="st ${stCls(L.recStatus(r))}">${L.recStatus(r)}</span>
- <b>${L.codigo(r)} · ${esc(r.cliente||'Sem fornecedor')}</b><br>${(r.nfs||[]).length?'NFs '+esc(r.nfs.join('-'))+' · ':''}${L.itensTot(r.itens).cods} itens · ${L.itensTot(r.itens).un} un.<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length}</small></div>`:`
+ <b>${L.codigo(r)} · ${esc(r.cliente||'Sem cliente')}</b><br>${(r.nfs||[]).length?'NFs '+esc(r.nfs.join('-'))+' · ':''}${L.itensTot(r.itens).cods} itens · ${L.itensTot(r.itens).un} un.<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length}</small></div>`:`
  <b>${L.codigo(r)} · ${esc(r.cliente)}</b><br>NFs ${esc(r.nfs.join('-'))} · ${esc(L.volTxt(r))} vol${L.confStatus(r.conf)?' · 🔎 '+L.confStatus(r.conf):''}<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length} · 🚛 ${(r.caminhao||[]).length}</small></div>`}`).join(''):'<p>Nenhum registro neste mês.</p>';}
 function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card"><span class="tag ${r.tipo}">${L.tipoNome(r.tipo).toUpperCase()}</span>${estLigacoes(r)}
  <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre><label>🧾 Romaneio</label>${fotosHTML(r.romaneio)}<label>🚛 Caminhão carregado</label>${fotosHTML(r.caminhao||[])}${r.conf&&(r.conf.lidos||[]).length?confListaHTML(r.conf.lidos,0):''}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos)}</div>
@@ -279,30 +278,30 @@ const ic=k=>window.Tema?Tema.ic(k):'';
 function edItensHTML(){const it=ed.c.itens,t=L.itensTot(it);return (it.length?it.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-eiq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-eiq="1" data-ii="${i}">+</button><button data-eidel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
 function edConfHTML(){const l=ed.c.confLidos;return (l.length?`<p class="tot">${esc(L.confResumo(l))}</p>`+l.map((x,i)=>`<div class="item edCf ${x.ok?'c-ok':'c-bad'}"><span class="icod">${ic(x.ok?'ok':'erro')} ${esc(x.cod)}${(x.n||1)>1?' <small>· '+x.n+' vezes</small>':''}</span><button data-ecrm="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código conferido ainda.</small></p>');}
 function edProdHTML(rec){return rec?`<div class="card edProd"><b class="edTit">${ic('recebimento')} Itens recebidos</b>
-  <button class="big ok" id="edScan">${ic('barras')} Ler códigos (contínuo)</button><div id="edItens">${edItensHTML()}</div>
-  <div class="row edAdd"><input id="edCodTxt" placeholder="Digitar código"><button class="big alt" id="edCodAdd">${ic('adicionar')} Adicionar</button></div></div>`
+  <button class="big ok" id="edScan">${ic('barras')} Ler código de barras (scanner)</button><div id="edItens">${edItensHTML()}</div>
+  <div class="row edAdd recAdd"><input id="edCodTxt" placeholder="Código"><button class="big ok" id="edScan2" aria-label="Ler com o scanner">${ic('barras')}</button><button class="big alt" id="edCodAdd">${ic('adicionar')} Adicionar</button></div></div>`
  :`<div class="card edProd"><b class="edTit">${ic('lista')} Conferência de código</b>
   <label>Código(s) da NF (esperado)</label><div class="row edAdd"><input data-ec="confEsp" id="edEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(ed.c.confEsp)}"><button class="big alt" id="edEspScan">${ic('camera')} Ler</button></div>
   <label>Código da etiqueta</label><div class="row edAdd"><input id="edLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="edLidoOk">${ic('ok')} Conferir</button></div>
   <button class="big ok" id="edConfScan">${ic('barras')} Ler códigos com a câmera</button><div id="edConf">${edConfHTML()}</div></div>`;}
 function edConferir(v){const esp=L.parseCods(ed.c.confEsp);if(!esp.length){toast('Coloque primeiro o código esperado da NF');return null;}const c=L.conferir(esp,v);if(!c.cod)return null;ed.c.confLidos=L.confAdd(ed.c.confLidos,c,Date.now());const o=$('#edConf');if(o)o.innerHTML=edConfHTML();return c;}
 const edPode=()=>!(window.Nuvem&&((Nuvem.travado&&Nuvem.travado())||(Nuvem.esperando&&Nuvem.esperando())));
-document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[data-eiq],[data-eidel],[data-ecrm],#edScan,#edCodAdd,#edEspScan,#edLidoOk,#edConfScan');if(!t)return;e.stopPropagation();edLer();
+document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[data-eiq],[data-eidel],[data-ecrm],#edScan,#edScan2,#edCodAdd,#edEspScan,#edLidoOk,#edConfScan');if(!t)return;e.stopPropagation();edLer();
   if(!edPode())return toast('Acesso bloqueado pelo ADM');const d=t.dataset;
   if(d.eiq){const x=ed.c.itens[+d.ii];if(x){ed.c.itens=L.addItem(ed.c.itens,x.cod,+d.eiq);$('#edItens').innerHTML=edItensHTML();}}
   else if(d.eidel!==undefined){const x=ed.c.itens[+d.eidel];if(x)confirmar('Tirar o código '+x.cod+' da lista?',()=>{ed.c.itens=ed.c.itens.filter(i=>i!==x);$('#edItens').innerHTML=edItensHTML();},'Sim, tirar');}
   else if(d.ecrm!==undefined){ed.c.confLidos.splice(+d.ecrm,1);$('#edConf').innerHTML=edConfHTML();}
   else if(t.id==='edCodAdd'){const i=$('#edCodTxt'),v=i.value.trim();if(!v)return;ed.c.itens=L.addItem(ed.c.itens,v);$('#edItens').innerHTML=edItensHTML();i.value='';i.focus();}
   else if(t.id==='edLidoOk'){const i=$('#edLido');if(edConferir(i.value)){i.value='';}}
-  else if(t.id==='edScan')abrirMulti('Editar: ler códigos',code=>{if(!ed)return 0;ed.c.itens=L.addItem(ed.c.itens,code);const o=$('#edItens');if(o)o.innerHTML=edItensHTML();return qtdDe(ed.c.itens,code);},()=>{if(ed)edTela();},ed.c.itens);
+  else if(t.id==='edScan'||t.id==='edScan2')abrirMulti('Editar: ler códigos',code=>{if(!ed)return 0;ed.c.itens=L.addItem(ed.c.itens,code);const o=$('#edItens');if(o)o.innerHTML=edItensHTML();return qtdDe(ed.c.itens,code);},()=>{if(ed)edTela();},ed.c.itens);
   else if(t.id==='edEspScan')abrirMulti('Código da NF',code=>{if(!ed)return 0;const n=L.normCod(code);if(n&&!L.parseCods(ed.c.confEsp).includes(n))ed.c.confEsp=(ed.c.confEsp.trim()?ed.c.confEsp.trim()+' ':'')+n;return 1;},()=>{if(ed)edTela();},[]);
   else if(t.id==='edConfScan'){if(!L.parseCods(ed.c.confEsp).length)return toast('Coloque primeiro o código esperado da NF');abrirMulti('Editar: conferir códigos',code=>{if(!ed)return 0;const c=edConferir(code);return c?(ed.c.confLidos.find(x=>x.cod===c.cod&&!!x.ok===!!c.ok)||{n:1}).n:0;},()=>{if(ed)edTela();},[]);}
 },true);
 function edFotos(k,titulo){const a=ed.fotos[k];return `<label>${titulo} (${a.length})</label><div class="fotos">${a.map((d,i)=>`<div><img src="${d}"><div class="row" style="gap:4px"><button class="big" data-eft="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">🔄 Trocar</button><button class="big red" data-efr="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">❌ Remover</button></div></div>`).join('')}</div><button class="big alt" data-efa="${k}">📷 Adicionar foto</button>`;}
 function edTela(){const rec=ed.tipo==='recebimento',lst=rec?fornecedores():clientes(),inp=(k,lb,ex)=>`<label>${lb}</label><input data-ec="${k}" value="${esc(ed.c[k])}" ${ex||''}>`;
   $('#main').innerHTML=`<button class="big alt" id="edX">⬅ Cancelar</button><div class="card"><b style="font-size:21px">✏️ Editar registro</b>
-  <label>${rec?'Fornecedor / cliente':'Transportadora'}</label><input data-ec="cliente" list="edLst" value="${esc(ed.c.cliente)}"><datalist id="edLst">${lst.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
-  ${inp('nfs','NFs (separe com traço)','inputmode="numeric"')}
+  <label>${rec?'Cliente':'Transportadora'}</label><input data-ec="cliente" list="edLst" value="${esc(ed.c.cliente)}"><datalist id="edLst">${lst.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+  ${rec?'':inp('nfs','NFs (separe com traço)','inputmode="numeric"')}
   ${rec?'':`<div class="row"><div style="flex:1">${inp('palete','Paletes','type="number" min="0" inputmode="numeric"')}</div><div style="flex:1">${inp('volume','Volumes','type="number" min="0" inputmode="numeric"')}</div></div>
   ${inp('placa','Placa','style="text-transform:uppercase"')}${inp('motorista','Motorista')}`}${ed.tipo==='estorno'?inp('motivo','Motivo do estorno'):''}
   <label>Observação</label><textarea data-ec="obs" rows="3">${esc(ed.c.obs)}</textarea></div>
@@ -377,14 +376,14 @@ function locCamera(){const l=locGet();if(!l.length)return toast('Coloque os cód
   abrirScanner(null,{titulo:'Localizar e contar',noBip:()=>localStorage.getItem('locBip')==='0',cool:2500,match:t=>L.locCasa(t,locGet()),
     onItem:(cod,raw)=>{const n=locSoma(cod,1);locUlt(cod,raw);const x=locGet().find(i=>i.cod===cod);if(x&&x.alvo&&n===x.alvo){bip();setTimeout(bip,200);toast('✅ '+cod+' COMPLETO');}return x&&x.alvo?n+' de '+x.alvo:n;},zerar:window.locZerar,onFim:()=>{if(tab==='loc')loc();}});}
 window.voltar=()=>{if(window.Nuvem&&Nuvem.esperando&&Nuvem.esperando())return;if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return;{const m=$('#modal');if(m.classList.contains('on')&&m.dataset.nv&&window.Nuvem&&Nuvem.ativo()&&!Nuvem.on&&localStorage.getItem('nvFoiMembro'))return;}if(RC)return fecharRom();if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
-function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora / Fornecedor'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Estorno</th><th>Receb.</th><th>Volumes</th><th>Paletes</th><th>Vol.</th></tr>`+
+function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora / Cliente'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Estorno</th><th>Receb.</th><th>Volumes</th><th>Paletes</th><th>Vol.</th></tr>`+
   Object.entries(o).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.reg}</td><td>${v.coleta}</td><td>${v.saida}</td><td>${v.estorno||0}</td><td>${v.receb||0}</td><td>${v.vol}</td><td>${v.palete||0}</td><td>${v.volume||0}</td></tr>`).join('')+'</table></div>';
-  $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora / fornecedor')}
+  $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora / cliente')}
   <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.30';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.31';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
@@ -434,9 +433,9 @@ let fotoAlvo='fotos';
 document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preventDefault();Nuvem.pedirEntrada();return;}const db_=e.target.closest('[data-dobra]');if(db_){const k=db_.dataset.dobra;abertas[k]=!abertas[k];render();return;}const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(t.id==='updApp'){atualizarApp();return;}
   if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.orig!==undefined){const o=d.orig&&regs.find(x=>x.id===d.orig);f=o?L.estDeOrigem(o):Object.assign(novo(),{origemOk:1});nova();}else if(t.id==='estTrocar'){estPick();}else if(d.tipo){if(d.tipo===f.tipo)return;f.tipo=d.tipo;if(d.tipo==='estorno'&&!f.origemOk)estPick();else nova();}else if(d.cli!==undefined){f.cliente=L.alternar(f.cliente,d.cli);nova();rascAgendar();}else if(d.forn!==undefined){f.forn=L.alternar(f.forn,d.forn);nova();rascAgendar();}
-  else if(t.id==='addForn'){const m=$('#modal');m.innerHTML='<div><label>Nome do fornecedor / cliente</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
+  else if(t.id==='addForn'){const m=$('#modal');m.innerHTML='<div><label>Nome do cliente</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
     $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=fornecedores();if(!c.includes(n))c.push(n);setFornecedores(c);f.forn=n;}m.classList.remove('on');nova();};}
-  else if(t.id==='recScan')lerContinuoForm();else if(t.id==='addCod')addCodManual();
+  else if(t.id==='recScan'||t.id==='recScan2')lerContinuoForm();else if(t.id==='addCod')addCodManual();
   else if(d.iq){const x=f.itens[+d.ii];if(x){f.itens=L.addItem(f.itens,x.cod,+d.iq);$('#itens').innerHTML=itensHTML();}}
   else if(d.idel!==undefined){const x=f.itens[+d.idel];if(x)confirmar('Tirar o código '+x.cod+' da lista?',()=>{f.itens=f.itens.filter(i=>i!==x);$('#itens').innerHTML=itensHTML();},'Sim, tirar');}
   else if(t.id==='addCli'){const m=$('#modal');m.innerHTML='<div><label>Nome da transportadora</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
@@ -461,7 +460,7 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(t.id==='resetCli')confirmar('Apagar a lista de transportadoras salvas? Os registros continuam.',()=>{setClientes([]);toast('Lista apagada');render();},'Sim, apagar lista');
   else if((d.edcli!==undefined||d.edforn!==undefined)&&window.Nuvem&&!Nuvem.pode())toast('Só o administrador pode mudar nomes');
   else if(d.edforn!==undefined)renomearModal(d.edforn,true);else if(d.edcli!==undefined)renomearModal(d.edcli,false);
-  else if(d.rmforn!==undefined){const n=d.rmforn;confirmar('Apagar "'+n+'" da lista de fornecedores? Os registros continuam.',()=>{setFornecedores(fornecedores().filter(c=>c!==n));if(f.forn===n)f.forn='';toast('Apagado');render();},'Sim, apagar');}
+  else if(d.rmforn!==undefined){const n=d.rmforn;confirmar('Apagar "'+n+'" da lista de clientes? Os registros continuam.',()=>{setFornecedores(fornecedores().filter(c=>c!==n));if(f.forn===n)f.forn='';toast('Apagado');render();},'Sim, apagar');}
   else if(d.rmcli!==undefined){const n=d.rmcli;confirmar('Apagar a transportadora "'+n+'" da lista? Os registros continuam.',()=>{setClientes(clientes().filter(c=>c!==n));if(f.cliente===n)f.cliente='';toast('Apagada');render();},'Sim, apagar');}
   else if(t.id==='selOn'){hist.sel=new Set();hist();}
   else if(t.id==='selEnv'){const sr=regs.filter(r=>hist.sel.has(r.id));if(!sr.length)return toast('Nenhum selecionado');const m=$('#modal');

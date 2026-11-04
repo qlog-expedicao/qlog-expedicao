@@ -222,3 +222,6 @@ html[data-estilo] #nvEspera .big.red{background:linear-gradient(135deg,#b71c1c,#
 
 /* v4.3.30: produtos no Editar */.edProd .edTit{display:block;font-size:19px;margin-bottom:6px}.edProd .edTit .qi,.edProd .big .qi{width:1.2em;height:1.2em;vertical-align:-.25em}.edAdd{flex-wrap:nowrap;gap:6px}.edAdd input{flex:1 1 auto;min-width:0}.edAdd .big{flex:0 0 auto;width:auto;margin:0;padding:10px 12px;white-space:nowrap}.edCf .icod{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}.edCf.c-ok{background:#dff5e3;color:#14632b}.edCf.c-bad{background:#fde0e0;color:#9b1c1c}
 .edProd .item{gap:4px;padding:6px}.edProd .item .icod{flex:1 1 auto;min-width:0;font-size:15px;word-break:normal;overflow-wrap:anywhere}.edProd .item button{flex:0 0 auto;width:40px;height:40px;font-size:20px}.edProd .item .iqt{min-width:28px;font-size:19px}
+.recAdd #recScan2{padding:10px 14px}.recAdd #recScan2 .qi{width:1.4em;height:1.4em;vertical-align:-.3em}#recScan .qi{width:1.2em;height:1.2em;vertical-align:-.2em}
+#itens .item{gap:4px;padding:6px}#itens .item .icod{flex:1 1 auto;min-width:0;font-size:15px;word-break:normal;overflow-wrap:anywhere}#itens .item button{flex:0 0 auto;width:40px;height:40px;font-size:20px}#itens .item .iqt{min-width:28px;font-size:19px}.recAdd .big{padding:10px}
+.recAdd #edScan2{padding:10px 14px}.recAdd #edScan2 .qi{width:1.4em;height:1.4em;vertical-align:-.3em}
