@@ -5,15 +5,17 @@ const N={on:false,uid:null,admin:false,membro:false,login:'',dono:false,papel:''
 window.Nuvem=N;
 const cfgOk=()=>!!(window.QLOG_FB&&window.QLOG_FB.projectId&&window.firebase);
 N.ativo=()=>cfgOk();
+// v4.3.34: porta de acesso — com a nuvem configurada, ninguém usa o app sem acesso liberado (web/iPhone e Android, offline, voltar e recarregar)
+const exige=()=>!!(window.QLOG_FB&&window.QLOG_FB.projectId);N.exige=exige;N.liberado=()=>!exige()||N.on;
 N.pode=()=>!cfgOk()||N.admin; // editar/apagar
 const docE=()=>N.fs.doc('config/equipe'),docS=()=>N.fs.doc('config/segredo'),docM=u=>N.fs.doc('membros/'+(u||N.uid));
-async function iniciar(){if(!cfgOk())return;
+async function iniciar(){if(exige()&&!window.firebase){N.erro='não carregou';N.porta();return;}if(!cfgOk())return;
   try{firebase.initializeApp(window.QLOG_FB);N.fs=firebase.firestore();
     try{N.fs.settings({experimentalAutoDetectLongPolling:true,merge:true});}catch(e){}
     try{await N.fs.enablePersistence({synchronizeTabs:false});}catch(e){}
-    firebase.auth().onAuthStateChanged(async u=>{if(!u){try{await firebase.auth().signInAnonymously();}catch(e){N.erro='sem internet';if(window.nvMudou)window.nvMudou();}return;}
+    firebase.auth().onAuthStateChanged(async u=>{if(!u){try{await firebase.auth().signInAnonymously();}catch(e){N.erro='sem internet';N.porta();if(window.nvMudou)window.nvMudou();}return;}
       N.uid=u.uid;await papel();});
-  }catch(e){N.erro=String(e.message||e);}}
+  }catch(e){N.erro=String(e.message||e);N.porta();}}
 async function papel(){N.admin=false;N.membro=false;let negado=false,doCache=false;
   try{const e=await docE().get();N.existe=e.exists;N.adminUid=e.exists?e.data().admin:null;if(e.exists&&e.data().admin===N.uid)N.admin=true;}catch(e){N.existe=null;}
   try{const m=await docM().get();doCache=!!(m.metadata&&m.metadata.fromCache);N.membro=m.exists&&!m.data().bloq;if(!m.exists||m.data().bloq)negado=true;if(m.exists&&m.data().nome)N.nome=m.data().nome;N.login=m.exists&&m.data().login||'';}catch(e){N.membro=false;N.login='';if(/permission/i.test(String(e.code||e.message)))negado=true;}
@@ -22,8 +24,8 @@ async function papel(){N.admin=false;N.membro=false;let negado=false,doCache=fal
     catch(e){if(/permission/i.test(String(e.code||e.message))){N.membro=false;negado=true;}}}
   N.papel=N.admin?'adm':(N.membro?'colab':'');
   if((N.admin||N.membro)&&N.travado()&&doCache&&!N.admin){N.on=false;N.travar();N.status();return;}
-  if(N.admin||N.membro){N.on=true;N.destravar();localStorage.setItem(FOI,'1');await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();}
-  else{N.on=false;if(N.travado()||(negado&&localStorage.getItem(FOI)))N.travar();else N.pedirEntrada();}
+  if(N.admin||N.membro){N.on=true;N.destravar();N.portaFim();localStorage.setItem(FOI,'1');await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();}
+  else{N.on=false;if(N.travado()||(negado&&localStorage.getItem(FOI)))N.travar();else N.pedirEntrada();N.porta();}
   N.status();}
 // v4.3.29: trava de segurança — membro bloqueado/removido pelo ADM não usa mais o app (fica salvo, vale offline e ao reabrir)
 const TRAVA='nvBloq',FOI='nvFoiMembro';
@@ -36,7 +38,23 @@ N.travar=()=>{localStorage.setItem(TRAVA,'1');document.body&&document.body.class
   document.body.appendChild(t);document.getElementById('nvTrOk').onclick=()=>{const m=document.getElementById('modal');if(m){m.classList.remove('on');delete m.dataset.nv;}pendLimpar();N.pedirEntrada(false);};};
 N.destravar=()=>{localStorage.removeItem(TRAVA);document.body&&document.body.classList.remove('travado');const t=document.getElementById('nvTrava');if(t)t.remove();};
 if(cfgOk()&&localStorage.getItem(TRAVA)==='1'){const go=()=>N.travar();if(document.body)go();else document.addEventListener('DOMContentLoaded',go);}
-N.status=()=>{setTimeout(()=>N.enviarFila&&N.enviarFila(),1500);N.checado=true;if(window.nvMudou)window.nvMudou();};
+
+// v4.3.34: tela de entrada obrigatória (fica por baixo do login, da espera e do bloqueio; só some com acesso liberado)
+N.porta=()=>{if(!exige()||N.on)return;const go=()=>{if(N.on)return;document.body.classList.add('semAcesso');let p=document.getElementById('nvPorta');const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
+  if(!p){p=document.createElement('div');p.id='nvPorta';p.setAttribute('role','dialog');p.setAttribute('aria-label','Entrar no Qlog');document.body.appendChild(p);}
+  const off=N.erro?(navigator.onLine===false||/internet/.test(N.erro)?'Sem internet. Conecte para entrar.':'Não foi possível conectar. Tente de novo.'):(N.checado?'':'Conectando...');
+  p.innerHTML=`<div class="qwel nvPoCx"><div class="qwTop"><img src="marca.png" alt="Qlog" class="qwLogo" onerror="this.src='icone.png'"><b class="qwH">Entrar no Qlog Expedição</b><small class="qwSub">Para usar o app é preciso ter acesso liberado pelo ADM.</small></div>
+   <button class="big ok" id="poEntrar">${ti('usuario')} Entrar</button><button class="big alt" id="poCriar">${ti('mao')} Criar meu acesso</button>
+   <p class="qwInfo" id="poE">${off}</p>${N.erro?`<button class="big alt" id="poTenta">${ti('limpar')} Tentar de novo</button>`:''}</div>`;
+  const ok=()=>N.fs&&N.uid;
+  p.querySelector('#poEntrar').onclick=()=>{if(!ok())return location.reload();N.pedirEntrada(false);};
+  p.querySelector('#poCriar').onclick=()=>{if(!ok())return location.reload();N.criarMeuAcesso();};
+  const t=p.querySelector('#poTenta');if(t)t.onclick=()=>location.reload();};
+  if(document.body)go();else document.addEventListener('DOMContentLoaded',go);};
+N.portaFim=()=>{const p=document.getElementById('nvPorta');if(p)p.remove();document.body&&document.body.classList.remove('semAcesso');};
+if(exige())N.porta();
+window.addEventListener('pageshow',()=>{if(exige()&&!N.on)N.porta();});
+N.status=()=>{if(exige()&&!N.on)N.porta();setTimeout(()=>N.enviarFila&&N.enviarFila(),1500);N.checado=true;if(window.nvMudou)window.nvMudou();};
 // primeira abertura. v4.3.3: usuário + senha (criados pelo ADM em 👥 Equipe); a senha de acesso antiga continua valendo
 N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esperar();const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;
   // v4.3.8: primeira abertura (sem login salvo) já abre no ✍️ Criar meu acesso
@@ -46,12 +64,12 @@ N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esper
    <label>Seu nome</label><input id="nvN" value="${(N.nome||'').replace(/"/g,'&quot;')}" style="width:100%;font-size:20px">
    <label>Senha de acesso</label><input id="nvS" type="password" autocomplete="off" style="width:100%;font-size:20px">
    <p id="nvE" style="color:#c62828"></p>
-   <button class="big ok" id="nvOk"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Entrar / Registrar</button>${cria?'':'<button class="big alt" id="nvTroca">👤 Entrar com usuário e senha</button>'}${N.travado()?'':'<button class="big alt" id="nvX">Agora não</button>'}</div>`;
+   <button class="big ok" id="nvOk"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Entrar / Registrar</button>${cria?'':'<button class="big alt" id="nvTroca">👤 Entrar com usuário e senha</button>'}${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
   else m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">${ic}Entrar no Qlog</b>
    <label>Usuário</label><input id="nvU" autocapitalize="none" autocomplete="username" style="width:100%;font-size:20px">
    <label>Senha</label><input id="nvS" type="password" autocomplete="current-password" style="width:100%;font-size:20px">
    <p id="nvE" style="color:#c62828"></p>
-   <button class="big ok" id="nvOk">✅ Entrar</button><button class="big" id="nvCriar">✍️ Criar meu acesso</button><button class="big alt" id="nvTroca">🔑 Entrar com a senha de acesso</button>${N.travado()?'':'<button class="big alt" id="nvX">Agora não</button>'}</div>`;
+   <button class="big ok" id="nvOk">✅ Entrar</button><button class="big" id="nvCriar">✍️ Criar meu acesso</button><button class="big alt" id="nvTroca">🔑 Entrar com a senha de acesso</button>${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
   m.classList.add('on');const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
   const nx=document.getElementById('nvX');if(nx)nx.onclick=fecha;
   const tr=document.getElementById('nvTroca');if(tr)tr.onclick=()=>{fecha();N.pedirEntrada(!velho);};
@@ -268,7 +286,7 @@ N.criarMeuAcesso=()=>{const m=document.getElementById('modal');if(!m)return;m.da
    <label>Senha (pelo menos 6)</label><input id="caS" type="password" autocomplete="new-password">
    <label>Repita a senha</label><input id="caS2" type="password" autocomplete="new-password">
    <p id="caE" class="qwErr"></p>
-   <button class="big ok" id="caOk">${ti('mao')} Pedir acesso</button>${N.travado()?'':'<button class="big alt" id="caX">Agora não</button>'}<p class="qwLink"><a href="#" id="caEntrar">Já tenho acesso → Entrar</a></p></div>`;
+   <button class="big ok" id="caOk">${ti('mao')} Pedir acesso</button>${N.on?'<button class="big alt" id="caX">Agora não</button>':''}<p class="qwLink"><a href="#" id="caEntrar">Já tenho acesso → Entrar</a></p></div>`;
   m.classList.add('on');const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
   const cx=document.getElementById('caX');if(cx)cx.onclick=fecha;
   document.getElementById('caEntrar').onclick=ev=>{ev.preventDefault();fecha();N.pedirEntrada(false);};

@@ -229,3 +229,47 @@ html[data-estilo] #nvEspera .big.red{background:linear-gradient(135deg,#b71c1c,#
 .confSum{display:flex;align-items:center;gap:10px;padding:8px 0;font-weight:bold;list-style:none;cursor:pointer}.confSum::-webkit-details-marker{display:none}.confSum::marker{content:''}.confSum span{flex:1 1 auto;min-width:0}#confScan0{flex:0 0 auto;width:auto;margin:0;padding:10px 14px}#confScan0 .qi{width:1.4em;height:1.4em;vertical-align:-.3em}
 
 #recScan2,#edScan2,#confScan0{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:6px 10px!important;line-height:1}#recScan2 .qi,#edScan2 .qi,#confScan0 .qi{width:1.7em!important;height:1.7em!important;vertical-align:0!important}.scLbl{display:block;font-size:10px;font-weight:bold;color:#fff;letter-spacing:.2px;white-space:nowrap}
+
+/* v4.3.33: temas Premium (data-grupo=premium + data-estilo=ouro|proazul|executivo), refinados nível Circuito */
+/* Premium Ouro: preto + ouro, padrão de losangos dourados */
+html[data-estilo=ouro]{--hd:linear-gradient(120deg,#000,#17120a 55%,#2e2310);--hdl:#f1d27a;--gl:#d4af37;--bg:#0a0907;--bgimg:radial-gradient(circle at 50% -10%,#d4af3730,transparent 55%),linear-gradient(45deg,#d4af370c 25%,transparent 25%,transparent 75%,#d4af370c 75%),linear-gradient(-45deg,#d4af370c 25%,transparent 25%,transparent 75%,#d4af370c 75%);--tx:#f5ecd6;--ac:#d4af37!important;--act:#f6dd8f!important;--nav:linear-gradient(180deg,#14110b,#0c0a07);--card:#16130d;--inp:#0e0c08;--btn:linear-gradient(135deg,#9c7208,#f3d36b 48%,#fff1b8 52%,#c9971c);--ont:#1a1205;--mut:#b9a77e;--lb:#ecdba9}
+html[data-estilo=ouro] body{background-size:100% 100%,28px 28px,28px 28px}
+/* Pro Azul: marinho + azul elétrico, vidro e malha hexagonal de pontos */
+html[data-estilo=proazul]{--hd:linear-gradient(120deg,#020820,#0a1d5c 55%,#1546c8);--hdl:#7fb0ff;--gl:#2f7bff;--bg:#030a22;--bgimg:radial-gradient(circle at 12% 0%,#2f7bff40,transparent 50%),radial-gradient(circle at 100% 90%,#00c2ff30,transparent 45%),radial-gradient(#5b9bff2e 1.2px,transparent 1.6px),radial-gradient(#5b9bff1c 1.2px,transparent 1.6px);--tx:#e8f0ff;--ac:#3d86ff!important;--act:#9cc2ff!important;--nav:linear-gradient(180deg,#081544cc,#050e30cc);--card:rgba(24,44,110,.5);--inp:rgba(6,16,52,.75);--btn:linear-gradient(135deg,#1747e6,#2f7bff 50%,#35c4ff);--ont:#fff;--mut:#93abd9;--lb:#cadbff}
+html[data-estilo=proazul] body{background-size:100% 100%,100% 100%,22px 22px,22px 22px;background-position:0 0,0 0,0 0,11px 11px;background-attachment:fixed}
+/* Executivo: grafite + esmeralda/prata, textura escovada fina */
+html[data-estilo=executivo]{--hd:linear-gradient(120deg,#121417,#22272c 55%,#2f363c);--hdl:#e3e8eb;--gl:#10b981;--bg:#14171a;--bgimg:repeating-linear-gradient(90deg,#ffffff06 0 1px,transparent 1px 3px),repeating-linear-gradient(135deg,#10b98108 0 2px,transparent 2px 18px),linear-gradient(180deg,#1b1f23,#111316);--tx:#eceff1;--ac:#10b981!important;--act:#6ee7c3!important;--nav:linear-gradient(180deg,#1f2428,#16191c);--card:linear-gradient(180deg,#22282d,#1b2024);--inp:#171b1f;--btn:linear-gradient(135deg,#065f46,#10b981 55%,#34d399);--ont:#fff;--mut:#a0abb3;--lb:#d3dbdf}
+/* comuns premium: cabeçalho e abas polidos */
+html[data-grupo=premium] header{position:relative;box-shadow:0 2px 18px color-mix(in srgb,var(--gl) 45%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--hdl) 60%,transparent)}
+html[data-grupo=premium] header::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:2px;background:linear-gradient(90deg,transparent,var(--hdl),transparent);pointer-events:none}
+html[data-grupo=premium] header span,html[data-grupo=premium] header b{letter-spacing:.6px;text-shadow:0 0 10px var(--gl),0 0 2px var(--gl)}
+html[data-grupo=premium] nav button.on{border-radius:10px 10px 0 0}
+html[data-grupo=premium] .card{border-radius:16px;box-shadow:0 8px 22px #0008,0 0 14px color-mix(in srgb,var(--gl) 22%,transparent),inset 0 1px 0 color-mix(in srgb,var(--hdl) 25%,transparent)}
+html[data-grupo=premium] .big{font-weight:bold;letter-spacing:.3px;border:1px solid color-mix(in srgb,var(--hdl) 45%,transparent);box-shadow:0 4px 14px #0007,0 0 16px color-mix(in srgb,var(--gl) 50%,transparent),inset 0 1px 0 #ffffff40}
+html[data-grupo=premium] .tipo button.on,html[data-grupo=premium] .cli button.on,html[data-grupo=premium] .apg button.on{box-shadow:0 0 16px var(--gl),inset 0 1px 0 #ffffff50!important}
+html[data-grupo=premium] label{letter-spacing:.2px}
+/* Ouro */
+html[data-estilo=ouro] .card{border:1px solid #d4af3780;background-image:linear-gradient(180deg,#d4af3714,transparent 45%)}
+html[data-estilo=ouro] header{border-bottom:2px solid #d4af37}
+html[data-estilo=ouro] header span,html[data-estilo=ouro] header b{background:linear-gradient(90deg,#c9971c,#fff1b8,#d4af37);-webkit-background-clip:text;background-clip:text;color:transparent!important}
+html[data-estilo=ouro] .alt,html[data-estilo=ouro] .tipo button:not(.on),html[data-estilo=ouro] .cli button:not(.on){border:1.5px solid #d4af37!important;color:#f6dd8f!important}
+html[data-estilo=ouro] input{border-color:#8a6d2a}
+/* Pro Azul */
+html[data-estilo=proazul] .card{border:1px solid #7fb0ff55;-webkit-backdrop-filter:blur(12px) saturate(140%);backdrop-filter:blur(12px) saturate(140%);background-image:linear-gradient(160deg,#ffffff14,transparent 40%)}
+html[data-estilo=proazul] nav{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+html[data-estilo=proazul] .alt,html[data-estilo=proazul] .tipo button:not(.on),html[data-estilo=proazul] .cli button:not(.on){border:1.5px solid #4d8dff!important;color:#d6e4ff!important;background:rgba(20,40,110,.45)!important}
+/* Executivo */
+html[data-estilo=executivo] .card{border:1px solid #c9d1d640;border-top:2px solid #10b981}
+html[data-estilo=executivo] header{border-bottom:2px solid #c9d1d6}
+html[data-estilo=executivo] header span,html[data-estilo=executivo] header b{background:linear-gradient(90deg,#c9d1d6,#fff,#9aa5ad);-webkit-background-clip:text;background-clip:text;color:transparent!important;text-shadow:none}
+html[data-estilo=executivo] .alt,html[data-estilo=executivo] .tipo button:not(.on),html[data-estilo=executivo] .cli button:not(.on){border:1.5px solid #aab4bb!important;color:#e9eef0!important}
+/* scanners: verde em todos os temas */
+html[data-grupo=premium] #recScan,html[data-grupo=premium] #recScan2,html[data-grupo=premium] #edScan,html[data-grupo=premium] #edScan2,html[data-grupo=premium] #confScan0,html[data-grupo=premium] #edConfScan{background:linear-gradient(135deg,#15803d,#22a04b 55%,#34c062)!important;color:#fff!important;box-shadow:0 0 14px #22c55e88,inset 0 1px 0 #ffffff40!important}
+html[data-grupo=premium] .scLbl{color:#fff}
+
+/* v4.3.34: porta de acesso obrigatória */
+#nvPorta{position:fixed;inset:0;z-index:2147482800;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;touch-action:pan-y}
+html:not([data-estilo]) #nvPorta{background:#f2f4f7}
+#nvPorta .nvPoCx{background:var(--card,#fff);border-radius:18px;padding:24px 18px;width:100%;max-width:400px;box-sizing:border-box;box-shadow:0 6px 24px #0002;text-align:center}
+#nvPorta .qwH{overflow-wrap:normal;word-break:normal;hyphens:none}#nvPorta .big{width:100%;margin-top:12px}
+body.semAcesso{overflow:hidden}body.semAcesso #modal{z-index:2147483100}
