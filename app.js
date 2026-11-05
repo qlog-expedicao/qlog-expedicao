@@ -224,9 +224,20 @@ function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90v
   $('#skuArq').onclick=()=>{$('#skuFile').value='';$('#skuFile').click();};
   $('#skuFile').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const rd=new FileReader();rd.onload=()=>{const l=L.parseSkuLista(rd.result);if(!l.length)return toast('Não achei códigos no arquivo');$('#skuTxt').value=L.skuTexto(l);toast(l.length+' códigos importados');};rd.readAsText(fl);};
   $('#skuCam').onclick=()=>{let tmp=L.parseSkuLista($('#skuTxt').value);abrirMulti('Lista de SKU: ler códigos',code=>{tmp=L.addItem(tmp,code);const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);return qtdDe(tmp,code);},()=>{const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);},tmp);};}
-function compartilhar(r){const t=L.resumo(r),p=r.romaneio.concat(r.caminhao||[]);
-  if(window.AndroidShare)AndroidShare.share(t,JSON.stringify(p),'');else if(navigator.share){let fs=[];try{fs=p.map((d,i)=>dataUrlFile(d,L.codigo(r)+'_'+(i+1)+'.jpg'));}catch(e){fs=[];}
-    if(fs.length&&navigator.canShare&&navigator.canShare({files:fs}))navigator.share({text:t,files:fs}).catch(()=>{});else navigator.share({text:t}).catch(()=>{});}else{navigator.clipboard&&navigator.clipboard.writeText(t);toast('Texto copiado');}}
+// v4.3.37: no link/PWA/iPhone, junta as fotos numa só (romaneio | caminhão) pra o WhatsApp não mandar mensagens separadas. Android nativo continua igual.
+function loadImg(d){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=d;});}
+async function juntarFotosShare(urls){const list=(urls||[]).filter(Boolean);if(!list.length)return null;if(list.length===1)return list[0];
+  const ims=[];for(const u of list){try{ims.push(await loadImg(u));}catch(e){}}if(!ims.length)return null;if(ims.length===1)return list[0];
+  const H=Math.min(1280,Math.max(...ims.map(i=>i.naturalHeight||i.height)));
+  const cols=ims.map(i=>{const w=i.naturalWidth||i.width,h=i.naturalHeight||i.height,s=H/Math.max(1,h);return{i,w:Math.max(1,Math.round(w*s)),h:H};});
+  const c=document.createElement('canvas');c.width=cols.reduce((a,x)=>a+x.w,0);c.height=H;const g=c.getContext('2d');g.fillStyle='#111';g.fillRect(0,0,c.width,c.height);
+  let x=0;for(const col of cols){g.drawImage(col.i,x,0,col.w,col.h);x+=col.w;}return c.toDataURL('image/jpeg',0.85);}
+async function compartilhar(r){const t=L.resumo(r),p=L.shareFotos(r);
+  if(window.AndroidShare){AndroidShare.share(t,JSON.stringify(p),'');return;}
+  if(navigator.share){let fs=[];try{let imgs=p;if(L.shareJunta(p.length)){const j=await juntarFotosShare(p);if(j)imgs=[j];}
+    fs=imgs.map((d,i)=>dataUrlFile(d,L.codigo(r)+(imgs.length>1?'_'+(i+1):'')+'.jpg'));}catch(e){fs=[];}
+    if(fs.length&&navigator.canShare&&navigator.canShare({files:fs}))navigator.share({text:t,files:fs}).catch(()=>{});else navigator.share({text:t}).catch(()=>{});}
+  else{navigator.clipboard&&navigator.clipboard.writeText(t);toast('Texto copiado');}}
 function dataUrlFile(d,n){const b=atob(d.split(',')[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new File([u],n,{type:'image/jpeg'});}
 function shareArquivo(c,n,tp){if(window.AndroidShare)return AndroidShare.share(c,'[]',n);const fl=new File([c],n,{type:tp});
   if(navigator.share&&navigator.canShare&&navigator.canShare({files:[fl]}))return navigator.share({files:[fl],title:n}).catch(()=>{});
@@ -383,7 +394,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
   $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.36';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.37';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela

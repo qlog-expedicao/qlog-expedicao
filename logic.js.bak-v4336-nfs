@@ -220,8 +220,8 @@ function janelaNome(min){min=janelaOk(min)?Number(min):60;return min<60?min+' mi
 function acessoPedido(nome,u,senha,uid,now){nome=String(nome||'').trim().slice(0,60);u=loginNorm(u);
   if(!nome)return {erro:'Digite seu nome'};if(!loginValido(u))return {erro:'Usuário com 3 a 30 letras ou números'};if(String(senha||'').length<6)return {erro:'Senha com pelo menos 6 letras/números'};
   return {u,doc:{nome,uid:String(uid||''),ts:now||Date.now()},seg:{hash:loginHash(u,senha)}};}
-// v4.3.36: identificação sem senha (nome + função). Usuário e chave são gerados pelo app e ficam só neste celular.
-// v4.3.36: identificação sem senha. O nome é o cadastro fixo da pessoa (chave = nome sem acento/maiúscula/espaço extra).
+// v4.3.37: identificação sem senha (nome + função). Usuário e chave são gerados pelo app e ficam só neste celular.
+// v4.3.37: identificação sem senha. O nome é o cadastro fixo da pessoa (chave = nome sem acento/maiúscula/espaço extra).
 // A chave secreta é gerada pelo app e ninguém vê. Nome já cadastrado em outro celular = pedido de celular novo.
 function regChave(nome){return loginNorm(String(nome||'').replace(/\s+/g,' ')).replace(/\.+/g,'.').replace(/^[^a-z0-9]+/,'').slice(0,30).replace(/[._-]+$/,'');}
 function identPedido(nome,funcao,uid,now,sorte){nome=String(nome||'').replace(/\s+/g,' ').trim().slice(0,40);funcao=String(funcao||'').replace(/\s+/g,' ').trim().slice(0,18);
