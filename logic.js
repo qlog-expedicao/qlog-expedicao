@@ -220,8 +220,8 @@ function janelaNome(min){min=janelaOk(min)?Number(min):60;return min<60?min+' mi
 function acessoPedido(nome,u,senha,uid,now){nome=String(nome||'').trim().slice(0,60);u=loginNorm(u);
   if(!nome)return {erro:'Digite seu nome'};if(!loginValido(u))return {erro:'Usuário com 3 a 30 letras ou números'};if(String(senha||'').length<6)return {erro:'Senha com pelo menos 6 letras/números'};
   return {u,doc:{nome,uid:String(uid||''),ts:now||Date.now()},seg:{hash:loginHash(u,senha)}};}
-// v4.3.35: identificação sem senha (nome + função). Usuário e chave são gerados pelo app e ficam só neste celular.
-// v4.3.35: identificação sem senha. O nome é o cadastro fixo da pessoa (chave = nome sem acento/maiúscula/espaço extra).
+// v4.3.36: identificação sem senha (nome + função). Usuário e chave são gerados pelo app e ficam só neste celular.
+// v4.3.36: identificação sem senha. O nome é o cadastro fixo da pessoa (chave = nome sem acento/maiúscula/espaço extra).
 // A chave secreta é gerada pelo app e ninguém vê. Nome já cadastrado em outro celular = pedido de celular novo.
 function regChave(nome){return loginNorm(String(nome||'').replace(/\s+/g,' ')).replace(/\.+/g,'.').replace(/^[^a-z0-9]+/,'').slice(0,30).replace(/[._-]+$/,'');}
 function identPedido(nome,funcao,uid,now,sorte){nome=String(nome||'').replace(/\s+/g,' ').trim().slice(0,40);funcao=String(funcao||'').replace(/\s+/g,' ').trim().slice(0,18);
@@ -360,7 +360,7 @@ function romJuntar(d,velho){velho=velho||{};const o=Object.assign({},d);if(!o.nf
 // tela de conferência -> formulário. Nunca leva CPF.
 function romAplicar(f,v,lista){const auto=[],t=s=>SEM_CPF(String(s==null?'':s)).replace(/\s+/g,' ').trim();
   const tr=t(v.transp);if(tr){f.cliente=acharNaLista(tr,lista)||tr;auto.push('cliente');}
-  const n=parseNFs(t(v.nfs)).filter(x=>/^\d+$/.test(x)).map(x=>x.replace(/^0+(?=\d)/,''));if(n.length){f.nfs=n.join('-');auto.push('nfs');}
+  const n=parseNFs(String(v.nfs==null?'':v.nfs).replace(/\s+/g,' ').trim()).filter(x=>/^[0-9A-Za-z]+$/.test(x)).map(x=>/^\d+$/.test(x)?x.replace(/^0+(?=\d)/,''):x);if(n.length){f.nfs=n.join('-');auto.push('nfs');}
   const vo=t(v.volume).match(/\d{1,5}/);if(vo){f.vt=f.vt||{};f.vt.volume=vo[0];auto.push('volume');}
   const pl=t(v.placa).toUpperCase();if(pl){f.placa=pl;auto.push('placa');}
   const mo=t(v.motorista).replace(/\d/g,'').trim();if(mo){f.motorista=mo;auto.push('motorista');}
