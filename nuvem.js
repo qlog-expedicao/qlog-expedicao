@@ -25,20 +25,56 @@ async function papel(){N.admin=false;N.membro=false;let negado=false,doCache=fal
   N.dono=N.admin;if(N.dono){try{const e=await docE().get();if(e.exists&&('adminNome' in e.data()))await docE().update({adminNome:firebase.firestore.FieldValue.delete()});}catch(e){}}
   if(N.admin&&!N.dono){try{const d=await docM(N.adminUid).get();N.donoLogin=d.exists?(d.data().login||''):'';}catch(e){}}if(N.membro&&N.login){try{const l=await N.fs.doc('logins/'+N.login).get();if(!l.exists||l.data().bloq){N.membro=false;negado=true;}else{N.nome=l.data().nome||N.nome;if(l.data().papel==='adm')N.admin=true;}}
     catch(e){if(/permission/i.test(String(e.code||e.message))){N.membro=false;negado=true;}}}
-  N.papel=N.admin?'adm':(N.membro?'colab':'');N.negado=negado&&!N.admin&&!N.membro;
+  N.papel=N.admin?'adm':(N.membro?'colab':'');N.negado=negado&&!N.admin&&!N.membro;N.cod=(N.admin||N.membro)&&N.login?L.codCadastro(N.login):(N.cod||'');
   if((N.admin||N.membro)&&N.travado()&&doCache&&!N.admin){N.on=false;N.travar();N.status();return;}
   if(N.admin||N.membro){N.on=true;N.destravar();N.portaFim();localStorage.setItem(FOI,'1');await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();}
   else{if(N.trocado){N.on=false;N.telaTrocado();N.status();return;}N.on=false;if(N.travado()||(negado&&localStorage.getItem(FOI)))N.travar();else N.pedirEntrada();N.porta();}
   N.status();}
 // v4.3.29: trava de segurança — membro bloqueado/removido pelo ADM não usa mais o app (fica salvo, vale offline e ao reabrir)
 const TRAVA='nvBloq',FOI='nvFoiMembro';
+
+// v4.3.46: rodapé discreto (recarregar + reportar) + resumo profissional nas telas de bloqueio e identificação
+const _ajK=0x5A,_ajC=[40,53,62,53,55,59,40,49,104,108,107,107,26,61,55,59,51,54,116,57,53,55];
+function ajDest(){return String.fromCharCode.apply(null,_ajC.map(function(c){return c^_ajK;}));}
+N.sobreApp=function(){return `<div class="nvSobre" role="note"><p>O Qlog Expedição registra e confere a saída das mercadorias no celular: notas, volumes e fotos.</p><p>O objetivo é organizar a expedição e deixar cada envio documentado e conferido.</p></div>`;};
+N.rodapeAjuda=function(tela){const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
+  return `<div class="nvAjuda" data-tela="${tela}"><button type="button" class="nvAjBtn" data-aj="reload">${ti('limpar')} Recarregar página</button><button type="button" class="nvAjBtn" data-aj="report">${ti('suporte')} Reportar um problema</button></div></div>`+N.sobreApp();};
+N.ligarRodape=function(root){const box=root&&root.querySelector('.nvAjuda');if(!box||box.dataset.ligado)return;box.dataset.ligado='1';
+  box.addEventListener('click',ev=>{const b=ev.target.closest('[data-aj]');if(!b)return;ev.preventDefault();
+    if(b.dataset.aj==='reload')N.recarregarPagina();else N.abrirReportar(box.dataset.tela||'');});};
+N.recarregarPagina=async function(){try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
+  location.replace(location.pathname+'?v='+Date.now());};
+N.abrirReportar=function(tela){const m=document.getElementById('modal');if(!m)return;const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
+  const nome0=(N.nome||localStorage.getItem('nvNome')||'').replace(/"/g,'&quot;');
+  const rotulo={bloqueado:'bloqueado',identificacao:'identificação',trocado:'outro celular',espera:'aguardando ADM'}[tela]||tela||'acesso';
+  m.dataset.nv='1';m.innerHTML=`<div class="qwel nvRep"><div class="qwTop"><span class="nvRepIc">${ti('suporte')}</span><b class="qwH">Reportar um problema</b><small class="qwSub">Descreva o que aconteceu. Abrimos o e-mail no seu aparelho.</small></div>
+   <label for="ajN">Seu nome (opcional)</label><input id="ajN" maxlength="40" value="${nome0}" autocomplete="name">
+   <label for="ajM">Mensagem</label><textarea id="ajM" rows="4" maxlength="800" placeholder="O que precisa de ajuda?"></textarea>
+   <p id="ajE" class="qwErr"></p>
+   <button class="big ok" id="ajEnviar">${ti('mao')} Enviar</button><button class="big alt" id="ajX">Cancelar</button></div>`;
+  m.classList.add('on');
+  const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
+  document.getElementById('ajX').onclick=fecha;
+  document.getElementById('ajEnviar').onclick=()=>{const msg=(document.getElementById('ajM').value||'').trim(),er=document.getElementById('ajE');
+    if(!msg){er.textContent='Digite a mensagem';return;}
+    const nome=(document.getElementById('ajN').value||'').trim()||'Não informado';
+    const ver=(typeof APP_V!=='undefined'?APP_V:'');
+    const corpo=['Olá,','','Preciso de ajuda no Qlog Expedição.','', 'Nome: '+nome, 'Tela: '+rotulo, 'Versão: '+ver, '','Mensagem:', msg].join('\\n');
+    const dest=ajDest();
+    const url='mailto:'+encodeURIComponent(dest)+'?subject='+encodeURIComponent('Qlog Expedição — pedido de ajuda')+'&body='+encodeURIComponent(corpo);
+    fecha();try{location.href=url;}catch(e){}};
+};
+
 N.travado=()=>cfgOk()&&localStorage.getItem(TRAVA)==='1';
 N.travar=()=>{localStorage.setItem(TRAVA,'1');document.body&&document.body.classList.add('travado');let t=document.getElementById('nvTrava');
   const m=document.getElementById('modal');if(m&&!(m.classList.contains('on')&&m.dataset.nv)){m.classList.remove('on');delete m.dataset.nv;}
   if(t)return;const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';t=document.createElement('div');t.id='nvTrava';t.setAttribute('role','alertdialog');
   t.innerHTML=`<div class="qwel nvTrCx"><div class="qwTop"><img src="marca.png" alt="Qlog" class="qwLogo" onerror="this.src='icone.png'"><span class="nvTrIc">${ti('bloquear')}</span><b class="qwH">Seu acesso foi bloqueado ou removido pelo ADM</b><small class="qwSub">Fale com o ADM para liberar de novo</small></div>
-   <button class="big ok" id="nvTrOk">${ti('usuario')} Entrar com outro acesso</button></div>`;
-  document.body.appendChild(t);document.getElementById('nvTrOk').onclick=()=>{const m=document.getElementById('modal');if(m){m.classList.remove('on');delete m.dataset.nv;}pendLimpar();N.pedirEntrada(false);};};
+   <button class="big ok" id="nvTrOk">${ti('usuario')} Entrar com outro acesso</button>${N.rodapeAjuda('bloqueado')}`;
+  document.body.appendChild(t);N.ligarRodape(t);
+  // Outro acesso: limpa a sessão deste celular e volta à identificação (Pedir acesso). Quem já tem sessão liberada não passa por aqui.
+  document.getElementById('nvTrOk').onclick=()=>{const m=document.getElementById('modal');if(m){m.classList.remove('on');delete m.dataset.nv;}pendLimpar();
+    ['nvFoiMembro','nvBloq','pendAcesso'].forEach(k=>localStorage.removeItem(k));N.destravar();N.negado=false;N.porta();};};
 N.destravar=()=>{localStorage.removeItem(TRAVA);document.body&&document.body.classList.remove('travado');const t=document.getElementById('nvTrava');if(t)t.remove();};
 if(cfgOk()&&localStorage.getItem(TRAVA)==='1'){const go=()=>N.travar();if(document.body)go();else document.addEventListener('DOMContentLoaded',go);}
 
@@ -54,12 +90,11 @@ N.porta=()=>{if(!exige()||N.on||lembra())return;const go=()=>{if(N.on||lembra())
    <label for="poN">Seu nome</label><input id="poN" autocomplete="name" maxlength="40" enterkeyhint="send">
    <button class="big ok" id="poPedir">${ti('mao')} Pedir acesso</button>
    <p class="qwInfo" id="poE">${off}</p><button class="big alt" id="poTenta" style="${N.erro?'':'display:none'}">${ti('limpar')} Tentar de novo</button>
-   <p class="qwWelcome">Seja bem-vindo.</p><p class="qwLink poAdm"><a href="#" id="poEntrar">${ti('usuario')} Entrar</a></p></div>`;
-  const ok=()=>N.fs&&N.uid;
+   <p class="qwWelcome">Seja bem-vindo.</p>${N.rodapeAjuda('identificacao')}`;
   p.querySelector('#poN').onkeydown=ev=>{if(ev.key==='Enter')p.querySelector('#poPedir').click();};
   p.querySelector('#poPedir').onclick=()=>N.identificar(p.querySelector('#poN').value,'');
-  p.querySelector('#poEntrar').onclick=ev=>{ev.preventDefault();if(!ok())return location.reload();N.pedirEntrada(false);};
-  p.querySelector('#poTenta').onclick=()=>location.reload();};
+  p.querySelector('#poTenta').onclick=()=>N.recarregarPagina();
+  N.ligarRodape(p);};
   if(document.body)go();else document.addEventListener('DOMContentLoaded',go);};
 // v4.3.38: pedido sem senha — o app gera sozinho um usuário e uma chave deste celular (a pessoa não vê nem digita)
 function sorte(n){const c='abcdefghijkmnpqrstuvwxyz23456789',v=new Uint32Array(n);(window.crypto||{getRandomValues:x=>x.map(()=>Math.random()*4294967296)}).getRandomValues(v);return Array.from(v,x=>c[x%c.length]).join('');}
@@ -97,15 +132,15 @@ N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esper
    <label>Seu nome</label><input id="nvN" value="${(N.nome||'').replace(/"/g,'&quot;')}" style="width:100%;font-size:20px">
    <label>Senha de acesso</label><input id="nvS" type="password" autocomplete="off" style="width:100%;font-size:20px">
    <p id="nvE" style="color:#c62828"></p>
-   <button class="big ok" id="nvOk"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Entrar / Registrar</button>${cria?'':'<button class="big alt" id="nvTroca">👤 Entrar com usuário e senha</button>'}${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
+   <button class="big ok" id="nvOk"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Entrar / Registrar</button>${cria?'':'<button class="big alt" id="nvAltModo">👤 Entrar com usuário e senha</button>'}${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
   else m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">${ic}Entrar no Qlog</b>
    <label>Usuário</label><input id="nvU" autocapitalize="none" autocomplete="username" style="width:100%;font-size:20px">
    <label>Senha</label><input id="nvS" type="password" autocomplete="current-password" style="width:100%;font-size:20px">
    <p id="nvE" style="color:#c62828"></p>
-   <button class="big ok" id="nvOk">✅ Entrar</button><button class="big" id="nvCriar">✍️ Criar meu acesso</button><button class="big alt" id="nvTroca">🔑 Entrar com a senha de acesso</button>${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
+   <button class="big ok" id="nvOk">✅ Entrar</button><button class="big" id="nvCriar">✍️ Criar meu acesso</button><button class="big alt" id="nvAltModo">🔑 Entrar com a senha de acesso</button>${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
   m.classList.add('on');const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
   const nx=document.getElementById('nvX');if(nx)nx.onclick=fecha;
-  const tr=document.getElementById('nvTroca');if(tr)tr.onclick=()=>{fecha();N.pedirEntrada(!velho);};
+  const tr=document.getElementById('nvAltModo');if(tr)tr.onclick=()=>{fecha();N.pedirEntrada(!velho);};
   const cr=document.getElementById('nvCriar');if(cr)cr.onclick=()=>{fecha();N.criarMeuAcesso();};
   document.getElementById('nvOk').onclick=async()=>{const s=document.getElementById('nvS').value;const er=document.getElementById('nvE');
     if(velho){const nome=document.getElementById('nvN').value.trim();if(!nome)return er.textContent='Digite seu nome';if(!s)return er.textContent='Digite a senha';
@@ -400,6 +435,15 @@ function ouvirAjustes(){N.unsub.push(docE().onSnapshot(d=>{const x=d.exists?d.da
   if(window.admAtualizar)window.admAtualizar('cfg');},()=>{}));}
 N.janelaMs=()=>L.janelaMs(N.janelaMin);
 N.salvarJanela=async min=>{if(!L.janelaOk(min))throw new Error('valor');await docE().update({janelaMin:Number(min)});N.janelaMin=Number(min);localStorage.setItem('janMin',String(min));};
+
+// v4.3.46: cartão da própria pessoa na Info — nome + ID (só este celular vê)
+N.euHTML=()=>{if(!N.on)return '';const e=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const nome=e(N.nome||N.login||'Este celular');const papel=L.papelNome(N.admin?'adm':'colab');
+  const cod=e(N.cod||(N.login?L.codCadastro(N.login):''));
+  return `<div class="card nvEu"><p class="nvEuNome">${window.Tema?Tema.ic('usuario'):''} <b>${nome}</b> · ${papel}</p>`
+    +(cod?`<p class="nvEuId">ID · <span class="nvEuCod">${cod}</span></p>`:'')
+    +(N.dono?'':`<button class="big alt" id="nvSair">${window.Tema?Tema.ic('sair'):''} Sair / trocar usuário</button>`)+`</div>`;};
+
 N.iniciar=iniciar;
 
 // 4.3.28: 🎧 Falar com o suporte — chamados (Firestore, plano grátis). Foto comprimida dentro do próprio documento.

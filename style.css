@@ -224,6 +224,26 @@ body.semAcesso{overflow:hidden}body.semAcesso #modal{z-index:2147483100}
 #nvPorta input{width:100%;box-sizing:border-box;font-size:18px;min-height:46px}
 #nvPorta .qwWelcome{margin:14px 0 4px;font-size:17px;font-weight:600;color:var(--txt,#354350);opacity:.9}#nvPorta .poAdm{margin:4px 0 0;font-size:13px}#nvPorta .poAdm a{opacity:.65;text-decoration:underline}
 #nvPorta .poAdm .ic,#nvPorta .poAdm svg{width:1em;height:1em;vertical-align:-.15em}
+/* v4.3.46: rodapé discreto + resumo profissional nas telas de bloqueio e identificação */
+.nvAjuda{margin-top:18px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--txt,#354350) 14%,transparent);display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;box-sizing:border-box}
+.nvAjBtn{appearance:none;-webkit-appearance:none;background:none;border:0;margin:0;padding:8px 10px;color:var(--txt,#354350);opacity:.52;font:inherit;font-size:14px;font-weight:500;line-height:1.35;text-align:center;cursor:pointer;max-width:100%;overflow-wrap:normal;word-break:normal;hyphens:none;white-space:normal}
+.nvAjBtn:hover,.nvAjBtn:focus{opacity:.82;text-decoration:underline;outline:none}
+.nvAjBtn .qi,.nvAjBtn svg,.nvAjBtn img{width:1em;height:1em;vertical-align:-.15em;opacity:.9}
+#nvTrava .nvAjuda,#nvPorta .nvAjuda{margin-top:16px}
+.nvSobre{margin:0 auto;padding:20px 28px 28px;max-width:320px;box-sizing:border-box;text-align:center;color:var(--txt,#354350);opacity:.48;font-size:13.5px;line-height:1.5;font-weight:400;overflow-wrap:normal;word-break:normal;hyphens:none;white-space:normal}
+.nvSobre p{margin:0 0 10px}.nvSobre p:last-child{margin-bottom:0}
+#nvPorta .nvPoCx{margin:0 auto 0}
+#nvPorta .nvSobre{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:72px;width:100%;padding-top:18px;padding-bottom:24px}
+#nvTrava{flex-direction:column;justify-content:center;gap:0}
+#nvTrava .nvTrCx{flex:0 0 auto}
+#nvTrava .nvSobre{flex:0 0 auto;width:100%;padding-top:18px;padding-bottom:8px}
+#modal>div.nvRep{text-align:center}
+#modal>div.nvRep .nvRepIc{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:color-mix(in srgb,var(--ac,#0b4f8a) 12%,#fff);margin:4px auto 6px}
+#modal>div.nvRep .nvRepIc .qi,#modal>div.nvRep .nvRepIc svg{width:26px;height:26px}
+#modal>div.nvRep label{text-align:left}
+#modal>div.nvRep textarea{width:100%;box-sizing:border-box;font-size:17px;border-radius:10px;padding:10px 12px;min-height:96px;resize:vertical;font:inherit}
+#modal>div.nvRep .qwErr{color:#c62828;min-height:1.2em;font-size:15px;margin:6px 0 0}
+
 .celAlerta{margin:6px 0;border-left:5px solid #e65100;background:color-mix(in srgb,#e65100 9%,var(--card,#fff))}
 .celTit{font-weight:700;font-size:18px;overflow-wrap:break-word;word-break:normal;hyphens:none}
 .celAlerta .row{gap:8px;flex-wrap:wrap}.celAlerta .row .big{flex:1 1 120px;margin:6px 0 0}
@@ -234,3 +254,9 @@ html:not([data-estilo]) #nvTroca{background:#f2f4f7}
 #nvTroca .trIc .qi{width:64px;height:64px}#nvTroca .qwH{display:block;font-size:23px;margin:8px 0;overflow-wrap:normal;word-break:normal;hyphens:none}#nvTroca .big{width:100%;margin-top:12px}
 /* v4.3.38: ícone visível em botão vermelho (o quadrado vermelho do ícone sumia no fundo vermelho) */
 .big.red .qi>rect{fill:#fff}.big.red .qi>rect+g{stroke:#c62828}
+
+/* v4.3.46: identificação própria na Info */
+.nvEu .nvEuNome{font-size:19px;margin:4px 0 6px;overflow-wrap:normal;word-break:normal}
+.nvEu .nvEuNome .qi,.nvEu .nvEuNome svg{width:1.1em;height:1.1em;vertical-align:-.2em}
+.nvEu .nvEuId{font-size:15px;margin:0 0 10px;color:var(--txt,#354350);opacity:.62;letter-spacing:.04em;font-weight:600}
+.nvEu .nvEuCod{font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,Consolas,monospace}
