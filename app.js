@@ -224,19 +224,15 @@ function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90v
   $('#skuArq').onclick=()=>{$('#skuFile').value='';$('#skuFile').click();};
   $('#skuFile').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const rd=new FileReader();rd.onload=()=>{const l=L.parseSkuLista(rd.result);if(!l.length)return toast('Não achei códigos no arquivo');$('#skuTxt').value=L.skuTexto(l);toast(l.length+' códigos importados');};rd.readAsText(fl);};
   $('#skuCam').onclick=()=>{let tmp=L.parseSkuLista($('#skuTxt').value);abrirMulti('Lista de SKU: ler códigos',code=>{tmp=L.addItem(tmp,code);const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);return qtdDe(tmp,code);},()=>{const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);},tmp);};}
-// v4.3.37: no link/PWA/iPhone, junta as fotos numa só (romaneio | caminhão) pra o WhatsApp não mandar mensagens separadas. Android nativo continua igual.
-function loadImg(d){return new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=d;});}
-async function juntarFotosShare(urls){const list=(urls||[]).filter(Boolean);if(!list.length)return null;if(list.length===1)return list[0];
-  const ims=[];for(const u of list){try{ims.push(await loadImg(u));}catch(e){}}if(!ims.length)return null;if(ims.length===1)return list[0];
-  const H=Math.min(1280,Math.max(...ims.map(i=>i.naturalHeight||i.height)));
-  const cols=ims.map(i=>{const w=i.naturalWidth||i.width,h=i.naturalHeight||i.height,s=H/Math.max(1,h);return{i,w:Math.max(1,Math.round(w*s)),h:H};});
-  const c=document.createElement('canvas');c.width=cols.reduce((a,x)=>a+x.w,0);c.height=H;const g=c.getContext('2d');g.fillStyle='#111';g.fillRect(0,0,c.width,c.height);
-  let x=0;for(const col of cols){g.drawImage(col.i,x,0,col.w,col.h);x+=col.w;}return c.toDataURL('image/jpeg',0.85);}
-async function compartilhar(r){const t=L.resumo(r),p=L.shareFotos(r);
+// v4.3.38: link/PWA/iPhone — UMA chamada navigator.share com TODAS as fotos (álbum no WhatsApp, dá pra abrir cada uma). Não cola JPEG; não faz share por foto. Android nativo inalterado.
+function compartilhar(r){const t=L.resumo(r),p=L.shareFotos(r);
   if(window.AndroidShare){AndroidShare.share(t,JSON.stringify(p),'');return;}
-  if(navigator.share){let fs=[];try{let imgs=p;if(L.shareJunta(p.length)){const j=await juntarFotosShare(p);if(j)imgs=[j];}
-    fs=imgs.map((d,i)=>dataUrlFile(d,L.codigo(r)+(imgs.length>1?'_'+(i+1):'')+'.jpg'));}catch(e){fs=[];}
-    if(fs.length&&navigator.canShare&&navigator.canShare({files:fs}))navigator.share({text:t,files:fs}).catch(()=>{});else navigator.share({text:t}).catch(()=>{});}
+  if(navigator.share){let fs=[];try{fs=p.map((d,i)=>dataUrlFile(d,L.codigo(r)+'_'+(i+1)+'.jpg'));}catch(e){fs=[];}
+    if(fs.length){const env=()=>navigator.share({text:t,files:fs});
+      // Safari às vezes diz canShare=false p/ várias fotos, mas o share multi ainda funciona — tenta sempre UMA vez com todas
+      if(!navigator.canShare||navigator.canShare({files:fs})){env().catch(e=>{if(!e||e.name!=='AbortError')toast('Não deu para enviar as fotos juntas neste navegador');});return;}
+      env().catch(e=>{if(e&&e.name==='AbortError')return;navigator.share({text:t}).catch(()=>{});toast('Este navegador não monta álbum de várias fotos. No app Android o envio já fica certo.');});return;}
+    navigator.share({text:t}).catch(()=>{});}
   else{navigator.clipboard&&navigator.clipboard.writeText(t);toast('Texto copiado');}}
 function dataUrlFile(d,n){const b=atob(d.split(',')[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new File([u],n,{type:'image/jpeg'});}
 function shareArquivo(c,n,tp){if(window.AndroidShare)return AndroidShare.share(c,'[]',n);const fl=new File([c],n,{type:tp});
@@ -390,11 +386,10 @@ window.voltar=()=>{if(window.Nuvem&&Nuvem.liberado&&!Nuvem.liberado()&&!$('#moda
 function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora / Cliente'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Estorno</th><th>Receb.</th><th>Volumes</th><th>Paletes</th><th>Vol.</th></tr>`+
   Object.entries(o).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.reg}</td><td>${v.coleta}</td><td>${v.saida}</td><td>${v.estorno||0}</td><td>${v.receb||0}</td><td>${v.vol}</td><td>${v.palete||0}</td><td>${v.volume||0}</td></tr>`).join('')+'</table></div>';
   $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora / cliente')}
-  <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
-  $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
-  $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
+  <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
+  $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.37';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.38';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
@@ -476,9 +471,8 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(d.rmcli!==undefined){const n=d.rmcli;confirmar('Apagar a transportadora "'+n+'" da lista? Os registros continuam.',()=>{setClientes(clientes().filter(c=>c!==n));if(f.cliente===n)f.cliente='';toast('Apagada');render();},'Sim, apagar');}
   else if(t.id==='selOn'){hist.sel=new Set();hist();}
   else if(t.id==='selEnv'){const sr=regs.filter(r=>hist.sel.has(r.id));if(!sr.length)return toast('Nenhum selecionado');const m=$('#modal');
-    m.innerHTML=`<div><p style="font-size:20px"><b>Enviar ${sr.length} registro(s)</b></p><button class="big ok" id="eHtml">💻 Arquivo pro notebook (com fotos)</button><button class="big" id="eCsv">📄 Planilha CSV</button><button class="big alt" id="eX">Cancelar</button></div>`;m.classList.add('on');
+    m.innerHTML=`<div><p style="font-size:20px"><b>Enviar ${sr.length} registro(s)</b></p><button class="big ok" id="eHtml">💻 Arquivo pro notebook (com fotos)</button><button class="big alt" id="eX">Cancelar</button></div>`;m.classList.add('on');
     const nm='qlog_'+mesAt.replace('/','-')+'_'+sr.length+'sel';$('#eX').onclick=()=>m.classList.remove('on');
-    $('#eCsv').onclick=()=>{m.classList.remove('on');shareArquivo(L.csv(sr),nm+'.csv','text/csv');};
     $('#eHtml').onclick=()=>{m.classList.remove('on');toast('Gerando arquivo...');shareArquivo(L.htmlMes(sr,mesAt),nm+'.html','text/html');};}else if(t.id==='selX'){hist.sel=null;hist();}
   else if(t.id==='selAll'){L.filtrar(doMes(),hist.q).forEach(r=>hist.sel.add(r.id));hist();}
   else if(t.id==='selDel'){if(window.Nuvem&&!Nuvem.pode())return toast('Só o administrador pode apagar');const ids=[...hist.sel];if(!ids.length)return toast('Nenhum selecionado');confirmar('Apagar '+ids.length+' registro(s)? Não tem como desfazer.',async()=>{await tx('readwrite',s=>ids.forEach(i=>s.delete(i)));if(window.Nuvem)ids.forEach(i=>Nuvem.apagar(i));await load();hist.sel=null;toast(ids.length+' apagado(s)');render();});}

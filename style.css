@@ -267,14 +267,14 @@ html[data-estilo=executivo] .alt,html[data-estilo=executivo] .tipo button:not(.o
 html[data-grupo=premium] #recScan,html[data-grupo=premium] #recScan2,html[data-grupo=premium] #edScan,html[data-grupo=premium] #edScan2,html[data-grupo=premium] #confScan0,html[data-grupo=premium] #edConfScan{background:linear-gradient(135deg,#15803d,#22a04b 55%,#34c062)!important;color:#fff!important;box-shadow:0 0 14px #22c55e88,inset 0 1px 0 #ffffff40!important}
 html[data-grupo=premium] .scLbl{color:#fff}
 
-/* v4.3.37: porta de acesso obrigatória */
+/* v4.3.38: porta de acesso obrigatória */
 #nvPorta{position:fixed;inset:0;z-index:2147482800;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;touch-action:pan-y}
 html:not([data-estilo]) #nvPorta{background:#f2f4f7}
 #nvPorta .nvPoCx{background:var(--card,#fff);border-radius:18px;padding:24px 18px;width:100%;max-width:400px;box-sizing:border-box;box-shadow:0 6px 24px #0002;text-align:center}
 #nvPorta .qwH{overflow-wrap:normal;word-break:normal;hyphens:none}#nvPorta .big{width:100%;margin-top:12px}
 body.semAcesso{overflow:hidden}body.semAcesso #modal{z-index:2147483100}
 
-/* v4.3.37: tela de entrada com a esteira animada de fundo */
+/* v4.3.38: tela de entrada com a esteira animada de fundo */
 #nvPorta{flex-direction:column;justify-content:flex-start;padding:0 16px 20px}
 #nvPorta .poFundo{position:relative;width:100vw;max-width:520px;margin:0 calc(50% - min(50vw,260px)) -8px;flex:none;pointer-events:none}
 #nvPorta .poFundo .esAnim{display:block;width:100%;height:auto;overflow:hidden}
@@ -298,5 +298,5 @@ body.semAcesso{overflow:hidden}body.semAcesso #modal{z-index:2147483100}
 html:not([data-estilo]) #nvTroca{background:#f2f4f7}
 #nvTroca .nvPoCx{background:var(--card,#fff);border-radius:18px;padding:24px 18px;width:100%;max-width:400px;box-sizing:border-box;box-shadow:0 6px 24px #0002}
 #nvTroca .trIc .qi{width:64px;height:64px}#nvTroca .qwH{display:block;font-size:23px;margin:8px 0;overflow-wrap:normal;word-break:normal;hyphens:none}#nvTroca .big{width:100%;margin-top:12px}
-/* v4.3.37: ícone visível em botão vermelho (o quadrado vermelho do ícone sumia no fundo vermelho) */
+/* v4.3.38: ícone visível em botão vermelho (o quadrado vermelho do ícone sumia no fundo vermelho) */
 .big.red .qi>rect{fill:#fff}.big.red .qi>rect+g{stroke:#c62828}
