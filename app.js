@@ -389,7 +389,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.43';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.44';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
 window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
@@ -407,7 +407,8 @@ const updEsperar=ms=>new Promise(r=>setTimeout(r,ms));
 async function updPreparar(){try{await rascSalvarJa();}catch(e){}
   try{if(typeof N!=='undefined'&&N){if(N.enviarFila)await Promise.race([N.enviarFila(),updEsperar(8000)]);if(N.fs&&N.fs.waitForPendingWrites)await Promise.race([N.fs.waitForPendingWrites(),updEsperar(8000)]);}}catch(e){}}
 async function atualizarApp(){if(regEmAndamento()){rascGravar();toast('Termine o registro pra atualizar');updBanner(true);return;}await updPreparar();if(window.AndroidUpd){updMsg('Procurando versão nova...',-1);AndroidUpd.verificar();return;}
-  updMsg('Atualizando...',-1);try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.update().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
+  // Site/PWA: desregistra o SW e apaga caches (sem registration.update — isso reinstalava e re-cacheava arquivos velhos).
+  updMsg('Atualizando...',-1);try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
   location.replace(location.pathname+'?v='+Date.now());}
 window.nvMudou=()=>{if(tab==='sobre'&&!detalhe)render();else{navAdm();if(tab==='adm'&&!admOn())render();}};
 // v4.3.4: aba ⚙️ ADM (só aparece para ADM): 🔔 Avisos, 👥 Equipe e ⚙️ Configurações

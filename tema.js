@@ -26,7 +26,7 @@ let obs=null;function ligarIcones(){if(obs||typeof MutationObserver==='undefined
  obs.observe(document.body,{childList:true,subtree:true,characterData:true});}
 const VOL_PAD=50;// 50 = volume de antes (ganho 0.2)
 const ganho=v=>Math.max(0,Math.min(100,Number(v)||0))/250;
-const K='qlog_aparencia',PAD={grupo:'simples',estilo:'padrao',ic:'colorido',tema:'claro',cor:'azul',bip:'atual',clk:'nao',clkt:'suave'};
+const K='qlog_aparencia',PAD={grupo:'simples',estilo:'padrao',ic:'linha',tema:'claro',cor:'azul',bip:'atual',clk:'nao',clkt:'suave'};
 const OP={ic:[['linha','1 · Linha simples'],['cheio','2 · Preenchido'],['colorido','3 · Colorido']],
  tema:[['claro','☀️ Claro'],['escuro','🌙 Escuro'],['auto','📱 Automático']],
  bip:[['atual','1 · Atual'],['curto','2 · Curto e agudo'],['duplo','3 · Duplo (bip-bip)']],
