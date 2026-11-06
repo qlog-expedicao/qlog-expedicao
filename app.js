@@ -389,16 +389,20 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.44';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
-function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
-window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
-// v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
-const UPD_INT=12*60000,UPD_VOLTA=5*60000,UPD_DISP=30*60000;let updDisp_=0;
-function updBanner(forcar){if(!updNova||(!forcar&&Date.now()-updDisp_<UPD_DISP))return;const meio=regEmAndamento();let b=$('#updBan');if(!b){b=document.createElement('div');b.id='updBan';document.body.appendChild(b);}
-  b.innerHTML=meio?'<span>🔄 Nova versão disponível — Termine o registro pra atualizar</span><button id="updBanX">Atualizar depois</button>':'<span>🔄 Nova versão disponível</span><button id="updBanOk">Atualizar</button><button id="updBanX" aria-label="Fechar">✕</button>';b.style.display='flex';
-  if($('#updBanOk'))$('#updBanOk').onclick=e=>{e.stopPropagation();b.style.display='none';atualizarApp();};$('#updBanX').onclick=e=>{e.stopPropagation();updDisp_=Date.now();b.style.display='none';};}
-setInterval(()=>{updChecou=0;checarUpd();updBanner();},UPD_INT);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-updChecou>UPD_VOLTA){updChecou=0;checarUpd();updBanner();}});
+const APP_V='4.3.45';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
+  // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
+  if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
+  return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
+function updLimpaBan(){const b=$('#updBan');if(b){b.style.display='none';b.remove();}}
+function updInfoBox(){const b=$('#updBox');if(b)b.innerHTML=updHTML();}
+let updAuto_=false;window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;updNova=v;updLimpaBan();updInfoBox();
+  // Link/PWA: atualiza sozinho. Android: só o card na Info. Com registro pela metade, só avisa na Info.
+  if(!window.AndroidUpd){if(regEmAndamento())return;if(updAuto_)return;updAuto_=true;atualizarApp();}};
+// v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app); aviso só na aba Info
+const UPD_INT=12*60000,UPD_VOLTA=5*60000;
+setInterval(()=>{updChecou=0;checarUpd();},UPD_INT);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-updChecou>UPD_VOLTA){updChecou=0;checarUpd();}});
 function checarUpd(){if(Date.now()-updChecou<60000)return;updChecou=Date.now();try{if(window.AndroidUpd&&AndroidUpd.checar){AndroidUpd.checar();return;}
   if(!/^https?:/.test(location.protocol))return;fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&j.v)updDisp(j.v);}).catch(()=>{});}catch(e){}}
 // v4.3.9: nunca perder dados ao atualizar. Com registro pela metade não atualiza; antes de atualizar grava o rascunho (campos + fotos no qlogRasc) e envia o que estiver na fila da nuvem
@@ -406,7 +410,7 @@ function regEmAndamento(){try{if(ed)return true;return !!(typeof f!=='undefined'
 const updEsperar=ms=>new Promise(r=>setTimeout(r,ms));
 async function updPreparar(){try{await rascSalvarJa();}catch(e){}
   try{if(typeof N!=='undefined'&&N){if(N.enviarFila)await Promise.race([N.enviarFila(),updEsperar(8000)]);if(N.fs&&N.fs.waitForPendingWrites)await Promise.race([N.fs.waitForPendingWrites(),updEsperar(8000)]);}}catch(e){}}
-async function atualizarApp(){if(regEmAndamento()){rascGravar();toast('Termine o registro pra atualizar');updBanner(true);return;}await updPreparar();if(window.AndroidUpd){updMsg('Procurando versão nova...',-1);AndroidUpd.verificar();return;}
+async function atualizarApp(){if(regEmAndamento()){rascGravar();toast('Termine o registro pra atualizar');updInfoBox();return;}await updPreparar();if(window.AndroidUpd){updMsg('Procurando versão nova...',-1);AndroidUpd.verificar();return;}
   // Site/PWA: desregistra o SW e apaga caches (sem registration.update — isso reinstalava e re-cacheava arquivos velhos).
   updMsg('Atualizando...',-1);try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
   location.replace(location.pathname+'?v='+Date.now());}
