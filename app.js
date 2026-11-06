@@ -196,11 +196,11 @@ async function scan(file){try{const bd=new BarcodeDetector();const b=await creat
 async function salvar(enviar){if(window.Nuvem&&Nuvem.liberado&&!Nuvem.liberado())return toast('Entre com seu acesso para usar o app');if(window.Nuvem&&Nuvem.esperando&&Nuvem.esperando())return;if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return toast('Acesso bloqueado pelo ADM');if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,volume:+f.vt.volume||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
   motorista:f.motorista.trim(),placa:f.placa.trim().toUpperCase(),obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:f.caminhao};if(f.tipo==='estorno'){r.motivo=f.motivo.trim();if(f.origem)r.origem=f.origem;}
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
-  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();toast(window.Nuvem&&Nuvem.exige&&Nuvem.exige()&&!Nuvem.on?'⚠️ Salvo só neste celular. Vai para a nuvem quando conectar.':'✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
 async function salvarRec(enviar){if(window.Nuvem&&Nuvem.liberado&&!Nuvem.liberado())return toast('Entre com seu acesso para usar o app');if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return toast('Acesso bloqueado pelo ADM');const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,'recebimento'),tipo:'recebimento',cliente:f.forn,nfs:L.parseNFs(f.nfs),volumes:0,
   itens:f.itens.map(x=>({cod:x.cod,qtd:x.qtd})),skuEsp:null,obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:[]};
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
-  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();f.tipo='recebimento';toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();f.tipo='recebimento';toast(window.Nuvem&&Nuvem.exige&&Nuvem.exige()&&!Nuvem.on?'⚠️ Salvo só neste celular. Vai para a nuvem quando conectar.':'✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
 function grpHTML(c){return [['c-ok','✔ OK',c.ok],['c-dif','⚠ Quantidade diferente',c.dif],['c-bad','✖ Faltou',c.faltou],['c-mais','➕ A mais',c.amais]].map(([k,t,a])=>
   `<div class="grp"><div class="gh ${k}">${t} (${a.length})</div>${a.length?'<table><tr><th>Código</th><th>Esperado</th><th>Lido</th></tr>'+a.map(x=>`<tr><td>${esc(x.cod)}</td><td>${x.esp}</td><td>${x.lido}</td></tr>`).join('')+'</table>':'<p><small>Nenhum</small></p>'}</div>`).join('');}
 function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card">${tagHTML(r)} <span class="st ${stCls(c.status)}">${c.status}</span>
@@ -232,8 +232,12 @@ function compartilhar(r){const t=L.resumo(r),p=L.shareFotos(r);
       // Safari às vezes diz canShare=false p/ várias fotos, mas o share multi ainda funciona — tenta sempre UMA vez com todas
       if(!navigator.canShare||navigator.canShare({files:fs})){env().catch(e=>{if(!e||e.name!=='AbortError')toast('Não deu para enviar as fotos juntas neste navegador');});return;}
       env().catch(e=>{if(e&&e.name==='AbortError')return;navigator.share({text:t}).catch(()=>{});toast('Este navegador não monta álbum de várias fotos. No app Android o envio já fica certo.');});return;}
-    navigator.share({text:t}).catch(()=>{});}
-  else{navigator.clipboard&&navigator.clipboard.writeText(t);toast('Texto copiado');}}
+    navigator.share({text:t}).catch(e=>{if(!e||e.name!=='AbortError')zapTexto(t);});return;}
+  // v4.3.48: navegador sem compartilhar (ex.: aberto dentro do WhatsApp/Instagram ou no computador) — copia e abre o WhatsApp só com o texto
+  zapTexto(t);}
+function zapTexto(t){try{navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{});}catch(e){}
+  toast('Este navegador não envia fotos. Texto copiado e abrindo o WhatsApp — para as fotos, use o app Android ou abra o site no Chrome/Safari.');
+  const u='https://wa.me/?text='+encodeURIComponent(t);try{const w=window.open(u,'_blank');if(!w)location.href=u;}catch(e){location.href=u;}}
 function dataUrlFile(d,n){const b=atob(d.split(',')[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new File([u],n,{type:'image/jpeg'});}
 function shareArquivo(c,n,tp){if(window.AndroidShare)return AndroidShare.share(c,'[]',n);const fl=new File([c],n,{type:tp});
   if(navigator.share&&navigator.canShare&&navigator.canShare({files:[fl]}))return navigator.share({files:[fl],title:n}).catch(()=>{});
@@ -389,7 +393,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.47';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.48';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}

@@ -162,8 +162,9 @@ N.feitos=JSON.parse(localStorage.getItem('arqFeitos')||'[]');N.arquivos=JSON.par
 function ouvirArquivo(){return new Promise(ok=>{let p=false;const fim=()=>{if(!p){p=true;ok();}};setTimeout(fim,8000);
   N.unsub.push(N.fs.collection('arquivo').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({mes:d.id},d.data())));l.sort((a,b)=>a.mes<b.mes?1:-1);
     N.arquivos=l;N.feitos=l.map(x=>x.mes);localStorage.setItem('arqFeitos',JSON.stringify(N.feitos));localStorage.setItem('arqLista',JSON.stringify(l));if(tab==='arquivo')render();fim();},()=>fim()));});}
-async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();
-  if(N.admin)N.unsub.push(N.fs.collection('membros').onSnapshot(q=>{const o={};q.forEach(d=>{o[d.id]=d.data().nome||'';if(d.id===N.adminUid)N.donoLogin=d.data().login||'';});if(!N.dono)delete o[N.adminUid];N.nomes=o;if(tab==='hist')render();},()=>{}));
+async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();setTimeout(()=>N.pulso(),1500);
+  if(N.admin)N.unsub.push(N.fs.collection('membros').onSnapshot(q=>{const o={};const pr={};q.forEach(d=>{const x=d.data();o[d.id]=x.nome||'';pr[d.id]={login:x.login||'',bloq:!!x.bloq,ts:x.ts||0};if(d.id===N.adminUid)N.donoLogin=x.login||'';});if(!N.dono)delete o[N.adminUid];N.presenca=pr;N.luzes();
+    const mud=JSON.stringify(o)!==JSON.stringify(N.nomes);N.nomes=o;if(mud&&tab==='hist')render();},()=>{}));
   if(N.admin){ouvirAvisos();ouvirProblemas();ouvirChamados();ouvirPedidos();ouvirAcessos();ouvirCelulares();}else{N.celulares=[];N.avisos=[];N.problemas=[];N.chamados=[];N.pedidos=[];N.acessos=[];sinoMostrar();ouvirMeusPedidos();}
   ouvirAjustes();ouvirMeuAcesso();
   await ouvirArquivo();
@@ -174,7 +175,7 @@ async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();
       await tx('readwrite',s=>s.put(N.admin?L.regMescla(loc,d):L.semAutor(L.regMescla(loc,d))));
       if(L.precisaFotos(loc,d))baixar.push(d);}
     await load();if(tab==='hist'||tab==='rel')render();if(baixar.length)baixarFotos(baixar);}catch(e){}},e=>{if(/permission/i.test(e.code||''))papel();}));
-  setTimeout(()=>{reenviarFotos();if(N.admin&&window.arquivoAoAbrir)window.arquivoAoAbrir();},4000);
+  setTimeout(()=>{reenviarPendentes();reenviarFotos();if(N.admin&&window.arquivoAoAbrir)window.arquivoAoAbrir();},4000);
   ['clientes','fornecedores'].forEach(k=>N.unsub.push(N.fs.doc('listas/'+k).onSnapshot(d=>{if(!d.exists)return;const l=d.data().nomes||[];
     const loc=JSON.parse(localStorage.getItem(k)||'[]');const tudo=N.admin?l:[...new Set(l.concat(loc))];localStorage.setItem(k,JSON.stringify(tudo));},()=>{})));}
 // app -> nuvem
@@ -184,12 +185,17 @@ N.donoLogin='';N.ehDono=x=>!!x&&((x.uid&&x.uid===N.adminUid)||(!!N.donoLogin&&((
 N.esconde=l=>N.dono?l:(l||[]).filter(x=>!N.ehDono(x));
 N.nomes={};N.nomeAutor=r=>N.on&&N.admin&&r&&(N.dono||!(r.autorUid===N.adminUid||(N.donoLogin&&r.autorLogin===N.donoLogin)))?(N.nomes[r.autorUid]||r.autor||''):'';
 async function limparAutores(){if(N.admin)return;try{const v=regs.filter(r=>'autor' in r);if(v.length){await tx('readwrite',s=>v.forEach(r=>s.put(L.semAutor(r))));await load();}}catch(e){}}
-N.salvar=async r=>{if(!N.on)return;try{const ref=N.fs.doc('registros/'+r.id),o=L.regNuvem(r,N.nome,N.uid);
+// v4.3.48: sem nuvem ligada ou se a gravação falhar, avisa (antes ficava calado) e reenvia ao conectar
+const avisoLocal=()=>toast('⚠️ Salvo só neste celular. Vai para a nuvem quando conectar.');
+N.salvar=async r=>{if(!N.on)return false;try{const ref=N.fs.doc('registros/'+r.id),o=L.regNuvem(r,N.nome,N.uid);
     // v4.3.3: horário de criação vem do servidor; ao editar não mexe nos campos fixos (dono, horários)
     let ant=null;try{ant=await ref.get();}catch(e){}
     if(ant&&ant.exists){const a=ant.data();for(const k in a)if(!(k in o)&&!L.REG_FIXOS.includes(k))o[k]=firebase.firestore.FieldValue.delete();await ref.set(o,{merge:true});}
     else if(ant||!r.nuvem){o.criadoEm=firebase.firestore.FieldValue.serverTimestamp();o.criadoMs=Date.now();if(N.login&&o.autorUid===N.uid)o.autorLogin=N.login;await ref.set(o);}
-    else await ref.set(o,{merge:true});}catch(e){return;}await N.salvarFotos(r);};
+    else await ref.set(o,{merge:true});}catch(e){avisoLocal();return false;}await N.salvarFotos(r);return true;};
+async function reenviarPendentes(){try{const l=L.pendentesNuvem(regs,N.uid,Date.now());let n=0;
+  for(const r of l){if(!r.autorUid){r.autorUid=N.uid;await tx('readwrite',s=>s.put(r));}if(await N.salvar(r))n++;}
+  if(n)toast('☁️ '+n+' registro(s) deste celular enviado(s) para a nuvem');}catch(e){}}
 // fotos leves (~150 KB) na subcoleção registros/{id}/fotos — a original fica só no celular
 const sigK=id=>'fsig_'+id;
 N.salvarFotos=async r=>{if(!N.on||!window.fotoLeve)return;try{const n=L.regNuvem(r,N.nome,N.uid),x=Object.assign({},r,n);
@@ -249,10 +255,11 @@ N.senhaLogin=async(u,senha)=>{N.protegeDono({u});return N.fs.doc('loginSeg/'+u).
 N.painel=async(box)=>{const m=document.getElementById('modal');const A=box||m;let ms=[],ls=[];try{[ms,ls]=await Promise.all([N.membros(),N.logins()]);}catch(e){return toast('Sem internet ou regras da nuvem ainda não atualizadas');}
   {const d=ms.find(x=>x.uid===N.adminUid);if(d)N.donoLogin=d.login||'';}ms=N.esconde(ms);ls=N.esconde(ls);
   const e=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');ls.sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
-  const on=new Set();ms.forEach(m=>{if(m.login&&!m.bloq)on.add(m.login);});if(N.login)on.add(N.login);
+  // v4.3.48: luz = presença de verdade (sinal da nuvem nos últimos 2 min), não só ter celular liberado
+  const on=L.loginsOnline(ms,Date.now());if(N.on&&N.login)on.add(N.login);
   A.innerHTML=`<div class="eqp" style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">👥 Equipe</b>
    ${ls.length?ls.map(x=>{const luz=on.has(x.u)?'luzOn':'luzOff';const tit=on.has(x.u)?'Online':'Offline';
-     return `<div class="card" style="margin:6px 0"><div style="font-size:19px"><span class="luz ${luz}" title="${tit}" aria-label="${tit}"></span><b>${e(x.nome)}</b> <small>(${e(x.u)})</small>${x.bloq?' 🚫':''}<br>${L.papelNome(x.papel)}</div>
+     return `<div class="card" style="margin:6px 0"><div style="font-size:19px"><span class="luz ${luz}" data-luz="${e(x.u)}" title="${tit}" aria-label="${tit}"></span><b>${e(x.nome)}</b> <small>(${e(x.u)})</small>${x.bloq?' 🚫':''}<br>${L.papelNome(x.papel)}</div>
      <div class="acts"><button class="big" data-lgp="${e(x.u)}" data-v="${x.papel==='adm'?'colab':'adm'}">${x.papel==='adm'?'👷 Tornar colaborador':'Tornar '+L.papelNome('adm')}</button>
      <button class="big ${x.bloq?'ok':'red'}" data-lgb="${e(x.u)}" data-v="${x.bloq?0:1}">${x.bloq?'✅ Liberar':'🚫 Bloquear'}</button>${x.u===N.login?'':`<button class="big red" data-lgr="${e(x.u)}">🗑 Remover</button>`}<button class="big alt" data-lgs="${e(x.u)}">🔑 Nova senha</button></div></div>`;}).join(''):'<p>Nenhum acesso criado ainda.</p>'}
    ${box?'':'<button class="big alt" id="nvF">Fechar</button>'}</div>`;if(!box)m.classList.add('on');
@@ -437,10 +444,23 @@ N.euHTML=()=>{if(!N.on)return '';const e=s=>String(s==null?'':s).replace(/&/g,'&
   const nome=e(N.nome||N.login||'Este celular');const papel=L.papelNome(N.admin?'adm':'colab');
   const cod=e(N.cod||(N.login?L.codCadastro(N.login):''));
   return `<div class="card nvEu"><p class="nvEuNome">${window.Tema?Tema.ic('usuario'):''} <b>${nome}</b> · ${papel}</p>`
+    +'<p class="nvEuNuvem"><span class="luz luzOn"></span> Ligado na nuvem · histórico ao vivo</p>'
     +(cod?`<p class="nvEuId">ID · <span class="nvEuCod">${cod}</span></p>`:'')
     +(N.dono?'':`<button class="big alt" id="nvSair">${window.Tema?Tema.ic('sair'):''} Sair / trocar usuário</button>`)+`</div>`;};
 
 N.iniciar=iniciar;
+// v4.3.48: fica atualizado enquanto o app está aberto na tela (todos: ADM e colaborador, Android e site/iPhone)
+// ligado: manda um sinal (membros/{uid}.ts) a cada 45 s; desligado mas já liberado: tenta conectar de novo
+N.presenca={};N.PULSO_MS=45000;
+N.luzes=()=>{const now=Date.now(),on=L.loginsOnline(Object.values(N.presenca||{}),now);if(N.on&&N.login)on.add(N.login);
+  document.querySelectorAll('[data-luz]').forEach(el=>{const v=on.has(el.dataset.luz);el.classList.toggle('luzOn',v);el.classList.toggle('luzOff',!v);el.title=v?'Online':'Offline';el.setAttribute('aria-label',el.title);});};
+let pulsando=false;
+N.pulso=async()=>{if(pulsando||!N.fs||document.visibilityState!=='visible')return;pulsando=true;
+  const ate=p=>Promise.race([p,new Promise(r=>setTimeout(r,15000))]);
+  try{if(N.on){if(N.uid)await ate(docM().update({ts:Date.now()}));}
+    else if(N.uid&&lembra()&&navigator.onLine!==false)await ate(papel());}catch(e){}finally{pulsando=false;N.luzes();}};
+setInterval(()=>{N.pulso();N.luzes();},N.PULSO_MS);
+['visibilitychange','pageshow','focus','online'].forEach(ev=>(ev==='visibilitychange'?document:window).addEventListener(ev,()=>N.pulso()));
 
 // 4.3.28: 🎧 Falar com o suporte — chamados (Firestore, plano grátis). Foto comprimida dentro do próprio documento.
 N.chamados=[];N.chamadosTodos=()=>L.chamadosLista(N.chamados,N.problemas);

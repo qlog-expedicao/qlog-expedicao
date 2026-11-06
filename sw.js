@@ -1,4 +1,4 @@
-const CACHE='qlog-v4.3.47';
+const CACHE='qlog-v4.3.48';
 const ASSETS=["./","splash.webp","splash0.png","style.css","app.js","icone.png","nuvem.js","zxing/zxing.min.js","fb-app.js","favicon.png","icon-192.png","icon-512.png","marca-txt.png","ocr/tesseract-core-simd-lstm.wasm.js","ocr/tesseract.min.js","ocr/eng.traineddata.gz","ocr/worker.min.js","ocr/tesseract-core-lstm.wasm.js","icon-180.png","marca.png","logo.png","index.html","tema.js","manifest.webmanifest","fb-firestore.js","logic.js","firebase-config.js","fb-auth.js"];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(async c=>{for(const u of ASSETS){try{await c.add(u);}catch(x){}}}).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(n=>n!==CACHE).map(n=>caches.delete(n)))).then(()=>self.clients.claim()));});
