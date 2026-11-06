@@ -45,6 +45,8 @@ function confirmar(msg,sim,lb,cor,nao){const m=$('#modal');m.innerHTML=`<div><p 
   m.classList.add('on');$('#mNao').onclick=()=>m.classList.remove('on');$('#mSim').onclick=()=>{m.classList.remove('on');sim();};}
 function compress(file){return new Promise(ok=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement('canvas');
   c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',0.75));};i.onerror=()=>ok(null);i.src=u;});}
+// v4.3.49: detalhe mostra só uma mini foto quando foi tirada (sem caixa vazia)
+function miniFotos(arr){arr=(arr||[]).filter(Boolean);return arr.length?'<div class="fotosMini">'+arr.map(d=>`<img src="${d}" alt="">`).join('')+'</div>':'';}
 function fotosHTML(arr,key,edit){return '<div class="fotos">'+arr.map((d,i)=>`<div><img src="${d}">${edit?`<b data-del="${key}" data-i="${i}">✕</b>`:''}</div>`).join('')+'</div>';}
 function render(){if(tab!=='sobre')telaAnt=tab;try{document.documentElement.dataset.tela=tab;}catch(e){}document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));navAdm();if(tab==='adm'&&!admOn())tab='nova';{const ft=document.querySelector('footer');if(ft)ft.style.display=tab==='sobre'?'':'none';}({nova,hist,rel,sobre,loc,arquivo:arquivoTela,adm:admTela})[tab]();}
 function nova(){if(f.tipo==='recebimento')return novaRec();const cl=clientes();$('#main').innerHTML=tipoRow()+`
@@ -196,20 +198,20 @@ async function scan(file){try{const bd=new BarcodeDetector();const b=await creat
 async function salvar(enviar){if(window.Nuvem&&Nuvem.liberado&&!Nuvem.liberado())return toast('Entre com seu acesso para usar o app');if(window.Nuvem&&Nuvem.esperando&&Nuvem.esperando())return;if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return toast('Acesso bloqueado pelo ADM');if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,volume:+f.vt.volume||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
   motorista:f.motorista.trim(),placa:f.placa.trim().toUpperCase(),obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:f.caminhao};if(f.tipo==='estorno'){r.motivo=f.motivo.trim();if(f.origem)r.origem=f.origem;}
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
-  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();toast(window.Nuvem&&Nuvem.exige&&Nuvem.exige()&&!Nuvem.on?'⚠️ Salvo só neste celular. Vai para a nuvem quando conectar.':'✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
 async function salvarRec(enviar){if(window.Nuvem&&Nuvem.liberado&&!Nuvem.liberado())return toast('Entre com seu acesso para usar o app');if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return toast('Acesso bloqueado pelo ADM');const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,'recebimento'),tipo:'recebimento',cliente:f.forn,nfs:L.parseNFs(f.nfs),volumes:0,
   itens:f.itens.map(x=>({cod:x.cod,qtd:x.qtd})),skuEsp:null,obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:[]};
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
-  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();f.tipo='recebimento';toast(window.Nuvem&&Nuvem.exige&&Nuvem.exige()&&!Nuvem.on?'⚠️ Salvo só neste celular. Vai para a nuvem quando conectar.':'✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();f.tipo='recebimento';toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
 function grpHTML(c){return [['c-ok','✔ OK',c.ok],['c-dif','⚠ Quantidade diferente',c.dif],['c-bad','✖ Faltou',c.faltou],['c-mais','➕ A mais',c.amais]].map(([k,t,a])=>
   `<div class="grp"><div class="gh ${k}">${t} (${a.length})</div>${a.length?'<table><tr><th>Código</th><th>Esperado</th><th>Lido</th></tr>'+a.map(x=>`<tr><td>${esc(x.cod)}</td><td>${x.esp}</td><td>${x.lido}</td></tr>`).join('')+'</table>':'<p><small>Nenhum</small></p>'}</div>`).join('');}
 function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card">${tagHTML(r)} <span class="st ${stCls(c.status)}">${c.status}</span>
  <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre></div>
  <div class="card"><b>📋 Conferência com lista de SKU</b>${r.skuEsp?`<p>Lista: ${r.skuEsp.length} códigos · ${r.skuEsp.reduce((s,x)=>s+x.qtd,0)} unidades. Lido: ${t.cods} códigos · ${t.un} unidades.</p>`+grpHTML(c):'<p>Lista de SKU ainda não chegou. Quando chegar, toque abaixo.</p>'}
  <button class="big" id="skuBtn">📋 ${r.skuEsp?'Editar lista de SKU':'Conferir com lista de SKU'}</button></div>
- <div class="card"><label>🧾 Romaneio</label>${fotosHTML(r.romaneio||[])}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos||[])}</div>
- ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
-  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);ligarEd(r);$('#skuBtn').onclick=()=>skuModal(r);
+ <div class="card"><label>🧾 Romaneio</label>${miniFotos(r.romaneio)}<label>📷 Produtos</label>${miniFotos(r.fotos)}</div>
+ ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}${nuvemBtn(r)}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
+  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);{const nb=$('#nvSt');if(nb)nb.onclick=()=>nuvemEnviar(r,nb);}ligarEd(r);$('#skuBtn').onclick=()=>skuModal(r);
   $('#apagar').onclick=()=>(window.Nuvem&&!Nuvem.pode())?toast('Só o administrador pode apagar'):confirmar('Apagar o registro?',async()=>{await tx('readwrite',s=>s.delete(r.id));window.Nuvem&&Nuvem.apagar(r.id);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('apagou',r);await load();detalhe=null;toast('Apagado');render();},'Apagar','red','Cancelar');}
 function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90vh;overflow:auto"><p style="font-size:20px;margin-top:0"><b>📋 Lista de SKU esperada</b></p>
   <p><small>Um código por linha. Pode ter quantidade: <b>SKU;qtd</b> ou <b>SKU qtd</b>. Sem quantidade = 1.</small></p>
@@ -225,6 +227,14 @@ function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90v
   $('#skuFile').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const rd=new FileReader();rd.onload=()=>{const l=L.parseSkuLista(rd.result);if(!l.length)return toast('Não achei códigos no arquivo');$('#skuTxt').value=L.skuTexto(l);toast(l.length+' códigos importados');};rd.readAsText(fl);};
   $('#skuCam').onclick=()=>{let tmp=L.parseSkuLista($('#skuTxt').value);abrirMulti('Lista de SKU: ler códigos',code=>{tmp=L.addItem(tmp,code);const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);return qtdDe(tmp,code);},()=>{const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);},tmp);};}
 // v4.3.38: link/PWA/iPhone — UMA chamada navigator.share com TODAS as fotos (álbum no WhatsApp, dá pra abrir cada uma). Não cola JPEG; não faz share por foto. Android nativo inalterado.
+// v4.3.49: um botão só no detalhe — amarelo piscando = ainda não chegou na nuvem (toque para enviar); verde = salvo na nuvem
+function nuvemBtn(r){if(!(window.Nuvem&&Nuvem.exige&&Nuvem.exige()))return '';const ok=L.naNuvem(r);
+  return ok?'<button class="big nvSt nvStOk" id="nvSt" data-ok="1">☁️ Salvo na nuvem</button>'
+    :'<button class="big nvSt nvStPend" id="nvSt" data-ok="0">☁️ Ainda não salvo na nuvem<br><small>Toque para enviar</small></button>';}
+async function nuvemEnviar(r,b){if(!b||b.dataset.ok==='1'||b.disabled)return;b.disabled=true;
+  try{if(!Nuvem.on&&Nuvem.pulso)await Nuvem.pulso();if(Nuvem.on){if(!r.autorUid){r.autorUid=Nuvem.uid;await tx('readwrite',s=>s.put(r));}
+      if(await Nuvem.salvar(r)){toast('✅ Salvo');await load();return render();}}
+    toast('Sem internet. Tente de novo.');}catch(e){toast('Sem internet. Tente de novo.');}b.disabled=false;}
 function compartilhar(r){const t=L.resumo(r),p=L.shareFotos(r);
   if(window.AndroidShare){AndroidShare.share(t,JSON.stringify(p),'');return;}
   if(navigator.share){let fs=[];try{fs=p.map((d,i)=>dataUrlFile(d,L.codigo(r)+'_'+(i+1)+'.jpg'));}catch(e){fs=[];}
@@ -256,9 +266,9 @@ function lista(){const v=L.filtrar(doMes(),hist.q);$('#lista').innerHTML=v.lengt
  <b>${L.codigo(r)} · ${esc(r.cliente||'Sem cliente')}</b><br>${(r.nfs||[]).length?'NFs '+esc(r.nfs.join('-'))+' · ':''}${L.itensTot(r.itens).cods} itens · ${L.itensTot(r.itens).un} un.<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length}</small></div>`:`
  <b>${L.codigo(r)} · ${esc(r.cliente)}</b><br>NFs ${esc(r.nfs.join('-'))} · ${esc(L.volTxt(r))} vol${L.confStatus(r.conf)?' · 🔎 '+L.confStatus(r.conf):''}<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length} · 🚛 ${(r.caminhao||[]).length}</small></div>`}`).join(''):'<p>Nenhum registro neste mês.</p>';}
 function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card"><span class="tag ${r.tipo}">${L.tipoNome(r.tipo).toUpperCase()}</span>${estLigacoes(r)}
- <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre><label>🧾 Romaneio</label>${fotosHTML(r.romaneio)}<label>🚛 Caminhão carregado</label>${fotosHTML(r.caminhao||[])}${r.conf&&(r.conf.lidos||[]).length?confListaHTML(r.conf.lidos,0):''}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos)}</div>
- ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
-  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);ligarEd(r);
+ <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre><label>🧾 Romaneio</label>${miniFotos(r.romaneio)}<label>🚛 Caminhão carregado</label>${miniFotos(r.caminhao)}${r.conf&&(r.conf.lidos||[]).length?confListaHTML(r.conf.lidos,0):''}<label>📷 Produtos</label>${miniFotos(r.fotos)}</div>
+ ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}${nuvemBtn(r)}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
+  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);{const nb=$('#nvSt');if(nb)nb.onclick=()=>nuvemEnviar(r,nb);}ligarEd(r);
   $('#apagar').onclick=()=>(window.Nuvem&&!Nuvem.pode())?toast('Só o administrador pode apagar'):confirmar('Apagar o registro?',async()=>{await tx('readwrite',s=>s.delete(r.id));window.Nuvem&&Nuvem.apagar(r.id);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('apagou',r);await load();detalhe=null;toast('Apagado');render();},'Apagar','red','Cancelar');}
 
 // ---- v4.1: editar registro ----
@@ -393,7 +403,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.48';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.49';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}

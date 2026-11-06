@@ -172,7 +172,7 @@ async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();setTim
       let loc=null;try{loc=await tx('readonly',s=>s.get(d.id));}catch(e){}if(!loc)loc=regs.find(r=>r.id===d.id);
       if(ch.type==='removed'){if(!L.manterAoRemover(loc,N.feitos))await tx('readwrite',s=>s.delete(d.id));continue;}
       if(N.admin&&('autor' in d)){try{await ch.doc.ref.update({autor:firebase.firestore.FieldValue.delete()});}catch(e){}}
-      await tx('readwrite',s=>s.put(N.admin?L.regMescla(loc,d):L.semAutor(L.regMescla(loc,d))));
+      {let o=N.admin?L.regMescla(loc,d):L.semAutor(L.regMescla(loc,d));if(ch.doc.metadata&&ch.doc.metadata.hasPendingWrites)o.nuvem=!!(loc&&loc.nuvem);await tx('readwrite',s=>s.put(o));}
       if(L.precisaFotos(loc,d))baixar.push(d);}
     await load();if(tab==='hist'||tab==='rel')render();if(baixar.length)baixarFotos(baixar);}catch(e){}},e=>{if(/permission/i.test(e.code||''))papel();}));
   setTimeout(()=>{reenviarPendentes();reenviarFotos();if(N.admin&&window.arquivoAoAbrir)window.arquivoAoAbrir();},4000);
@@ -185,14 +185,15 @@ N.donoLogin='';N.ehDono=x=>!!x&&((x.uid&&x.uid===N.adminUid)||(!!N.donoLogin&&((
 N.esconde=l=>N.dono?l:(l||[]).filter(x=>!N.ehDono(x));
 N.nomes={};N.nomeAutor=r=>N.on&&N.admin&&r&&(N.dono||!(r.autorUid===N.adminUid||(N.donoLogin&&r.autorLogin===N.donoLogin)))?(N.nomes[r.autorUid]||r.autor||''):'';
 async function limparAutores(){if(N.admin)return;try{const v=regs.filter(r=>'autor' in r);if(v.length){await tx('readwrite',s=>v.forEach(r=>s.put(L.semAutor(r))));await load();}}catch(e){}}
-// v4.3.48: sem nuvem ligada ou se a gravação falhar, avisa (antes ficava calado) e reenvia ao conectar
-const avisoLocal=()=>toast('⚠️ Salvo só neste celular. Vai para a nuvem quando conectar.');
+// v4.3.49: sem nuvem ou se a gravação falhar, fica guardado no celular em silêncio (reserva) e reenvia ao conectar
 N.salvar=async r=>{if(!N.on)return false;try{const ref=N.fs.doc('registros/'+r.id),o=L.regNuvem(r,N.nome,N.uid);
     // v4.3.3: horário de criação vem do servidor; ao editar não mexe nos campos fixos (dono, horários)
     let ant=null;try{ant=await ref.get();}catch(e){}
     if(ant&&ant.exists){const a=ant.data();for(const k in a)if(!(k in o)&&!L.REG_FIXOS.includes(k))o[k]=firebase.firestore.FieldValue.delete();await ref.set(o,{merge:true});}
     else if(ant||!r.nuvem){o.criadoEm=firebase.firestore.FieldValue.serverTimestamp();o.criadoMs=Date.now();if(N.login&&o.autorUid===N.uid)o.autorLogin=N.login;await ref.set(o);}
-    else await ref.set(o,{merge:true});}catch(e){avisoLocal();return false;}await N.salvarFotos(r);return true;};
+    else await ref.set(o,{merge:true});}catch(e){return false;}
+  try{const x=await tx('readonly',s=>s.get(r.id));if(x&&!x.nuvem){x.nuvem=true;await tx('readwrite',s=>s.put(x));await load();const b=document.getElementById('nvSt');if(b&&detalhe===r.id)render();}}catch(e){}
+  await N.salvarFotos(r);return true;};
 async function reenviarPendentes(){try{const l=L.pendentesNuvem(regs,N.uid,Date.now());let n=0;
   for(const r of l){if(!r.autorUid){r.autorUid=N.uid;await tx('readwrite',s=>s.put(r));}if(await N.salvar(r))n++;}
   if(n)toast('☁️ '+n+' registro(s) deste celular enviado(s) para a nuvem');}catch(e){}}
