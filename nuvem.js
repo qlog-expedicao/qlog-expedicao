@@ -217,12 +217,6 @@ N.painel=async(box)=>{const m=document.getElementById('modal');const A=box||m;le
    ${ls.length?ls.map(x=>`<div class="card" style="margin:6px 0"><div style="font-size:19px"><b>${e(x.nome)}</b> <small>(${e(x.u)})</small>${x.bloq?' 🚫':''}<br>${L.papelNome(x.papel)}</div>
      <div class="acts"><button class="big" data-lgp="${e(x.u)}" data-v="${x.papel==='adm'?'colab':'adm'}">${x.papel==='adm'?'👷 Tornar colaborador':'Tornar '+L.papelNome('adm')}</button>
      <button class="big ${x.bloq?'ok':'red'}" data-lgb="${e(x.u)}" data-v="${x.bloq?0:1}">${x.bloq?'✅ Liberar':'🚫 Bloquear'}</button>${x.u===N.login?'':`<button class="big red" data-lgr="${e(x.u)}">🗑 Remover</button>`}<button class="big alt" data-lgs="${e(x.u)}">🔑 Nova senha</button></div></div>`).join(''):'<p>Nenhum acesso criado ainda.</p>'}
-   <div class="card" style="margin:10px 0;border:2px solid #0b4f8a"><b style="font-size:19px">➕ Novo acesso</b>
-   <label>Nome</label><input id="lgN" style="width:100%;font-size:20px">
-   <label>Usuário (sem espaço)</label><input id="lgU" autocapitalize="none" style="width:100%;font-size:20px">
-   <label>Senha (pelo menos 6)</label><input id="lgS" type="text" autocomplete="off" style="width:100%;font-size:20px">
-   <label>Tipo</label><select id="lgP" style="width:100%;font-size:20px"><option value="colab">👷 Colaborador</option><option value="adm">${L.papelNome('adm')}</option></select>
-   <button class="big ok" id="lgCriar">➕ Criar acesso</button></div>
    <b style="font-size:19px;display:block;margin-top:10px">📱 Celulares conectados</b>
    ${ms.map(x=>`<div class="row dev" style="align-items:center;flex-wrap:wrap"><span style="flex:1 1 100%;font-size:18px;overflow-wrap:anywhere">${x.uid===N.uid?'📱 Este celular (ADM)':e(x.nome||'?')+' <small>'+(x.login?'('+e(x.login)+')':'(senha de acesso)')+'</small>'}${x.bloq?' 🚫':''}</span>${x.uid===N.uid?'':`<button class="big ${x.bloq?'ok':'red'}" data-nvb="${e(x.uid)}" data-v="${x.bloq?0:1}" style="flex:1 1 40%;margin:4px 0">${x.bloq?'Liberar':'Bloquear'}</button>${x.uid===N.adminUid?'':`<button class="big red" data-nvr="${e(x.uid)}" style="flex:1 1 40%;margin:4px 0 4px 6px">🗑 Remover</button>`}`}</div>`).join('')}
    <label style="margin-top:10px">Senha de acesso (jeito antigo)</label><input id="nvNs" type="password" autocomplete="off" style="width:100%;font-size:20px">
@@ -235,10 +229,6 @@ N.painel=async(box)=>{const m=document.getElementById('modal');const A=box||m;le
   A.querySelectorAll('[data-lgp]').forEach(b=>b.onclick=async()=>{try{await N.mudarLogin(b.dataset.lgp,{papel:b.dataset.v});N.painel(box);}catch(x){erro(x);}});
   A.querySelectorAll('[data-lgs]').forEach(b=>b.onclick=async()=>{const s=prompt('Nova senha para '+b.dataset.lgs+' (pelo menos 6)');if(s==null)return;if(s.length<6)return toast('Senha com pelo menos 6 letras/números');
     try{await N.senhaLogin(b.dataset.lgs,s);toast('✅ Senha trocada. Ele precisa entrar de novo.');}catch(x){erro(x);}});
-  document.getElementById('lgCriar').onclick=async()=>{const nome=document.getElementById('lgN').value.trim(),u=L.loginNorm(document.getElementById('lgU').value),s=document.getElementById('lgS').value,p=document.getElementById('lgP').value;
-    if(!nome)return toast('Digite o nome');if(!L.loginValido(u))return toast('Usuário com 3 a 30 letras ou números');if(s.length<6)return toast('Senha com pelo menos 6 letras/números');
-    if(ls.some(x=>x.u===u))return toast('Esse usuário já existe');
-    try{await N.criarLogin(nome,u,s,p);toast('✅ Acesso criado: '+u);N.painel(box);}catch(x){erro(x);}};
   document.getElementById('nvTs').onclick=async()=>{const s=document.getElementById('nvNs').value;if(s.trim().length<6)return toast('Senha com pelo menos 6 letras/números');
     try{await N.trocarSenha(s);toast('✅ Senha trocada');if(!box)m.classList.remove('on');}catch(e){toast('Não consegui trocar. Precisa de internet.');}};
   const nf=document.getElementById('nvF');if(nf)nf.onclick=()=>m.classList.remove('on');};
