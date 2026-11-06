@@ -48,17 +48,16 @@ N.esteiraSvg=id=>`<svg class="esAnim" viewBox="0 0 360 280" role="img" aria-hidd
 N.porta=()=>{if(!exige()||N.on||lembra())return;const go=()=>{if(N.on||lembra())return;document.body.classList.add('semAcesso');let p=document.getElementById('nvPorta');const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
   if(!p){p=document.createElement('div');p.id='nvPorta';p.setAttribute('role','dialog');p.setAttribute('aria-label','Entrar no Qlog');document.body.appendChild(p);}
   const off=N.erro?(navigator.onLine===false||/internet/.test(N.erro)?'Sem internet. Conecte para entrar.':'Não foi possível conectar. Tente de novo.'):(N.checado?'':'Conectando...');
-  // v4.3.38: quem entra só se identifica (nome + função), sem criar senha; o ADM libera este celular
+  // v4.3.38: quem entra só se identifica (só o nome), sem criar senha; o ADM libera este celular
   if(p.querySelector('#poId')){const e0=p.querySelector('#poE');if(e0&&!p.dataset.env)e0.textContent=off;const t0=p.querySelector('#poTenta');if(t0)t0.style.display=N.erro?'':'none';return;}
   p.innerHTML=`<div class="poFundo" aria-hidden="true">${N.esteiraSvg('poLente')}</div><div class="qwel nvPoCx" id="poId"><div class="qwTop"><b class="qwH">Entrar no Qlog Expedição</b><small class="qwSub">Diga quem é você. O ADM libera este celular para usar o app.</small></div>
-   <label for="poN">Seu nome</label><input id="poN" autocomplete="name" maxlength="40" enterkeyhint="next">
-   <label for="poF">Sua função</label><input id="poF" maxlength="18" placeholder="Ex.: Conferente" enterkeyhint="send">
+   <label for="poN">Seu nome</label><input id="poN" autocomplete="name" maxlength="40" enterkeyhint="send">
    <button class="big ok" id="poPedir">${ti('mao')} Pedir acesso</button>
    <p class="qwInfo" id="poE">${off}</p><button class="big alt" id="poTenta" style="${N.erro?'':'display:none'}">${ti('limpar')} Tentar de novo</button>
-   <p class="qwLink poAdm"><a href="#" id="poEntrar">${ti('usuario')} ADM ou já tem usuário e senha? Entrar</a></p></div>`;
+   <p class="qwWelcome">Seja bem-vindo.</p><p class="qwLink poAdm"><a href="#" id="poEntrar">${ti('usuario')} Entrar</a></p></div>`;
   const ok=()=>N.fs&&N.uid;
-  p.querySelector('#poF').onkeydown=ev=>{if(ev.key==='Enter')p.querySelector('#poPedir').click();};
-  p.querySelector('#poPedir').onclick=()=>N.identificar(p.querySelector('#poN').value,p.querySelector('#poF').value);
+  p.querySelector('#poN').onkeydown=ev=>{if(ev.key==='Enter')p.querySelector('#poPedir').click();};
+  p.querySelector('#poPedir').onclick=()=>N.identificar(p.querySelector('#poN').value,'');
   p.querySelector('#poEntrar').onclick=ev=>{ev.preventDefault();if(!ok())return location.reload();N.pedirEntrada(false);};
   p.querySelector('#poTenta').onclick=()=>location.reload();};
   if(document.body)go();else document.addEventListener('DOMContentLoaded',go);};

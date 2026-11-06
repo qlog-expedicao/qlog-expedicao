@@ -222,13 +222,13 @@ function janelaNome(min){min=janelaOk(min)?Number(min):60;return min<60?min+' mi
 function acessoPedido(nome,u,senha,uid,now){nome=String(nome||'').trim().slice(0,60);u=loginNorm(u);
   if(!nome)return {erro:'Digite seu nome'};if(!loginValido(u))return {erro:'Usuário com 3 a 30 letras ou números'};if(String(senha||'').length<6)return {erro:'Senha com pelo menos 6 letras/números'};
   return {u,doc:{nome,uid:String(uid||''),ts:now||Date.now()},seg:{hash:loginHash(u,senha)}};}
-// v4.3.38: identificação sem senha (nome + função). Usuário e chave são gerados pelo app e ficam só neste celular.
+// v4.3.38: identificação sem senha (só o nome). Usuário e chave são gerados pelo app e ficam só neste celular.
 // v4.3.38: identificação sem senha. O nome é o cadastro fixo da pessoa (chave = nome sem acento/maiúscula/espaço extra).
 // A chave secreta é gerada pelo app e ninguém vê. Nome já cadastrado em outro celular = pedido de celular novo.
 function regChave(nome){return loginNorm(String(nome||'').replace(/\s+/g,' ')).replace(/\.+/g,'.').replace(/^[^a-z0-9]+/,'').slice(0,30).replace(/[._-]+$/,'');}
 function identPedido(nome,funcao,uid,now,sorte){nome=String(nome||'').replace(/\s+/g,' ').trim().slice(0,40);funcao=String(funcao||'').replace(/\s+/g,' ').trim().slice(0,18);
-  if(!nome)return {erro:'Digite seu nome'};if(!funcao)return {erro:'Digite sua função'};const u=regChave(nome);if(!loginValido(u))return {erro:'Digite o nome completo'};
-  const t=now||Date.now(),p=acessoPedido(nome+' · '+funcao,u,sorte(24),uid,t);p.cel={u,nome:p.doc.nome,ts:t};return p;}
+  if(!nome)return {erro:'Digite seu nome'};const u=regChave(nome);if(!loginValido(u))return {erro:'Digite o nome completo'};
+  const rotulo=funcao?nome+' · '+funcao:nome;const t=now||Date.now(),p=acessoPedido(rotulo,u,sorte(24),uid,t);p.cel={u,nome:p.doc.nome,ts:t};return p;}
 function celTxt(x){return 'Celular desconhecido tentando entrar: '+String(x&&x.nome||'').split(' · ')[0];}
 function acessoTxt(p){return '✍️ Pedido de acesso: '+String(p&&p.nome||'')+(p&&p.u?' ('+p.u+')':'');}
 function podePedir(r,u){u=u||{};return !!(r&&u.on&&!u.admin&&ehMeu(r,u)&&!podeEditar(r,u));}

@@ -222,7 +222,7 @@ body.semAcesso{overflow:hidden}body.semAcesso #modal{z-index:2147483100}
 @media (prefers-reduced-motion:reduce){#nvPorta .esCaixas,#nvPorta .esFita,#nvPorta .esRolo,#nvPorta .esZoom,#nvPorta .esLupa,#nvPorta .esContra{animation:none}}
 #nvPorta label{display:block;text-align:left;font-weight:600;margin:10px 0 4px}
 #nvPorta input{width:100%;box-sizing:border-box;font-size:18px;min-height:46px}
-#nvPorta .poAdm{margin:14px 0 0;font-size:14px}#nvPorta .poAdm a{opacity:.75;text-decoration:underline}
+#nvPorta .qwWelcome{margin:14px 0 4px;font-size:17px;font-weight:600;color:var(--txt,#354350);opacity:.9}#nvPorta .poAdm{margin:4px 0 0;font-size:13px}#nvPorta .poAdm a{opacity:.65;text-decoration:underline}
 #nvPorta .poAdm .ic,#nvPorta .poAdm svg{width:1em;height:1em;vertical-align:-.15em}
 .celAlerta{margin:6px 0;border-left:5px solid #e65100;background:color-mix(in srgb,#e65100 9%,var(--card,#fff))}
 .celTit{font-weight:700;font-size:18px;overflow-wrap:break-word;word-break:normal;hyphens:none}
