@@ -196,7 +196,10 @@ body.esperando{overflow:hidden}
 /* Ouro */
 /* Pro Azul */
 /* Executivo */
-/* scanners: verde em todos os temas */
+/* v4.3.40: scanners cinza (não verde) — legível com texto branco no fundo das bandejas */
+#recScan,#recScan2,#edScan,#edScan2,#confScan0,#edConfScan{
+  background:#5c6570!important;color:#fff!important;--icf:#5c6570;
+}
 
 /* v4.3.38: porta de acesso obrigatória */
 #nvPorta{position:fixed;inset:0;z-index:2147482800;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;touch-action:pan-y}
@@ -257,7 +260,31 @@ html[data-tela=adm] #main .card{background:var(--bj-adm,var(--card))!important;c
 html[data-tela=sobre] #main > .card:not(.ap){background:var(--bj-info,var(--card))!important;color:var(--bj-info-fg,inherit)}
 html[data-tela=sobre] #main > .card:not(.ap) h2{color:var(--bj-info-fg,inherit)!important}
 html[data-tela=sobre] #main .card.ap{background:var(--bj-config,var(--card))!important;color:var(--bj-config-fg,inherit)}
-/* v4.3.39: Modo espectador — escolher bandeja na tela */
+
+/* v4.3.40: Cabeçalho e Menu coloríveis (--bj-cab / --bj-menu) */
+header{background:var(--bj-cab,#354350)!important;color:var(--bj-cab-fg,#fff)!important}
+html[data-tema=escuro] header{background:var(--bj-cab,#16202a)!important;color:var(--bj-cab-fg,#eef3f8)!important}
+header .hg{color:color-mix(in srgb,var(--bj-cab-fg,#fff) 70%,#7fd39e)}
+nav{background:var(--bj-menu,var(--nav))!important;position:sticky}
+nav button{background:var(--bj-menu,var(--nav))!important;color:var(--bj-menu-fg,var(--act))!important;--icf:var(--bj-menu,var(--nav))}
+nav button.on{background:color-mix(in srgb,var(--bj-menu,var(--nav)) 78%,var(--bj-menu-fg,#123) 22%)!important;color:var(--bj-menu-fg,var(--act))!important;border-bottom-color:var(--ac)!important;--icf:color-mix(in srgb,var(--bj-menu,var(--nav)) 78%,var(--bj-menu-fg,#123) 22%)}
+html[data-tema=escuro] nav button{color:var(--bj-menu-fg,var(--act))!important}
+html[data-tema=escuro] nav button.on{color:var(--bj-menu-fg,#fff)!important}
+/* espaço vazio das telas Hist/Loc/Rel/ADM usa a mesma cor das bandejas */
+html[data-tela=hist] #main{background:var(--bj-hist,var(--card))!important;color:var(--bj-hist-fg,inherit);border-radius:12px;min-height:40vh}
+html[data-tela=loc] #main{background:var(--bj-loc,var(--card))!important;color:var(--bj-loc-fg,inherit);border-radius:12px;min-height:40vh}
+html[data-tela=rel] #main{background:var(--bj-rel,var(--card))!important;color:var(--bj-rel-fg,inherit);border-radius:12px;min-height:40vh}
+html[data-tela=adm] #main{background:var(--bj-adm,var(--card))!important;color:var(--bj-adm-fg,inherit);border-radius:12px;min-height:40vh}
+/* alvo de cor do Menu no modo espectador (não é aba data-t) */
+.espSw{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);z-index:8;display:none;align-items:center;justify-content:center;gap:4px;
+  height:26px;padding:0 10px;border-radius:13px;border:2px solid var(--ac,#0b4f8a);background:var(--card,#fff);color:var(--act,#0b4f8a);
+  font-size:12px;font-weight:bold;box-shadow:0 2px 8px #0004;cursor:pointer;white-space:nowrap;max-width:90%}
+.espSw .qi{width:1em;height:1em;vertical-align:-.15em}
+html[data-esp="1"] .espSw{display:inline-flex}
+html[data-esp="1"] nav{padding-bottom:28px}
+html[data-esp="1"] header[data-espbj],html[data-esp="1"] nav[data-espbj]{outline-offset:2px}
+
+/* v4.3.39/40: Modo espectador — escolher parte (cab/menu/bandeja) */
 #espBar{display:none;position:fixed;left:8px;right:8px;bottom:8px;z-index:99998;background:var(--card,#fff);color:var(--bj-config-fg,#1d2731);
  border:2px solid var(--ac,#0b4f8a);border-radius:14px;padding:12px;box-shadow:0 8px 28px #0004;max-width:704px;margin:0 auto;box-sizing:border-box}
 #espBar .espHint{font-size:17px;font-weight:bold;margin:0 0 10px;overflow-wrap:normal;word-break:keep-all}

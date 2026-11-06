@@ -34,16 +34,17 @@ const OP={ic:[['linha','1 · Linha simples'],['cheio','2 · Preenchido'],['color
  // v4.3.39: só Simples; Fundo das bandejas (cor por tela). Sem Estilo/Tecnologia/Premium/Cor principal.
  grupo:[['simples','Simples']]};
 const COR={azul:'#0b4f8a',verde:'#1b7a3a',laranja:'#c2570c',roxo:'#6a3fb5'};
-const BJ_IDS=['coleta','hist','loc','rel','adm','info','config'];
-const BJ_NOME={coleta:'Coleta',hist:'Histórico',loc:'Localizar',rel:'Relatório',adm:'ADM',info:'Info',config:'Configurações'};
+const BJ_IDS=['cab','menu','coleta','hist','loc','rel','adm','info','config'];
+const BJ_NOME={cab:'Cabeçalho',menu:'Menu',coleta:'Coleta',hist:'Histórico',loc:'Localizar',rel:'Relatório',adm:'ADM',info:'Info',config:'Configurações'};
 const BJ_CLARO='#ffffff',BJ_ESCURO='#1d2731';
+const BJ_DEF={cab:['#354350','#16202a'],menu:['#d6e2ee','#16202a']};
 function normHex(v){if(v==null)return '';v=String(v).trim().toLowerCase();if(COR[v])return COR[v];if(/^#[0-9a-f]{3}$/.test(v))v='#'+v[1]+v[1]+v[2]+v[2]+v[3]+v[3];if(!/^#[0-9a-f]{6}$/.test(v))return '';return v;}
 function hexRgb(h){h=normHex(h);if(!h)return null;return{r:parseInt(h.slice(1,3),16),g:parseInt(h.slice(3,5),16),b:parseInt(h.slice(5,7),16)};}
 function lum(h){const o=hexRgb(h);if(!o)return 1;return(.2126*o.r+.7152*o.g+.0722*o.b)/255;}
 function bjFg(hex){return lum(hex)>0.55?'#1d2731':'#eef3f8';}
 function bjPad(){const o={};for(const k of BJ_IDS)o[k]='';return o;}
 function bjLer(o){const r=bjPad();const src=(o&&typeof o.bj==='object'&&o.bj)?o.bj:{};for(const k of BJ_IDS){const h=normHex(src[k]);if(h)r[k]=h;}return r;}
-function bjEfetivo(k,dark){const h=normHex(A.bj&&A.bj[k]);return h||(dark?BJ_ESCURO:BJ_CLARO);}
+function bjEfetivo(k,dark){const h=normHex(A.bj&&A.bj[k]);if(h)return h;const d=BJ_DEF[k];if(d)return dark?d[1]:d[0];return dark?BJ_ESCURO:BJ_CLARO;}
 
 function ler(){let o={};try{o=JSON.parse(localStorage.getItem(K)||'{}')||{};}catch(e){}if(o.grupo==='tec'||o.grupo==='premium'||o.tec||o.pre){delete o.tec;delete o.pre;}o.grupo='simples';o.estilo='padrao';const r={};for(const k in PAD){if(k==='grupo'||k==='estilo'||k==='tema'){r[k]=k==='tema'?'auto':PAD[k];continue;}r[k]=OP[k]&&OP[k].some(x=>x[0]===o[k])?o[k]:PAD[k];}r.tema='auto';r.bj=bjLer(o);const n=Number(o.vol);r.vol=o.vol!=null&&isFinite(n)?Math.max(0,Math.min(100,Math.round(n))):VOL_PAD;const c=Number(o.clkVol);r.clkVol=o.clkVol!=null&&isFinite(c)?Math.max(0,Math.min(100,Math.round(c))):VOL_PAD;return r;}
 let A=ler();
@@ -73,14 +74,14 @@ function aplicar(){const h=document.documentElement;try{reIcones();}catch(e){}co
  try{const st=h.style;if(st&&st.setProperty){for(const k of BJ_IDS){const hx=bjEfetivo(k,dark);st.setProperty('--bj-'+k,hx);st.setProperty('--bj-'+k+'-fg',bjFg(hx));}}}catch(e){}
  document.querySelectorAll('nav button[data-t]').forEach(b=>{const n=b.querySelector('.ni'),k=NAV[b.dataset.t];if(n&&k)n.innerHTML=ic(k);});
  document.querySelectorAll('.supIc').forEach(n=>{n.innerHTML=ic('suporte');});
- const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=dark?'#0d141b':'#354350';}
+ const m=document.querySelector('meta[name="theme-color"]');if(m)m.content=bjEfetivo('cab',dark);}
 function salvar(){try{localStorage.setItem(K,JSON.stringify(A));}catch(e){}}
 function setVol(v,k){k=k==='clkVol'?'clkVol':'vol';A[k]=Math.max(0,Math.min(100,Math.round(Number(v)||0)));salvar();}
 function setBj(k,v){if(BJ_IDS.indexOf(k)<0)return;if(!A.bj)A.bj=bjPad();A.bj[k]=normHex(v)||'';try{localStorage.setItem(K,JSON.stringify(A));}catch(e){}aplicar();}
 function set(k,v){if(!OP[k]||!OP[k].some(x=>x[0]===v))return;A[k]=v;try{localStorage.setItem(K,JSON.stringify(A));}catch(e){}aplicar();}
 function volTxt(v){return v===0?'🔇 mudo':v===100?'🔊 máximo':v+'%';}
 let apAberto=false; // começa fechado (minimizado)
-function bjHTML(){const dark=escuro();let h='<button type="button" class="big alt" data-apesp="1">'+ic('mira')+' Modo espectador</button>';h+='<label>Fundo das bandejas</label><p><small>Toque na cor de cada tela — ou use o modo espectador.</small></p><div class="apbj">';for(const k of BJ_IDS){const hx=bjEfetivo(k,dark);h+='<div class="apbjRow"><span class="apbjLb">'+BJ_NOME[k]+'</span><input type="color" data-apbj="'+k+'" value="'+hx+'" aria-label="Fundo '+BJ_NOME[k]+'"></div>';}return h+'</div>';}
+function bjHTML(){const dark=escuro();let h='<button type="button" class="big alt" data-apesp="1">'+ic('mira')+' Modo espectador</button>';h+='<label>Fundo das bandejas</label><p><small>Toque na cor de cada parte — ou use o modo espectador.</small></p><div class="apbj">';for(const k of BJ_IDS){const hx=bjEfetivo(k,dark);h+='<div class="apbjRow"><span class="apbjLb">'+BJ_NOME[k]+'</span><input type="color" data-apbj="'+k+'" value="'+hx+'" aria-label="Fundo '+BJ_NOME[k]+'"></div>';}return h+'</div>';}
 function html(ab){const op=ab===true||apAberto;const g=(k,t)=>'<label>'+t+'</label><div class="apg">'+OP[k].map(([v,n])=>(k==='bip'||k==='clkt'?'<span class="apr">':'')+'<button type="button" data-ap="'+k+'" data-v="'+v+'" class="'+(A[k]===v?'on':'')+'">'+(k==='ic'?ic('coleta',v)+' ':k==='cor'?'<i class="apc" style="background:'+COR[v]+'"></i>':'')+n+'</button>'+(k==='clkt'?'<button type="button" class="apt" data-apclk="'+v+'" aria-label="Ouvir">▶️</button>':'')+(k==='bip'?'<button type="button" class="apt" data-aptoca="'+v+'" aria-label="Ouvir">▶️</button>':'')+(k==='bip'||k==='clkt'?'</span>':'')).join('')+'</div>';
  const sl=(k,t,v)=>'<label>'+t+': <span class="apvn" data-vn="'+k+'">'+volTxt(v)+'</span></label><div class="apv"><span>🔇</span><input type="range" min="0" max="100" step="5" value="'+v+'" data-apvol="'+k+'"><span>🔊</span></div>';
  return '<div class="card ap"><b data-apdobra="1" style="display:block;cursor:pointer;font-size:20px;padding:6px 0">'+(op?'▾':'▸')+' ⚙️ Configurações</b>'+(!op?'':'<p><small>Vale só para este celular.</small></p>'+g('ic','Tema dos ícones')+bjHTML()+g('bip','🔔 Som do bip')+sl('vol','🔊 Volume do bip',A.vol)+g('clk','🖱️ Som de clique nos botões')+g('clkt','Tipo do clique')+sl('clkVol','🔊 Volume do clique',A.clkVol))+'</div>';}
@@ -93,19 +94,28 @@ if(mq){const f=()=>{if(A.tema==='auto')aplicar();};mq.addEventListener?mq.addEve
 let espectador=false,espAlvo=null;
 function espAtivo(){return !!espectador;}
 function espBar(){let b=document.getElementById('espBar');if(b)return b;
- b=document.createElement('div');b.id='espBar';b.innerHTML='<p class="espHint">Toque na bandeja onde quer mudar a cor</p>'
+ b=document.createElement('div');b.id='espBar';b.innerHTML='<p class="espHint">Toque na parte onde quer mudar a cor</p>'
   +'<button type="button" class="big alt" data-apesp-sair="1">'+ic('sair')+' Sair do modo espectador</button>'
   +'<input type="color" id="espPick" aria-hidden="true">';
  document.body.appendChild(b);const p=b.querySelector('#espPick');
  if(p){p.addEventListener('input',()=>{if(espAlvo)setBj(espAlvo,p.value);});p.addEventListener('change',()=>{if(espAlvo)setBj(espAlvo,p.value);});}
  return b;}
+function espMenuSwatch(){const nv=document.querySelector('nav');let s=document.getElementById('espMenuSw');
+ if(!espectador||!nv){if(s)s.remove();return;}
+ if(!s){s=document.createElement('button');s.type='button';s.id='espMenuSw';s.className='espSw';
+  s.setAttribute('aria-label','Mudar cor do menu');s.innerHTML=ic('tema')+'<span>Menu</span>';nv.appendChild(s);}
+ s.setAttribute('data-espbj','menu');}
 function espMark(){document.querySelectorAll('[data-espbj]').forEach(el=>el.removeAttribute('data-espbj'));
- if(!espectador)return;const tela=document.documentElement.dataset.tela||'';
+ if(!espectador){const s=document.getElementById('espMenuSw');if(s)s.remove();return;}
+ const hd=document.querySelector('header');if(hd)hd.setAttribute('data-espbj','cab');
+ const nv=document.querySelector('nav');if(nv)nv.setAttribute('data-espbj','menu');
+ espMenuSwatch();
+ const tela=document.documentElement.dataset.tela||'';
  if(tela==='nova'){const m=document.querySelector('#main');if(m)m.setAttribute('data-espbj','coleta');}
- else if(tela==='hist'){document.querySelectorAll('#main .card,#lista .card').forEach(c=>c.setAttribute('data-espbj','hist'));}
- else if(tela==='loc'){document.querySelectorAll('#main .card').forEach(c=>c.setAttribute('data-espbj','loc'));}
- else if(tela==='rel'){document.querySelectorAll('#main .card,#main table').forEach(c=>c.setAttribute('data-espbj','rel'));}
- else if(tela==='adm'){document.querySelectorAll('#main .card').forEach(c=>c.setAttribute('data-espbj','adm'));}
+ else if(tela==='hist'){const m=document.querySelector('#main');if(m)m.setAttribute('data-espbj','hist');document.querySelectorAll('#main .card,#lista .card').forEach(c=>c.setAttribute('data-espbj','hist'));}
+ else if(tela==='loc'){const m=document.querySelector('#main');if(m)m.setAttribute('data-espbj','loc');document.querySelectorAll('#main .card').forEach(c=>c.setAttribute('data-espbj','loc'));}
+ else if(tela==='rel'){const m=document.querySelector('#main');if(m)m.setAttribute('data-espbj','rel');document.querySelectorAll('#main .card,#main table').forEach(c=>c.setAttribute('data-espbj','rel'));}
+ else if(tela==='adm'){const m=document.querySelector('#main');if(m)m.setAttribute('data-espbj','adm');document.querySelectorAll('#main .card').forEach(c=>c.setAttribute('data-espbj','adm'));}
  else if(tela==='sobre'){document.querySelectorAll('#main > .card:not(.ap)').forEach(c=>c.setAttribute('data-espbj','info'));
   document.querySelectorAll('#main .card.ap').forEach(c=>c.setAttribute('data-espbj','config'));}
  else{document.querySelectorAll('#main .card').forEach(c=>{if(!c.getAttribute('data-espbj'))c.setAttribute('data-espbj','info');});}
@@ -118,6 +128,7 @@ function espOn(){espectador=true;apAberto=false;document.documentElement.dataset
  setTimeout(espMark,80);}
 function espOff(){espectador=false;espAlvo=null;delete document.documentElement.dataset.esp;
  document.querySelectorAll('[data-espbj]').forEach(el=>el.removeAttribute('data-espbj'));
+ const s=document.getElementById('espMenuSw');if(s)s.remove();
  const b=document.getElementById('espBar');if(b)b.style.display='none';}
 function espPickFor(k){if(BJ_IDS.indexOf(k)<0)return;espAlvo=k;espBar();const p=document.getElementById('espPick');if(!p)return;
  p.value=bjEfetivo(k,escuro());try{if(p.showPicker)p.showPicker();else p.click();}catch(e){try{p.click();}catch(e2){}}}
