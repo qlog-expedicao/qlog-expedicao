@@ -260,3 +260,11 @@ html:not([data-estilo]) #nvTroca{background:#f2f4f7}
 .nvEu .nvEuNome .qi,.nvEu .nvEuNome svg{width:1.1em;height:1.1em;vertical-align:-.2em}
 .nvEu .nvEuId{font-size:15px;margin:0 0 10px;color:var(--txt,#354350);opacity:.62;letter-spacing:.04em;font-weight:600}
 .nvEu .nvEuCod{font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,Consolas,monospace}
+
+/* v4.3.47: luz de status online/offline na Equipe (piscante suave) */
+.luz{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:middle;flex-shrink:0;box-sizing:border-box}
+.luzOn{background:#2e7d32;box-shadow:0 0 0 0 rgba(46,125,50,.45);animation:luzPulseOn 1.2s ease-in-out infinite}
+.luzOff{background:#c62828;box-shadow:0 0 0 0 rgba(198,40,40,.4);animation:luzPulseOff 1.2s ease-in-out infinite}
+@keyframes luzPulseOn{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(46,125,50,.5)}50%{opacity:.55;box-shadow:0 0 0 6px rgba(46,125,50,0)}}
+@keyframes luzPulseOff{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(198,40,40,.45)}50%{opacity:.5;box-shadow:0 0 0 6px rgba(198,40,40,0)}}
+html[data-tema=escuro] .luzOn{background:#66bb6a}html[data-tema=escuro] .luzOff{background:#ef5350}
