@@ -100,37 +100,6 @@ footer{overflow-wrap:anywhere;line-height:1.5;padding:16px 12px}
 /* 4.3.28: chips de transportadora/fornecedor/cliente menores */
 .cli{gap:6px}.cli button{padding:6px 10px;font-size:14px;min-height:34px;border-radius:8px;border-width:2px;line-height:1.2;display:inline-flex;align-items:center;gap:4px}.cli button .ic,.cli button svg,.cli button img{width:16px;height:16px}
 
-/* 4.3.28: temas Tecnologia */
-/* Qlog Expedição – temas tecnológicos (html[data-estilo=...] + data-tema=escuro) */
-html[data-estilo]{--hd:#0b1020;--hdl:#00e5ff;--bg:#070b16;--tx:#e6f1ff;--gl:#00e5ff;--bgimg:none}
-html[data-estilo] body{background:var(--bg);background-image:var(--bgimg);color:var(--tx)}
-html[data-estilo] header{background:var(--hd);border-bottom:2px solid var(--hdl);box-shadow:0 0 18px color-mix(in srgb,var(--gl) 55%,transparent);letter-spacing:.4px}
-html[data-estilo] header span,html[data-estilo] header b{color:var(--hdl)!important;text-shadow:0 0 8px var(--gl)}
-html[data-estilo] nav{background:var(--nav);border-bottom:1px solid color-mix(in srgb,var(--gl) 30%,transparent)}
-html[data-estilo] nav button{background:transparent;color:var(--act)}
-html[data-estilo] nav button.on{background:color-mix(in srgb,var(--gl) 18%,transparent);color:#fff;border-bottom:3px solid var(--gl);box-shadow:inset 0 -10px 18px -10px var(--gl);text-shadow:0 0 6px var(--gl)}
-html[data-estilo] .card{background:var(--card);border:1px solid color-mix(in srgb,var(--gl) 35%,transparent);border-radius:14px;box-shadow:0 0 14px color-mix(in srgb,var(--gl) 18%,transparent);backdrop-filter:blur(4px)}
-html[data-estilo] .big{background:var(--btn);color:var(--ont,#fff);border-radius:12px;box-shadow:0 0 14px color-mix(in srgb,var(--gl) 55%,transparent);text-shadow:none}
-html[data-estilo] .big.ok{background:var(--btn)}
-html[data-estilo] .alt,html[data-estilo] .tipo button,html[data-estilo] .cli button,html[data-estilo] .supBtn,html[data-estilo] .apg button{background:color-mix(in srgb,var(--card) 80%,transparent)!important;color:var(--act)!important;border:1.5px solid var(--act)!important;box-shadow:0 0 6px color-mix(in srgb,var(--gl) 30%,transparent)}
-html[data-estilo] .tipo button.on,html[data-estilo] .cli button.on,html[data-estilo] .apg button.on{background:var(--btn)!important;color:var(--ont,#fff)!important;border-color:transparent!important;box-shadow:0 0 16px var(--gl)}
-html[data-estilo] input,html[data-estilo] select,html[data-estilo] textarea{background:var(--inp);color:var(--tx);border:1.5px solid color-mix(in srgb,var(--gl) 40%,#334);border-radius:10px}
-html[data-estilo] input:focus,html[data-estilo] textarea:focus{outline:none;border-color:var(--gl);box-shadow:0 0 10px var(--gl)}
-html[data-estilo] label{color:var(--lb,var(--tx))}
-html[data-estilo] .card h1,html[data-estilo] .card h2{color:var(--act)!important;text-shadow:0 0 10px var(--gl)}
-html[data-estilo] footer{color:var(--mut)}
-
-/* Cyber: azul-marinho + ciano elétrico */
-html[data-estilo=cyber]{--hd:linear-gradient(120deg,#050a1f,#0a1f4a 60%,#06345c);--hdl:#22e6ff;--gl:#00d9ff;--bg:#060b1d;--tx:#e3f4ff;--ac:#00b8e6!important;--act:#5ee9ff!important;--nav:#0a1430;--card:#0d1a38;--inp:#0a1530;--btn:linear-gradient(90deg,#0091d1,#00d4ff);--ont:#021022;--mut:#7fa6c4;--lb:#bfe9ff}
-/* Matrix: preto + verde neon */
-html[data-estilo=matrix]{--hd:linear-gradient(120deg,#000,#04160a);--hdl:#39ff6a;--gl:#20ff5a;--bg:#000;--bgimg:repeating-linear-gradient(0deg,#00ff4108 0 1px,transparent 1px 4px);--tx:#c8ffd6;--ac:#14c94a!important;--act:#4dff7c!important;--nav:#020c05;--card:#04120a;--inp:#031008;--btn:linear-gradient(90deg,#0c9e3a,#2bff6b);--ont:#001a07;--mut:#5fae76;--lb:#9dffb6}
-html[data-estilo=matrix] body,html[data-estilo=matrix] input{font-family:"DejaVu Sans Mono",monospace}
-/* Neon: roxo profundo + magenta/ciano */
-html[data-estilo=neon]{--hd:linear-gradient(110deg,#2a0a52,#6a0f8e 50%,#b3127a);--hdl:#ff3df2;--gl:#ff2bd6;--bg:#12061f;--bgimg:radial-gradient(circle at 20% 0%,#3a0d6644,transparent 60%),radial-gradient(circle at 100% 100%,#00e5ff1f,transparent 50%);--tx:#f6e9ff;--ac:#d61fbd!important;--act:#ff7bf0!important;--nav:#1c0a33;--card:#1f0d3a;--inp:#190a30;--btn:linear-gradient(90deg,#ff2bd6,#7a3cff 55%,#00d4ff);--mut:#b493d1;--lb:#ffd1f7}
-/* Circuito: azul-acinzentado + grade/circuito + brilho azul */
-html[data-estilo=circuito]{--hd:linear-gradient(120deg,#141c26,#1d2a3a 60%,#1a3350);--hdl:#4da3ff;--gl:#3b8cff;--bg:#121a24;--bgimg:linear-gradient(#3b8cff12 1px,transparent 1px),linear-gradient(90deg,#3b8cff12 1px,transparent 1px),radial-gradient(#3b8cff33 1.5px,transparent 2px);--tx:#e2ebf5;--ac:#2f7de1!important;--act:#7fb8ff!important;--nav:#16202c;--card:#1a2533;--inp:#152030;--btn:linear-gradient(90deg,#2463c9,#3fa0ff);--mut:#8a9db3;--lb:#cfe2f7}
-html[data-estilo=circuito] body{background-size:24px 24px,24px 24px,24px 24px}
-
 /* 4.3.28: opções sem quebrar palavras */
 .apg button{overflow-wrap:normal;word-break:normal;font-size:15px;line-height:1.2;text-align:center}.apg button:has(> svg.qi){flex-direction:column;gap:4px}
 
@@ -145,11 +114,6 @@ html #main > .tipo:first-child button .qi{width:24px;height:24px}
 html #main > .tipo:first-child button span{font-size:14px;white-space:nowrap;overflow-wrap:normal;word-break:normal}
 html #main > .tipo:first-child button.on{background:var(--card)!important;color:var(--act)!important;border:3px solid var(--ac)!important;border-bottom:0!important;padding:13px 2px 10px!important;margin-bottom:-3px;position:relative;z-index:1;opacity:1;box-shadow:0 -3px 8px -2px #0002!important;--icf:var(--card)}
 html #main > .tipo:first-child button.on::after{content:"";position:absolute;left:-1px;right:-1px;bottom:-6px;height:7px;background:var(--card)}
-/* Tecnologia */
-html[data-estilo] #main:has(> .tipo:first-child){border:1px solid color-mix(in srgb,var(--gl) 40%,transparent);border-top:0;box-shadow:0 0 16px color-mix(in srgb,var(--gl) 20%,transparent)}
-html[data-estilo] #main > .tipo:first-child{background:var(--bg);border-bottom-color:var(--gl)}
-html[data-estilo] #main > .tipo:first-child button{border-color:color-mix(in srgb,var(--gl) 35%,transparent)!important;background:color-mix(in srgb,var(--card) 55%,#000)!important;color:color-mix(in srgb,var(--act) 70%,#888)!important}
-html[data-estilo] #main > .tipo:first-child button.on{background:var(--card)!important;color:var(--act)!important;border-color:var(--gl)!important;box-shadow:0 -4px 14px -4px var(--gl)!important;text-shadow:0 0 6px var(--gl)}
 
 /* 4.3.29: telas Criar meu acesso / Aguardando liberação */
 #modal>div.qwel{padding:22px 20px 16px;border-radius:18px;box-shadow:0 12px 40px #0004}
@@ -175,9 +139,7 @@ html[data-estilo] #main > .tipo:first-child button.on{background:var(--card)!imp
 .qwDot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1b8a3a;margin-right:6px;vertical-align:1px;animation:qwPisca 1.4s ease-in-out infinite}
 @keyframes qwPisca{50%{opacity:.25}}
 .qwInfo{color:var(--ac,#0b4f8a);text-align:center;margin:4px 0}.qwInfo:empty{display:none}
-html[data-estilo] .qwRel{background:var(--card,#111)}
 @media (prefers-reduced-motion:reduce){.qwLogoP,.qwRel .qi,.qwDot{animation:none}}
-html[data-estilo] .qwLogo{background:#fff;border-radius:16px;padding:6px 8px;box-sizing:content-box}
 
 /* v4.3.29: trava de acesso bloqueado */
 #nvTrava{position:fixed;inset:0;z-index:2147483000;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow:auto;pointer-events:auto;touch-action:none}
@@ -196,12 +158,10 @@ html:not([data-estilo]) #nvEspera{background:#fff}
 #nvEspera .esCx{width:100%;max-width:400px;margin:auto}
 #nvEspera .esLogo{position:relative;width:168px;height:233px;margin:0 auto 6px}
 #nvEspera .esLogo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-html[data-estilo] #nvEspera .esLogo img{background:#fff;border-radius:22px}
 #nvEspera .esRel{position:absolute;left:auto;right:-6px;top:auto;bottom:62px}
 #nvEspera .qwH{font-size:24px;display:block;margin:4px 0}
 #nvEspera .big{width:100%;margin-top:10px}
 body.esperando{overflow:hidden}
-html[data-estilo] #nvEspera .big.red{background:linear-gradient(135deg,#b71c1c,#ef5350);color:#fff;box-shadow:0 0 12px #ef535088}
 
 /* v4.3.29: esteira com a lupa e a marca do Qlog (SVG + CSS, loop de 6 s sem emenda) */
 #nvEspera .esLogo{position:relative;width:100vw;max-width:520px;height:auto;margin:0 0 4px calc(50% - min(50vw,260px));aspect-ratio:auto}
@@ -230,42 +190,13 @@ html[data-estilo] #nvEspera .big.red{background:linear-gradient(135deg,#b71c1c,#
 
 #recScan2,#edScan2,#confScan0{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:6px 10px!important;line-height:1}#recScan2 .qi,#edScan2 .qi,#confScan0 .qi{width:1.7em!important;height:1.7em!important;vertical-align:0!important}.scLbl{display:block;font-size:10px;font-weight:bold;color:#fff;letter-spacing:.2px;white-space:nowrap}
 
-/* v4.3.33: temas Premium (data-grupo=premium + data-estilo=ouro|proazul|executivo), refinados nível Circuito */
-/* Premium Ouro: preto + ouro, padrão de losangos dourados */
-html[data-estilo=ouro]{--hd:linear-gradient(120deg,#000,#17120a 55%,#2e2310);--hdl:#f1d27a;--gl:#d4af37;--bg:#0a0907;--bgimg:radial-gradient(circle at 50% -10%,#d4af3730,transparent 55%),linear-gradient(45deg,#d4af370c 25%,transparent 25%,transparent 75%,#d4af370c 75%),linear-gradient(-45deg,#d4af370c 25%,transparent 25%,transparent 75%,#d4af370c 75%);--tx:#f5ecd6;--ac:#d4af37!important;--act:#f6dd8f!important;--nav:linear-gradient(180deg,#14110b,#0c0a07);--card:#16130d;--inp:#0e0c08;--btn:linear-gradient(135deg,#9c7208,#f3d36b 48%,#fff1b8 52%,#c9971c);--ont:#1a1205;--mut:#b9a77e;--lb:#ecdba9}
-html[data-estilo=ouro] body{background-size:100% 100%,28px 28px,28px 28px}
 /* Pro Azul: marinho + azul elétrico, vidro e malha hexagonal de pontos */
-html[data-estilo=proazul]{--hd:linear-gradient(120deg,#020820,#0a1d5c 55%,#1546c8);--hdl:#7fb0ff;--gl:#2f7bff;--bg:#030a22;--bgimg:radial-gradient(circle at 12% 0%,#2f7bff40,transparent 50%),radial-gradient(circle at 100% 90%,#00c2ff30,transparent 45%),radial-gradient(#5b9bff2e 1.2px,transparent 1.6px),radial-gradient(#5b9bff1c 1.2px,transparent 1.6px);--tx:#e8f0ff;--ac:#3d86ff!important;--act:#9cc2ff!important;--nav:linear-gradient(180deg,#081544cc,#050e30cc);--card:rgba(24,44,110,.5);--inp:rgba(6,16,52,.75);--btn:linear-gradient(135deg,#1747e6,#2f7bff 50%,#35c4ff);--ont:#fff;--mut:#93abd9;--lb:#cadbff}
-html[data-estilo=proazul] body{background-size:100% 100%,100% 100%,22px 22px,22px 22px;background-position:0 0,0 0,0 0,11px 11px;background-attachment:fixed}
 /* Executivo: grafite + esmeralda/prata, textura escovada fina */
-html[data-estilo=executivo]{--hd:linear-gradient(120deg,#121417,#22272c 55%,#2f363c);--hdl:#e3e8eb;--gl:#10b981;--bg:#14171a;--bgimg:repeating-linear-gradient(90deg,#ffffff06 0 1px,transparent 1px 3px),repeating-linear-gradient(135deg,#10b98108 0 2px,transparent 2px 18px),linear-gradient(180deg,#1b1f23,#111316);--tx:#eceff1;--ac:#10b981!important;--act:#6ee7c3!important;--nav:linear-gradient(180deg,#1f2428,#16191c);--card:linear-gradient(180deg,#22282d,#1b2024);--inp:#171b1f;--btn:linear-gradient(135deg,#065f46,#10b981 55%,#34d399);--ont:#fff;--mut:#a0abb3;--lb:#d3dbdf}
 /* comuns premium: cabeçalho e abas polidos */
-html[data-grupo=premium] header{position:relative;box-shadow:0 2px 18px color-mix(in srgb,var(--gl) 45%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--hdl) 60%,transparent)}
-html[data-grupo=premium] header::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:2px;background:linear-gradient(90deg,transparent,var(--hdl),transparent);pointer-events:none}
-html[data-grupo=premium] header span,html[data-grupo=premium] header b{letter-spacing:.6px;text-shadow:0 0 10px var(--gl),0 0 2px var(--gl)}
-html[data-grupo=premium] nav button.on{border-radius:10px 10px 0 0}
-html[data-grupo=premium] .card{border-radius:16px;box-shadow:0 8px 22px #0008,0 0 14px color-mix(in srgb,var(--gl) 22%,transparent),inset 0 1px 0 color-mix(in srgb,var(--hdl) 25%,transparent)}
-html[data-grupo=premium] .big{font-weight:bold;letter-spacing:.3px;border:1px solid color-mix(in srgb,var(--hdl) 45%,transparent);box-shadow:0 4px 14px #0007,0 0 16px color-mix(in srgb,var(--gl) 50%,transparent),inset 0 1px 0 #ffffff40}
-html[data-grupo=premium] .tipo button.on,html[data-grupo=premium] .cli button.on,html[data-grupo=premium] .apg button.on{box-shadow:0 0 16px var(--gl),inset 0 1px 0 #ffffff50!important}
-html[data-grupo=premium] label{letter-spacing:.2px}
 /* Ouro */
-html[data-estilo=ouro] .card{border:1px solid #d4af3780;background-image:linear-gradient(180deg,#d4af3714,transparent 45%)}
-html[data-estilo=ouro] header{border-bottom:2px solid #d4af37}
-html[data-estilo=ouro] header span,html[data-estilo=ouro] header b{background:linear-gradient(90deg,#c9971c,#fff1b8,#d4af37);-webkit-background-clip:text;background-clip:text;color:transparent!important}
-html[data-estilo=ouro] .alt,html[data-estilo=ouro] .tipo button:not(.on),html[data-estilo=ouro] .cli button:not(.on){border:1.5px solid #d4af37!important;color:#f6dd8f!important}
-html[data-estilo=ouro] input{border-color:#8a6d2a}
 /* Pro Azul */
-html[data-estilo=proazul] .card{border:1px solid #7fb0ff55;-webkit-backdrop-filter:blur(12px) saturate(140%);backdrop-filter:blur(12px) saturate(140%);background-image:linear-gradient(160deg,#ffffff14,transparent 40%)}
-html[data-estilo=proazul] nav{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
-html[data-estilo=proazul] .alt,html[data-estilo=proazul] .tipo button:not(.on),html[data-estilo=proazul] .cli button:not(.on){border:1.5px solid #4d8dff!important;color:#d6e4ff!important;background:rgba(20,40,110,.45)!important}
 /* Executivo */
-html[data-estilo=executivo] .card{border:1px solid #c9d1d640;border-top:2px solid #10b981}
-html[data-estilo=executivo] header{border-bottom:2px solid #c9d1d6}
-html[data-estilo=executivo] header span,html[data-estilo=executivo] header b{background:linear-gradient(90deg,#c9d1d6,#fff,#9aa5ad);-webkit-background-clip:text;background-clip:text;color:transparent!important;text-shadow:none}
-html[data-estilo=executivo] .alt,html[data-estilo=executivo] .tipo button:not(.on),html[data-estilo=executivo] .cli button:not(.on){border:1.5px solid #aab4bb!important;color:#e9eef0!important}
 /* scanners: verde em todos os temas */
-html[data-grupo=premium] #recScan,html[data-grupo=premium] #recScan2,html[data-grupo=premium] #edScan,html[data-grupo=premium] #edScan2,html[data-grupo=premium] #confScan0,html[data-grupo=premium] #edConfScan{background:linear-gradient(135deg,#15803d,#22a04b 55%,#34c062)!important;color:#fff!important;box-shadow:0 0 14px #22c55e88,inset 0 1px 0 #ffffff40!important}
-html[data-grupo=premium] .scLbl{color:#fff}
 
 /* v4.3.38: porta de acesso obrigatória */
 #nvPorta{position:fixed;inset:0;z-index:2147482800;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;touch-action:pan-y}
@@ -300,3 +231,38 @@ html:not([data-estilo]) #nvTroca{background:#f2f4f7}
 #nvTroca .trIc .qi{width:64px;height:64px}#nvTroca .qwH{display:block;font-size:23px;margin:8px 0;overflow-wrap:normal;word-break:normal;hyphens:none}#nvTroca .big{width:100%;margin-top:12px}
 /* v4.3.38: ícone visível em botão vermelho (o quadrado vermelho do ícone sumia no fundo vermelho) */
 .big.red .qi>rect{fill:#fff}.big.red .qi>rect+g{stroke:#c62828}
+
+/* v4.3.39: fundo customizado por bandeja */
+.apbj{display:flex;flex-direction:column;gap:8px;margin:6px 0 12px;max-width:100%}
+.apbjRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:2px solid color-mix(in srgb,var(--ac) 35%,#9ab);border-radius:12px;background:var(--card);max-width:100%}
+.apbjLb{font-size:17px;font-weight:bold;color:var(--act,#0b4f8a);overflow-wrap:normal;word-break:keep-all;min-width:0;flex:1}
+.apbjRow input[type=color]{width:48px;height:40px;padding:0;border:0;border-radius:10px;background:transparent;cursor:pointer;flex:0 0 auto}
+html[data-tema=escuro] .apbjRow{background:var(--card);border-color:#4d6070}
+html[data-tema=escuro] .apbjLb{color:var(--act,#7cb8f2)}
+html[data-tela=nova] #main:has(> .tipo:first-child){background:var(--bj-coleta,var(--card))!important;color:var(--bj-coleta-fg,inherit)}
+/* v4.3.39: aba selecionada = mesma cor da bandeja (Coleta/Estorno/Recebimento juntos) */
+html[data-tela=nova] #main > .tipo:first-child button.on{
+  background:var(--bj-coleta,var(--card))!important;
+  color:var(--bj-coleta-fg,var(--act))!important;
+  --icf:var(--bj-coleta,var(--card));
+}
+html[data-tela=nova] #main > .tipo:first-child button.on::after{
+  background:var(--bj-coleta,var(--card))!important;
+}
+
+html[data-tela=hist] #main .card,html[data-tela=hist] #lista .card{background:var(--bj-hist,var(--card))!important;color:var(--bj-hist-fg,inherit)}
+html[data-tela=loc] #main .card{background:var(--bj-loc,var(--card))!important;color:var(--bj-loc-fg,inherit)}
+html[data-tela=rel] #main .card,html[data-tela=rel] #main table{background:var(--bj-rel,var(--card))!important;color:var(--bj-rel-fg,inherit)}
+html[data-tela=adm] #main .card{background:var(--bj-adm,var(--card))!important;color:var(--bj-adm-fg,inherit)}
+html[data-tela=sobre] #main > .card:not(.ap){background:var(--bj-info,var(--card))!important;color:var(--bj-info-fg,inherit)}
+html[data-tela=sobre] #main > .card:not(.ap) h2{color:var(--bj-info-fg,inherit)!important}
+html[data-tela=sobre] #main .card.ap{background:var(--bj-config,var(--card))!important;color:var(--bj-config-fg,inherit)}
+/* v4.3.39: Modo espectador — escolher bandeja na tela */
+#espBar{display:none;position:fixed;left:8px;right:8px;bottom:8px;z-index:99998;background:var(--card,#fff);color:var(--bj-config-fg,#1d2731);
+ border:2px solid var(--ac,#0b4f8a);border-radius:14px;padding:12px;box-shadow:0 8px 28px #0004;max-width:704px;margin:0 auto;box-sizing:border-box}
+#espBar .espHint{font-size:17px;font-weight:bold;margin:0 0 10px;overflow-wrap:normal;word-break:keep-all}
+#espBar .big{margin:0}
+#espPick{position:fixed;left:-40px;top:-40px;width:32px;height:32px;opacity:0;pointer-events:none}
+html[data-esp="1"] [data-espbj]{outline:3px dashed var(--ac,#0b4f8a);outline-offset:3px;cursor:pointer;box-shadow:0 0 0 4px color-mix(in srgb,var(--ac,#0b4f8a) 22%,transparent)}
+html[data-esp="1"][data-tema=escuro] [data-espbj]{outline-color:var(--act,#7cb8f2);box-shadow:0 0 0 4px color-mix(in srgb,var(--act,#7cb8f2) 25%,transparent)}
+html[data-esp="1"] body{padding-bottom:110px}
