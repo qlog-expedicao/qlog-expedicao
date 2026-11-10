@@ -1,0 +1,660 @@
+'use strict';
+// v4.3.1: guarda os últimos erros do app (para o relato de problema)
+(function(){const g=e=>{try{const l=L.errosAdd(JSON.parse(localStorage.getItem('errosApp')||'[]'),e);localStorage.setItem('errosApp',JSON.stringify(l));}catch(x){}};
+  window.addEventListener('error',ev=>g({msg:ev.message||String(ev.error||'erro'),onde:(ev.filename||'').split('/').pop()+':'+(ev.lineno||0)}));
+  window.addEventListener('unhandledrejection',ev=>g({msg:'Promise: '+String((ev.reason&&ev.reason.message)||ev.reason||'erro'),onde:''}));})();
+const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let db, regs=[], tab='nova', detalhe=null;
+// v4.3.2: o app sempre abre em Coleta
+// v4.3.3: logins ADM / Colaborador, 1 hora para editar, 📝 Pedir edição
+const novo=()=>({tipo:'coleta',motivo:'',origem:'',origemOk:0,cliente:'',nfs:'',vt:{palete:'',volume:''},confEsp:'',confLidos:[],motorista:'',placa:'',obs:'',fotos:[],romaneio:[],caminhao:[],itens:[],forn:''});
+let f=novo();
+const clientes=()=>JSON.parse(localStorage.getItem('clientes')||'[]');
+const setClientes=c=>{localStorage.setItem('clientes',JSON.stringify(c));window.Nuvem&&Nuvem.lista('clientes',c);};
+const fornecedores=()=>JSON.parse(localStorage.getItem('fornecedores')||'[]');
+const setFornecedores=c=>{localStorage.setItem('fornecedores',JSON.stringify(c));window.Nuvem&&Nuvem.lista('fornecedores',c);};
+const TIPOS=[['coleta','📦 Coleta'],['estorno','↩️ Estorno'],['recebimento','📥 Recebimento']];
+const tipoRow=()=>`<div class="row tipo">${TIPOS.map(([k,t])=>`<button data-tipo="${k}" class="${f.tipo===k?'on':''}">${window.Tema?Tema.ic(k)+'<span>'+t.replace(/^\S+\s/,'')+'</span>':t}</button>`).join('')}</div>`;
+const tagHTML=r=>`<span class="tag ${r.tipo==='recebimento'?'rec':r.tipo}">${L.tipoNome(r.tipo).toUpperCase()}</span>`;
+const stCls=s=>s==='CONFERIDO OK'?'c-ok':s==='DIVERGENTE'?'c-bad':'c-wait';
+function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-iq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-iq="1" data-ii="${i}">+</button><button data-idel="${i}" class="idel">🗑</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+
+  `<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
+function novaRec(){const fl=fornecedores();$('#main').innerHTML=tipoRow()+`
+<label>Fornecedor / Cliente</label><div class="cli">${fl.map(c=>`<button data-forn="${esc(c)}" class="${f.forn===c?'on':''}">${esc(c)}</button>`).join('')}<button id="addForn">➕ Novo fornecedor / cliente</button></div>
+<label>NFs (opcional)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs (se tiver)" value="${esc(f.nfs)}">
+<button class="big ok" id="recScan" style="font-size:24px;padding:22px">📷 Ler códigos (contínuo)</button>
+<label>Itens recebidos</label><div id="itens">${itensHTML()}</div>
+<div class="row"><input id="addCodTxt" placeholder="Digitar código"><button class="big alt" id="addCod" style="flex:0 0 150px;margin:0">➕ Adicionar código</button></div>
+<label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
+<label>🧾 Romaneio / NF (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio / NF</button>
+<p><small>No WhatsApp vão só as fotos do romaneio/NF.</small></p>
+<label>Observação</label><textarea id="obs" rows="2">${esc(f.obs)}</textarea>
+<p>🕒 Data e hora: automática ao salvar</p><div id="erro" class="err"></div>
+<button class="big ok" id="salvar">💾 Salvar</button><button class="big" id="salvarEnv">💾 Salvar e 📤 Compartilhar</button><button class="big alt" id="reset">🔄 Limpar (reset)</button>
+<input type="file" id="cam" accept="image/*" capture="environment" multiple hidden>`;
+  ['nfs','obs'].forEach(k=>$('#'+k).oninput=e=>f[k]=e.target.value);
+  $('#addCodTxt').onkeydown=e=>{if(e.key==='Enter')addCodManual();};}
+function addCodManual(){const v=$('#addCodTxt').value.trim();if(!v)return;f.itens=L.addItem(f.itens,v);$('#itens').innerHTML=itensHTML();$('#addCodTxt').value='';$('#addCodTxt').focus();}
+const qtdDe=(it,c)=>{const x=it.find(i=>i.cod===L.addItem([],c)[0].cod);return x?x.qtd:0;};
+function lerContinuoForm(){abrirMulti('Recebimento: ler códigos',code=>{f.itens=L.addItem(f.itens,code);if($('#itens'))$('#itens').innerHTML=itensHTML();return qtdDe(f.itens,code);},()=>{if(tab==='nova')nova();},f.itens);}
+function openDB(){return new Promise((ok,er)=>{const q=indexedDB.open('qlog',1);q.onupgradeneeded=()=>q.result.createObjectStore('regs',{keyPath:'id'});q.onsuccess=()=>ok(q.result);q.onerror=()=>er(q.error);});}
+const tx=(m,fn)=>new Promise((ok,er)=>{const t=db.transaction('regs',m),s=t.objectStore('regs'),r=fn(s);t.oncomplete=()=>ok(r&&r.result);t.onerror=()=>er(t.error);});
+async function load(){regs=(await tx('readonly',s=>s.getAll())||[]).sort((a,b)=>b.ts-a.ts);}
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',2500);}
+// v4.2.7: confirmar(msg, acao, rotuloSim, corSim, rotuloNao)
+function confirmar(msg,sim,lb,cor,nao){const m=$('#modal');m.innerHTML=`<div><p style="font-size:20px">${esc(msg)}</p><button class="big ${cor||'red'}" id="mSim">${lb||'Sim, apagar'}</button><button class="big alt" id="mNao">${nao||'Não'}</button></div>`;
+  m.classList.add('on');$('#mNao').onclick=()=>m.classList.remove('on');$('#mSim').onclick=()=>{m.classList.remove('on');sim();};}
+function compress(file){return new Promise(ok=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement('canvas');
+  c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',0.75));};i.onerror=()=>ok(null);i.src=u;});}
+function fotosHTML(arr,key,edit){return '<div class="fotos">'+arr.map((d,i)=>`<div><img src="${d}">${edit?`<b data-del="${key}" data-i="${i}">✕</b>`:''}</div>`).join('')+'</div>';}
+function render(){if(tab!=='sobre')telaAnt=tab;document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));navAdm();if(tab==='adm'&&!admOn())tab='nova';{const ft=document.querySelector('footer');if(ft)ft.style.display=tab==='sobre'?'':'none';}({nova,hist,rel,sobre,loc,arquivo:arquivoTela,adm:admTela})[tab]();}
+function nova(){if(f.tipo==='recebimento')return novaRec();const cl=clientes();$('#main').innerHTML=tipoRow()+`
+${f.tipo==='estorno'?estCab():''}<label>Transportadora</label><div class="cli">${cl.map(c=>`<button data-cli="${esc(c)}" class="${f.cliente===c?'on':''}"${f.cliente===c?autoCls('cliente'):''}>${esc(c)}</button>`).join('')}<button id="addCli">➕ Nova transportadora</button></div>
+<label>NFs (separe com - ou espaço)</label><input id="nfs" inputmode="numeric" placeholder="Digite as NFs aqui" value="${esc(f.nfs)}"${autoCls('nfs')}>${autoDica('nfs')}
+<label>Volumes</label><div class="row vt">${[['palete','🟫 Paletes'],['volume','📦 Volumes']].map(([k,t])=>`<div><small>${t}</small><input data-vt="${k}" type="number" inputmode="numeric" placeholder="0" value="${esc(f.vt[k])}"${k==='volume'?autoCls('volume'):''}>${k==='volume'?autoDica('volume'):''}</div>`).join('')}</div>
+<p class="tot">Total: <b id="vtp">${+f.vt.palete||0}</b> paletes · <b id="vtv">${+f.vt.volume||0}</b> volumes</p>
+<details ${f.confEsp||f.confLidos.length?'open':''}><summary style="padding:12px 0;font-weight:bold">🔎 Conferência de código (opcional)</summary>
+<label>Código(s) da NF (esperado)</label><div class="row"><input id="confEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(f.confEsp)}"><button class="big alt" data-ocr="esp" style="flex:0 0 120px;margin:0">📷 Ler texto</button></div>
+<div id="confRes">${confMiniHTML(f.confLidos)}</div>
+<label>Código da etiqueta</label><div class="row"><input id="confLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="confOk" style="flex:0 0 110px;margin:0">✔ Conferir</button></div>
+<button class="big alt" data-ocr="lido">📷 Ler texto da etiqueta</button>
+<button class="big alt" id="confScan">📷 Ler código com a câmera</button>
+</details>
+<label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
+<label>🧾 Romaneio (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio</button><button class="big" id="lerRom">📷 Ler romaneio</button>
+<label>🚛 Caminhão carregado (${f.caminhao.length})</label>${fotosHTML(f.caminhao,'caminhao',1)}<button class="big alt" data-foto="caminhao">🚛 Tirar foto do caminhão carregado</button>
+<p><small>No WhatsApp vão só as fotos do romaneio e do caminhão. As fotos dos produtos ficam guardadas no app.</small></p>
+<details><summary style="padding:12px 0;font-weight:bold">Mais (motorista, placa, observação)</summary>
+<label>Motorista</label><input id="motorista" value="${esc(f.motorista)}"><label>Placa</label><input id="placa" value="${esc(f.placa)}" style="text-transform:uppercase"${autoCls('placa')}>${autoDica('placa')}
+<label>Observação</label><textarea id="obs" rows="2">${esc(f.obs)}</textarea></details>
+${f.tipo==='estorno'?'<label>Motivo do estorno</label><input id="motivo" value="'+esc(f.motivo)+'">':''}<p>🕒 Data e hora: automática ao salvar</p><div id="erro" class="err"></div>
+<button class="big ok" id="salvar">💾 Salvar</button><button class="big" id="salvarEnv">💾 Salvar e 📤 Compartilhar</button><button class="big alt" id="reset">🔄 Limpar (reset)</button>
+<input type="file" id="cam" accept="image/*" capture="environment" multiple hidden>`;
+  ['nfs','confEsp','motorista','placa','obs'].forEach(k=>$('#'+k).oninput=e=>f[k]=e.target.value);if($('#motivo'))$('#motivo').oninput=e=>f.motivo=e.target.value;
+  document.querySelectorAll('[data-vt]').forEach(i=>i.oninput=e=>{f.vt[i.dataset.vt]=e.target.value;$('#vtp').textContent=+f.vt.palete||0;$('#vtv').textContent=+f.vt.volume||0;});
+  $('#confLido').onkeydown=e=>{if(e.key==='Enter')conferirCod($('#confLido').value);};}
+const HAS_BD='BarcodeDetector' in window;
+// ---- OCR (v2.5): Android = ML Kit via AndroidOcr bridge; iPhone/PWA/fallback = Tesseract.js local (ocr/) ----
+const ocrCbs={};let ocrSeq=0,tessW=null;
+window.ocrResult=(id,text,err)=>{const c=ocrCbs[id];if(!c)return;delete ocrCbs[id];err?c.er(new Error(err)):c.ok(text||'');};
+function ocrProg(p){const e=$('#ocrPct');if(e)e.textContent=p?Math.round(p*100)+'%':'';}
+function loadScript(src){return new Promise((ok,er)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=er;document.head.appendChild(s);});}
+async function ocrTexto(dataUrl){
+  if(window.AndroidOcr)return new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.ler(dataUrl,id);});
+  if(!window.Tesseract)await loadScript('ocr/tesseract.min.js');
+  if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true,
+    logger:m=>{if(m.status==='recognizing text')ocrProg(m.progress);}});
+  const r=await tessW.recognize(dataUrl);return r.data.text||'';}
+function ocrModal(alvo,cands,texto,modo){const esp=L.parseCods(f.confEsp);
+  if(alvo==='lido'&&esp.length&&(!modo||modo==='texto')){cands=cands.map(c=>L.corrigirOCR(c,esp));const m=L.casarEsperado(cands,esp);cands=m.concat(cands.filter(c=>!m.includes(c)));cands=cands.filter((c,i)=>cands.indexOf(c)===i);}
+  const m=$('#modal'),cod=cands[0]||'';
+  m.innerHTML=`<div style="text-align:center"><p style="font-size:20px;margin-top:0"><b>${alvo==='esp'?'Código da NF':'Código da etiqueta'}</b></p>
+  ${cod?`<p>Código lido:</p><div id="ocrBig" style="font-size:44px;font-weight:bold;letter-spacing:3px;word-break:break-all;background:#eef3f8;border-radius:12px;padding:14px">${esc(cod)}</div>`:'<p>Não achei código. Digite abaixo.</p>'}
+  <button class="big ok" id="ocrOk" style="font-size:24px">✅ Usar</button><button class="big" id="ocrDeNovo" style="font-size:22px">🔁 Ler de novo</button>
+  <details style="text-align:left"><summary style="padding:10px 0">✏️ Corrigir / outros códigos</summary>${cands.slice(1).map(c=>`<button class="big alt" data-cand="${esc(c)}" style="font-size:22px">${esc(c)}</button>`).join('')}
+  <input id="ocrVal" style="text-transform:uppercase;font-size:24px" value="${esc(cod)}"><button class="big alt" id="ocrNao">Cancelar</button>
+  <details><summary style="padding:8px 0">Texto lido</summary><pre style="white-space:pre-wrap;font-size:13px">${esc(texto)}</pre></details></details></div>`;
+  m.classList.add('on');
+  m.querySelectorAll('[data-cand]').forEach(b=>b.onclick=()=>{$('#ocrVal').value=b.dataset.cand;const g=$('#ocrBig');if(g)g.textContent=b.dataset.cand;});
+  $('#ocrVal').oninput=()=>{const g=$('#ocrBig');if(g)g.textContent=$('#ocrVal').value.toUpperCase();};
+  $('#ocrNao').onclick=()=>{relerIdx=-1;m.classList.remove('on');};
+  $('#ocrDeNovo').onclick=()=>{m.classList.remove('on');abrirScanner(alvo);};
+  $('#ocrOk').onclick=()=>{const v=$('#ocrVal').value.trim().toUpperCase();m.classList.remove('on');if(!v){relerIdx=-1;return;}
+    if(alvo==='esp'){const cur=L.parseCods(f.confEsp);if(!cur.includes(L.normCod(v)))f.confEsp=(f.confEsp.trim()?f.confEsp.trim()+' ':'')+v;nova();toast('Código da NF: '+v);}
+    else {if(!L.parseCods(f.confEsp).length){toast('Coloque primeiro o código esperado da NF');$('#confLido').value=v;relerIdx=-1;return;}conferirCod(v);}};}
+function fotoOcr(al){$('#cam').value='';$('#cam').removeAttribute('multiple');$('#cam').onchange=ev=>{$('#cam').setAttribute('multiple','');ev.target.files[0]&&lerTexto(ev.target.files[0],al);};$('#cam').click();}
+// ---- v2.6: scanner ao vivo (só para os campos de código) ----
+let SC=null;
+function fecharScanner(){if(!SC)return;const mu=SC.multi;SC.on=false;setTimeout(()=>mu&&mu.onFim(),0);clearTimeout(SC.h);try{SC.stream&&SC.stream.getTracks().forEach(t=>t.stop());}catch(e){}const o=$('#scanner');o&&o.remove();SC=null;}
+const scanCbs={};let scanSeq=0;
+// v4.3.0: tipo de leitura escolhido em cada tela (barras / texto / QR), lembrado no celular
+function scanModoGet(k){try{return L.scanModoOk(localStorage.getItem(k));}catch(e){return 'barra';}}
+function scanModoSet(k,m){try{localStorage.setItem(k,L.scanModoOk(m));}catch(e){}}
+window.scanModoSalvo=(k,m)=>{if(k)scanModoSet(k,m);};
+function scModosHTML(m){return '<div class="scModos">'+L.SCAN_MODOS.map(x=>`<button type="button" data-scmodo="${x.id}" class="${x.id===m?'on':''}">${x.nome}</button>`).join('')+'</div>';}
+let zxP=null;function zxCarregar(){return zxP||(zxP=loadScript('zxing/zxing.min.js'));}
+function zxLer(c,m){const Z=window.ZXing;if(!Z)return [];const h=new Map();h.set(Z.DecodeHintType.POSSIBLE_FORMATS,L.zxFormatosModo(m).map(x=>Z.BarcodeFormat[x]));h.set(Z.DecodeHintType.TRY_HARDER,true);
+  const rd=m==='qr'?new Z.QRCodeReader():new Z.MultiFormatOneDReader(h);try{const r=rd.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c))),h);
+    if(!L.zxFormatosModo(m).map(x=>Z.BarcodeFormat[x]).includes(r.getBarcodeFormat()))return [];
+    const xs=(r.getResultPoints()||[]).map(p=>p.getX());return [{v:String(r.getText()||'').trim(),w:xs.length>1?Math.max(...xs)-Math.min(...xs):0}];}catch(e){return [];}}
+async function scDetector(me){const m=me.modo;if(!HAS_BD)return null;me.bds=me.bds||{};if(m in me.bds)return me.bds[m];
+  let d=null;try{const sup=BarcodeDetector.getSupportedFormats?await BarcodeDetector.getSupportedFormats():L.formatosModo(m);const fm=L.formatosModo(m).filter(x=>sup.includes(x));if(fm.length)d=new BarcodeDetector({formats:fm});}catch(e){d=null;}
+  me.bds[m]=d;return d;}
+// lê só o tipo escolhido: barras/QR = valor exato; texto = OCR
+async function scDetectar(me,c){const m=me.modo;let cands=[],texto='',longe=false;
+  if(m==='texto'){const o=await ocrCaixas(c.toDataURL('image/jpeg',0.85));texto=o.texto;cands=L.extrairCods(texto);
+    const hs=o.ls.filter(l=>L.extrairCods(l.t).length).map(l=>l.h);if(cands.length&&hs.length&&L.longeTxt(Math.max(...hs),c.height))longe=true;return {cands,texto,longe};}
+  let r=[];const d=await scDetector(me);
+  if(d){try{r=(await d.detect(c)).filter(x=>!x.format||L.modoAceitaFormato(m,x.format)).map(x=>({v:String(x.rawValue||'').trim(),w:x.boundingBox&&x.boundingBox.width}));}catch(e){r=[];}}
+  else{try{await zxCarregar();}catch(e){}r=zxLer(c,m);}
+  r=r.filter(x=>x.v);cands=L.candsModo(m,r.map(x=>x.v).join('\n'));texto=cands.join('\n');if(r.length&&r.every(x=>L.longeBar(x.w,c.width)))longe=true;return {cands,texto,longe};}
+// ---- v2.8: leitura contínua (Recebimento). Android = ScanActivity modo multi; iPhone/PWA = loop JS ----
+const multiCbs={};
+function bip(){if(window.Tema&&Tema.bip)return Tema.bip();try{const A=window.AudioContext||window.webkitAudioContext;if(A){bip.c=bip.c||new A();const o=bip.c.createOscillator(),g=bip.c.createGain();o.frequency.value=1800;g.gain.value=0.2;o.connect(g);g.connect(bip.c.destination);o.start();o.stop(bip.c.currentTime+0.12);}}catch(e){}try{navigator.vibrate&&navigator.vibrate(80);}catch(e){}}
+window.scanItem=(id,code)=>{const c=multiCbs[id];if(!c||!code)return;c.got[code]=(c.got[code]||0)+1;c.onItem(code);};
+window.scanFim=(id,json,err)=>{const c=multiCbs[id];if(!c)return;delete multiCbs[id];
+  try{(JSON.parse(json||'[]')||[]).forEach(x=>{for(let k=(x.qtd||0)-(c.got[x.cod]||0);k>0;k--)c.onItem(x.cod);});}catch(e){}
+  if(err==='permissao')toast('Câmera não liberada.');else if(err&&err!=='cancelado')toast('Scanner falhou: '+err);c.onFim();};
+function abrirMulti(titulo,onItem,onFim,atuais){
+  if(window.AndroidScan&&window.AndroidScan.abrirMulti){const id='m'+(++scanSeq);multiCbs[id]={onItem,onFim,got:{}};
+    try{const ch=L.scanChave(null,titulo);if(window.AndroidScan.abrirMultiModo)window.AndroidScan.abrirMultiModo(id,titulo,JSON.stringify(atuais||[]),scanModoGet(ch),ch);else window.AndroidScan.abrirMulti(id,titulo,JSON.stringify(atuais||[]));return;}catch(e){delete multiCbs[id];}}
+  abrirScanner(null,{titulo,onItem,onFim});}
+window.scanResult=(id,text,err)=>{const al=scanCbs[id];if(!al)return;delete scanCbs[id];
+  if(err==='foto')return fotoOcr(al);if(err==='cancelado')return;if(err==='permissao'){toast('Câmera não liberada. Usando foto.');return fotoOcr(al);}
+  if(err||text==null){toast('Scanner falhou. Usando foto.');return fotoOcr(al);}
+  const md=scanModoGet(L.scanChave(al));ocrModal(al,L.candsModo(md,text),text,md);};
+async function abrirScanner(al,multi){
+  if(window.AndroidScan&&!multi){const id='s'+(++scanSeq);scanCbs[id]=al;try{const tt=al==='esp'?'Código da NF':'Código da etiqueta',ch=L.scanChave(al);if(window.AndroidScan.abrirModo)window.AndroidScan.abrirModo(id,tt,scanModoGet(ch),ch);else window.AndroidScan.abrir(id,tt);}catch(e){delete scanCbs[id];fotoOcr(al);}return;}
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){if(multi){toast('Câmera ao vivo indisponível. Digite os códigos.');return multi.onFim();}return fotoOcr(al);}
+  const o=document.createElement('div');o.id='scanner';
+  o.innerHTML=`<video id="scVid" playsinline muted autoplay></video><div class="scMask"><div class="scBox" id="scBox"></div></div>
+  <div class="scTop">${multi?esc(multi.titulo):al==='esp'?'Código da NF':'Código da etiqueta'}${scModosHTML(scanModoGet(L.scanChave(al,multi&&multi.titulo)))}<small id="scMsg">Aponte o código dentro do quadro</small><div id="scLast" class="scLast"></div></div>
+  <div class="scBot">${multi?(multi.zerar?'<button class="big alt" id="scZera">🔄 Zerar</button>':'')+'<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big ok" id="scFim">✔ Concluir</button>':`<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big alt" id="scFoto">📷 Tirar foto</button><button class="big red" id="scCancel">✖ Cancelar</button>`}</div>`;
+  document.body.appendChild(o);const sch=L.scanChave(al,multi&&multi.titulo);SC={on:true,al,busy:false,torch:false,multi,seen:{},chave:sch,modo:scanModoGet(sch)};
+  o.querySelectorAll('[data-scmodo]').forEach(b=>b.onclick=()=>{if(!SC)return;SC.modo=L.scanModoOk(b.dataset.scmodo);scanModoSet(SC.chave,SC.modo);SC.st=null;SC.ms={};
+    o.querySelectorAll('[data-scmodo]').forEach(x=>x.classList.toggle('on',x===b));scMsg('Aponte o código dentro do quadro');});
+  if(multi)$('#scFim').onclick=fecharScanner;if($('#scZera'))$('#scZera').onclick=()=>{if(confirm('Zerar a contagem? A lista continua.')){multi.zerar();SC.seen={};SC.ms={};const z=$('#scLast');if(z)z.textContent='Contagem zerada';}};else{$('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};}
+  let st;try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});}
+  catch(e){fecharScanner();if(multi){toast('Câmera ao vivo não liberada. Digite os códigos.');return;}toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
+  if(!SC||!SC.on){st.getTracks().forEach(t=>t.stop());return;}SC.stream=st;
+  const v=$('#scVid');v.srcObject=SC.stream;try{await v.play();}catch(e){}
+  const tr=SC.stream.getVideoTracks()[0];try{if(tr.getCapabilities&&tr.getCapabilities().torch){const b=$('#scTorch');b.style.display='';b.onclick=async()=>{SC.torch=!SC.torch;try{await tr.applyConstraints({advanced:[{torch:SC.torch}]});b.textContent=SC.torch?'🔦 Desligar lanterna':'🔦 Lanterna';}catch(e){}};}}catch(e){}
+  scLoop();}
+function scCrop(){const v=$('#scVid'),b=$('#scBox');if(!v||!v.videoWidth)return null;
+  const vr=v.getBoundingClientRect(),br=b.getBoundingClientRect(),k=Math.max(vr.width/v.videoWidth,vr.height/v.videoHeight);
+  const ox=(vr.width-v.videoWidth*k)/2,oy=(vr.height-v.videoHeight*k)/2;
+  const sx=Math.max(0,(br.left-vr.left-ox)/k),sy=Math.max(0,(br.top-vr.top-oy)/k),sw=Math.min(v.videoWidth-sx,br.width/k),sh=Math.min(v.videoHeight-sy,br.height/k);
+  const c=document.createElement('canvas');const z=Math.min(1,1000/sw);c.width=Math.round(sw*z);c.height=Math.round(sh*z);c.getContext('2d').drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);return c;}
+// v4.2: OCR com tamanho das letras (para avisar "Aproxime o celular")
+async function ocrCaixas(url){
+  if(window.AndroidOcr&&window.AndroidOcr.lerLinhas){const js=await new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.lerLinhas(url,id);});const a=JSON.parse(js||'[]');
+    return {texto:a.map(x=>x.t).join('\n'),ls:a};}
+  if(window.AndroidOcr)return {texto:await ocrTexto(url),ls:[]};
+  if(!window.Tesseract)await loadScript('ocr/tesseract.min.js');if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true});
+  const r=await tessW.recognize(url);const ls=(r.data.lines||[]).map(l=>({t:l.text.trim(),x:l.bbox.x0,y:l.bbox.y0,w:l.bbox.x1-l.bbox.x0,h:l.bbox.y1-l.bbox.y0}));return {texto:r.data.text||'',ls};}
+function scMsg(t,cor){const m=$('#scMsg');if(m){m.textContent=t;m.style.color=cor||'';}}
+async function scLoop(){if(!SC||!SC.on)return;const me=SC;let rapido=false;
+  try{const c=scCrop();if(c){const md=me.modo;const dt=await scDetectar(me,c);let {cands,texto,longe}=dt;const bars=md!=='texto';
+    if(SC!==me||!me.on)return;
+    if(longe){me.st=null;me.ms={};scMsg('🔍 Aproxime o celular','#ff0');}
+    else if(me.multi){const acc=me.multi.match?me.multi.match(texto):cands.length?(bars?cands:[cands[0]]):[];
+      const r=L.estavelMulti(me.ms,acc);me.ms=r.st;rapido=acc.length>0;
+      if(acc.length&&!r.ok.length)scMsg('Lendo... '+Math.max(...acc.map(a=>r.st[a]))+'/'+L.LEITURAS+' · segure parado');
+      for(const cd of r.ok){if(SC!==me||!me.on)break;const n=me.multi.onItem(cd,texto);if(!me.multi.noBip||!me.multi.noBip())bip();
+        const z=$('#scLast'),tx2='✔ '+cd+'  ×'+n;if(z)z.textContent=tx2;toast(tx2);}}
+    else{const esp=me.al==='lido'?L.parseCods(f.confEsp):[];const key=cands.length?(md==='texto'?L.corrigirOCR(cands[0],esp):cands[0]):'';me.st=L.estavel(me.st,key);
+      if(me.st.ok){const al=me.al;fecharScanner();ocrModal(al,[key],texto,md);return;}
+      if(key){rapido=true;scMsg('Lendo... '+me.st.c+'/'+L.LEITURAS+' · segure parado');}else scMsg('Procurando código... coloque dentro do quadro');}}}catch(e){}
+  if(SC===me&&me.on)me.h=setTimeout(scLoop,rapido?120:400);}
+async function lerTexto(file,alvo){const m=$('#modal');m.innerHTML='<div style="text-align:center"><p style="font-size:26px">⏳ Lendo texto...</p><p id="ocrPct" style="font-size:22px"></p><p><small>Pode levar alguns segundos.</small></p></div>';m.classList.add('on');
+  try{const d=await compress(file);if(!d)throw new Error('foto');const t=await ocrTexto(d);ocrModal(alvo,L.extrairCods(t),t);}
+  catch(e){m.classList.remove('on');toast('Não consegui ler o texto. Digite o código.');}}
+function alerta(ok,cod){const m=$('#modal');m.innerHTML=`<div style="text-align:center"><div class="conf ${ok?'c-ok':'c-bad'}" style="font-size:34px">${ok?'✔ Confere':'✖ Código diferente!'}</div><p>Lido: <b>${esc(cod)}</b>${ok?'':'<br>Esperado: <b>'+esc(L.parseCods(f.confEsp).join(', '))+'</b>'}</p><button class="big" id="mOk">OK</button></div>`;m.classList.add('on');$('#mOk').onclick=()=>m.classList.remove('on');}
+function conferirCod(v){const esp=L.parseCods(f.confEsp);if(!esp.length){$('#erro').textContent='Coloque primeiro o código esperado da NF';return;}
+  const c=L.conferir(esp,v);if(!c.cod){relerIdx=-1;return;}if(relerIdx>=0&&f.confLidos[relerIdx]){f.confLidos.splice(relerIdx,1);}relerIdx=-1;f.confLidos=L.confAdd(f.confLidos,c,Date.now());nova();alerta(c.ok,c.cod);}
+async function scan(file){try{const bd=new BarcodeDetector();const b=await createImageBitmap(file);const r=await bd.detect(b);
+  if(r.length)conferirCod(r[0].rawValue);else toast('Não achei código na foto. Digite o código.');}catch(e){toast('Leitor falhou. Digite o código.');}}
+async function salvar(enviar){if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,volume:+f.vt.volume||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
+  motorista:f.motorista.trim(),placa:f.placa.trim().toUpperCase(),obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:f.caminhao};if(f.tipo==='estorno'){r.motivo=f.motivo.trim();if(f.origem)r.origem=f.origem;}
+  const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
+  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+async function salvarRec(enviar){const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,'recebimento'),tipo:'recebimento',cliente:f.forn,nfs:L.parseNFs(f.nfs),volumes:0,
+  itens:f.itens.map(x=>({cod:x.cod,qtd:x.qtd})),skuEsp:null,obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:[]};
+  const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
+  if(window.Nuvem&&Nuvem.on){r.autorUid=Nuvem.uid;}await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);f=novo();rascLimpar();f.tipo='recebimento';toast('✅ Salvo');if(enviar)compartilhar(r);tab='hist';detalhe=r.id;render();}
+function grpHTML(c){return [['c-ok','✔ OK',c.ok],['c-dif','⚠ Quantidade diferente',c.dif],['c-bad','✖ Faltou',c.faltou],['c-mais','➕ A mais',c.amais]].map(([k,t,a])=>
+  `<div class="grp"><div class="gh ${k}">${t} (${a.length})</div>${a.length?'<table><tr><th>Código</th><th>Esperado</th><th>Lido</th></tr>'+a.map(x=>`<tr><td>${esc(x.cod)}</td><td>${x.esp}</td><td>${x.lido}</td></tr>`).join('')+'</table>':'<p><small>Nenhum</small></p>'}</div>`).join('');}
+function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card">${tagHTML(r)} <span class="st ${stCls(c.status)}">${c.status}</span>
+ <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre></div>
+ <div class="card"><b>📋 Conferência com lista de SKU</b>${r.skuEsp?`<p>Lista: ${r.skuEsp.length} códigos · ${r.skuEsp.reduce((s,x)=>s+x.qtd,0)} unidades. Lido: ${t.cods} códigos · ${t.un} unidades.</p>`+grpHTML(c):'<p>Lista de SKU ainda não chegou. Quando chegar, toque abaixo.</p>'}
+ <button class="big" id="skuBtn">📋 ${r.skuEsp?'Editar lista de SKU':'Conferir com lista de SKU'}</button></div>
+ <div class="card"><label>🧾 Romaneio / NF</label>${fotosHTML(r.romaneio||[])}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos||[])}</div>
+ ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
+  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);ligarEd(r);$('#skuBtn').onclick=()=>skuModal(r);
+  $('#apagar').onclick=()=>(window.Nuvem&&!Nuvem.pode())?toast('Só o administrador pode apagar'):confirmar('Apagar o registro?',async()=>{await tx('readwrite',s=>s.delete(r.id));window.Nuvem&&Nuvem.apagar(r.id);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('apagou',r);await load();detalhe=null;toast('Apagado');render();},'Apagar','red','Cancelar');}
+function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90vh;overflow:auto"><p style="font-size:20px;margin-top:0"><b>📋 Lista de SKU esperada</b></p>
+  <p><small>Um código por linha. Pode ter quantidade: <b>SKU;qtd</b> ou <b>SKU qtd</b>. Sem quantidade = 1.</small></p>
+  <textarea id="skuTxt" rows="8" style="font-size:18px" placeholder="7891234567890;10&#10;ABC123 5">${esc(L.skuTexto(r.skuEsp))}</textarea>
+  <button class="big alt" id="skuCam">📷 Ler a lista com a câmera</button><button class="big alt" id="skuArq">📄 Importar arquivo CSV/TXT</button>
+  <input type="file" id="skuFile" accept=".csv,.txt,text/plain,text/csv" hidden>
+  <button class="big ok" id="skuOk">💾 Salvar e conferir</button>${r.skuEsp?'<button class="big red" id="skuDel">🗑 Remover lista</button>':''}<button class="big alt" id="skuX">Cancelar</button></div>`;
+  m.classList.add('on');$('#skuX').onclick=()=>m.classList.remove('on');
+  const grava=async l=>{if(window.Nuvem&&!Nuvem.pode()){m.classList.remove('on');return toast('Só o administrador pode mudar registros');}r.skuEsp=l;await tx('readwrite',s=>s.put(r));await load();window.Nuvem&&Nuvem.salvar(r);m.classList.remove('on');toast(l?'Lista salva: '+L.conferirSku(r.itens,l).status:'Lista removida');render();};
+  $('#skuOk').onclick=()=>{const l=L.parseSkuLista($('#skuTxt').value);if(!l.length)return toast('Lista vazia');grava(l);};
+  if($('#skuDel'))$('#skuDel').onclick=()=>grava(null);
+  $('#skuArq').onclick=()=>{$('#skuFile').value='';$('#skuFile').click();};
+  $('#skuFile').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const rd=new FileReader();rd.onload=()=>{const l=L.parseSkuLista(rd.result);if(!l.length)return toast('Não achei códigos no arquivo');$('#skuTxt').value=L.skuTexto(l);toast(l.length+' códigos importados');};rd.readAsText(fl);};
+  $('#skuCam').onclick=()=>{let tmp=L.parseSkuLista($('#skuTxt').value);abrirMulti('Lista de SKU: ler códigos',code=>{tmp=L.addItem(tmp,code);const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);return qtdDe(tmp,code);},()=>{const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);},tmp);};}
+function compartilhar(r){const t=L.resumo(r),p=r.romaneio.concat(r.caminhao||[]);
+  if(window.AndroidShare)AndroidShare.share(t,JSON.stringify(p),'');else if(navigator.share){let fs=[];try{fs=p.map((d,i)=>dataUrlFile(d,L.codigo(r)+'_'+(i+1)+'.jpg'));}catch(e){fs=[];}
+    if(fs.length&&navigator.canShare&&navigator.canShare({files:fs}))navigator.share({text:t,files:fs}).catch(()=>{});else navigator.share({text:t}).catch(()=>{});}else{navigator.clipboard&&navigator.clipboard.writeText(t);toast('Texto copiado');}}
+function dataUrlFile(d,n){const b=atob(d.split(',')[1]),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return new File([u],n,{type:'image/jpeg'});}
+function shareArquivo(c,n,tp){if(window.AndroidShare)return AndroidShare.share(c,'[]',n);const fl=new File([c],n,{type:tp});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[fl]}))return navigator.share({files:[fl],title:n}).catch(()=>{});
+  const a=document.createElement('a');a.href=URL.createObjectURL(fl);a.download=n;a.click();}
+let mesAt=null;
+function mesLista(){const m=L.meses(regs),hoje=L.mesKey(Date.now());if(!m.includes(hoje))m.unshift(hoje);if(!mesAt||!m.includes(mesAt))mesAt=hoje;return m;}
+const NOMES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const mesNome=k=>NOMES[+k.slice(0,2)-1]+' '+k.slice(3);
+function mesSelHTML(){return `<label>📅 Mês</label><select id="mesAt" style="width:100%;font-size:20px;padding:10px">${mesLista().map(m=>`<option value="${m}" ${m===mesAt?'selected':''}>${mesNome(m)}</option>`).join('')}</select>`;}
+const doMes=()=>regs.filter(r=>L.mesKey(r.ts)===mesAt);
+function hist(){if(ed&&$('#edOk')){edLer();return edTela();}if(ed&&detalhe!==ed.id)ed=null;if(ed)return edTela();if(detalhe){const r=regs.find(x=>x.id===detalhe);if(r)return det(r);detalhe=null;}
+  const sm=!!hist.sel;$('#main').innerHTML=mesSelHTML()+`<input id="q" placeholder="🔍 Buscar NF, transportadora, código, data, EXP/REC" value="${esc(hist.q||'')}">
+  ${sm?`<div class="row"><button class="big red" id="selDel" style="margin:0">🗑 Apagar selecionados (<span id="selN">${hist.sel.size}</span>)</button><button class="big alt" id="selX" style="margin:0;flex:0 0 120px">Cancelar</button></div><button class="big ok" id="selEnv">📤 Enviar selecionados (<span class="selN2">${hist.sel.size}</span>)</button><button class="big alt" id="selAll">☑ Marcar todos da lista</button>`:(doMes().length?'<button class="big alt" id="selOn">☑ Selecionar para apagar</button>':'')}<div id="lista"></div>`;
+  $('#q').oninput=e=>{hist.q=e.target.value;lista();};$('#mesAt').onchange=e=>{mesAt=e.target.value;hist.sel=null;hist();};lista();}
+function lista(){const v=L.filtrar(doMes(),hist.q);$('#lista').innerHTML=v.length?v.map(r=>`<div class="card${hist.sel&&hist.sel.has(r.id)?' selc':''}" data-open="${r.id}">${hist.sel?`<span style="font-size:26px;float:right">${hist.sel.has(r.id)?'☑':'☐'}</span>`:''}${tagHTML(r)}${r.tipo==='recebimento'?` <span class="st ${stCls(L.recStatus(r))}">${L.recStatus(r)}</span>
+ <b>${L.codigo(r)} · ${esc(r.cliente||'Sem fornecedor')}</b><br>${(r.nfs||[]).length?'NFs '+esc(r.nfs.join('-'))+' · ':''}${L.itensTot(r.itens).cods} itens · ${L.itensTot(r.itens).un} un.<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length}</small></div>`:`
+ <b>${L.codigo(r)} · ${esc(r.cliente)}</b><br>NFs ${esc(r.nfs.join('-'))} · ${esc(L.volTxt(r))} vol${L.confStatus(r.conf)?' · 🔎 '+L.confStatus(r.conf):''}<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length} · 🚛 ${(r.caminhao||[]).length}</small></div>`}`).join(''):'<p>Nenhum registro neste mês.</p>';}
+function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card"><span class="tag ${r.tipo}">${L.tipoNome(r.tipo).toUpperCase()}</span>${estLigacoes(r)}
+ <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre><label>🧾 Romaneio</label>${fotosHTML(r.romaneio)}<label>🚛 Caminhão carregado</label>${fotosHTML(r.caminhao||[])}${r.conf&&(r.conf.lidos||[]).length?confListaHTML(r.conf.lidos,0):''}<label>📷 Produtos (não vão no WhatsApp)</label>${fotosHTML(r.fotos)}</div>
+ ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
+  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);ligarEd(r);
+  $('#apagar').onclick=()=>(window.Nuvem&&!Nuvem.pode())?toast('Só o administrador pode apagar'):confirmar('Apagar o registro?',async()=>{await tx('readwrite',s=>s.delete(r.id));window.Nuvem&&Nuvem.apagar(r.id);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('apagou',r);await load();detalhe=null;toast('Apagado');render();},'Apagar','red','Cancelar');}
+
+// ---- v4.1: editar registro ----
+let ed=null;
+// v4.3.3: botões do registro conforme o papel (ADM / Colaborador): 1 hora para editar o seu, depois 📝 Pedir edição
+function botoesEd(r){const u=usuario(),nv=window.Nuvem&&Nuvem.ativo()&&u.on;let h='';
+  if(L.podeEditar(r,u)){h+='<button class="big" id="editar">✏️ Editar</button>';if(nv&&!u.admin){const lim=L.limiteEdicao(r,u.janela);if(lim)h+='<p style="text-align:center"><small>⏱ Você pode editar até '+L.fmtHora(lim)+'</small></p>';}}
+  else if(L.podePedir(r,u))h+='<button class="big" id="pedirEd">📝 Pedir edição</button><p style="text-align:center"><small>O prazo de '+L.janelaNome(window.Nuvem&&Nuvem.janelaMin)+' para editar acabou. Peça ao ADM.</small></p>';
+  if(!nv||u.admin)h+='<button class="big red" id="apagar">🗑 Apagar registro</button>';return h;}
+function ligarEd(r){const e=$('#editar');if(e)e.onclick=()=>confirmar('Deseja editar este registro?',()=>abrirEdicao(r),'Sim','ok','Cancelar');const p=$('#pedirEd');if(p)p.onclick=()=>pedirEdicaoModal(r);}
+function pedirEdicaoModal(r){const m=$('#modal');m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:8px">📝 Pedir edição · ${esc(L.codigo(r))}</b>
+  <label>O que precisa mudar?</label><textarea id="peT" rows="3" maxlength="1000" style="width:100%;font-size:19px"></textarea>
+  <label>Motivo</label><input id="peM" maxlength="500" style="width:100%;font-size:19px"><p id="peE" style="color:#c62828"></p>
+  <button class="big ok" id="peOk">📤 Enviar pedido</button><button class="big alt" id="peX">Cancelar</button></div>`;m.classList.add('on');
+  $('#peX').onclick=()=>m.classList.remove('on');
+  $('#peOk').onclick=async()=>{const t=$('#peT').value.trim(),mo=$('#peM').value.trim();if(!t)return $('#peE').textContent='Escreva o que precisa mudar';if(!mo)return $('#peE').textContent='Escreva o motivo';
+    $('#peOk').disabled=true;try{await Nuvem.pedirEdicao(r,t,mo);m.classList.remove('on');toast('✅ Pedido enviado ao ADM');}catch(x){$('#peOk').disabled=false;$('#peE').textContent='Não consegui enviar. Precisa de internet.';}};}
+function usuario(){const N=window.Nuvem;return {on:!!(N&&N.on),admin:!!(N&&N.admin),uid:N&&N.uid,login:N&&N.login||'',now:Date.now(),janela:N&&N.janelaMs?N.janelaMs():L.JANELA_MS};}
+const prazoTxt=()=>'O prazo de '+L.janelaNome(window.Nuvem&&Nuvem.janelaMin)+' acabou. Use 📝 Pedir edição';
+function abrirEdicao(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode editar');
+  const vt=L.vtNorm(r.vtipos||{volume:r.volumes});
+  ed={id:r.id,tipo:r.tipo,c:{cliente:r.cliente||'',nfs:(r.nfs||[]).join('-'),palete:vt.palete||'',volume:vt.volume||'',placa:r.placa||'',motorista:r.motorista||'',obs:r.obs||'',motivo:r.motivo||''},
+    fotos:{fotos:(r.fotos||[]).slice(),romaneio:(r.romaneio||[]).slice(),caminhao:(r.caminhao||[]).slice(),mexeu:{}}};edTela();}
+function edLer(){if(!ed)return;document.querySelectorAll('[data-ec]').forEach(i=>{ed.c[i.dataset.ec]=i.value;});}
+function edFotos(k,titulo){const a=ed.fotos[k];return `<label>${titulo} (${a.length})</label><div class="fotos">${a.map((d,i)=>`<div><img src="${d}"><div class="row" style="gap:4px"><button class="big" data-eft="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">🔄 Trocar</button><button class="big red" data-efr="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">❌ Remover</button></div></div>`).join('')}</div><button class="big alt" data-efa="${k}">📷 Adicionar foto</button>`;}
+function edTela(){const rec=ed.tipo==='recebimento',lst=rec?fornecedores():clientes(),inp=(k,lb,ex)=>`<label>${lb}</label><input data-ec="${k}" value="${esc(ed.c[k])}" ${ex||''}>`;
+  $('#main').innerHTML=`<button class="big alt" id="edX">⬅ Cancelar</button><div class="card"><b style="font-size:21px">✏️ Editar registro</b>
+  <label>${rec?'Fornecedor / cliente':'Transportadora'}</label><input data-ec="cliente" list="edLst" value="${esc(ed.c.cliente)}"><datalist id="edLst">${lst.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
+  ${inp('nfs','NFs (separe com traço)','inputmode="numeric"')}
+  ${rec?'':`<div class="row"><div style="flex:1">${inp('palete','Paletes','type="number" min="0" inputmode="numeric"')}</div><div style="flex:1">${inp('volume','Volumes','type="number" min="0" inputmode="numeric"')}</div></div>
+  ${inp('placa','Placa','style="text-transform:uppercase"')}${inp('motorista','Motorista')}`}${ed.tipo==='estorno'?inp('motivo','Motivo do estorno'):''}
+  <label>Observação</label><textarea data-ec="obs" rows="3">${esc(ed.c.obs)}</textarea></div>
+  <div class="card">${edFotos('romaneio','🧾 Romaneio')}${rec?'':edFotos('caminhao','🚛 Caminhão carregado')}${edFotos('fotos','📷 Produtos')}</div>
+  <p id="edErro" style="color:#c62828"></p><button class="big ok" id="edOk">💾 Salvar alterações</button><button class="big alt" id="edX2">Cancelar</button>`;
+  const sair=()=>{ed=null;rascLimpar();render();};$('#edX').onclick=sair;$('#edX2').onclick=sair;$('#edOk').onclick=()=>confirmar('Salvar as alterações?',edSalvar,'Sim','ok','Cancelar');}
+// câmera primeiro; galeria como segunda opção
+function edPegar(fn){const m=$('#modal');m.innerHTML=`<div><p style="font-size:20px;margin-top:0"><b>Escolha a foto</b></p><button class="big ok" id="pfC">📷 Tirar foto</button><button class="big alt" id="pfG">🖼️ Pegar da galeria</button><button class="big alt" id="pfX">Cancelar</button></div>`;m.classList.add('on');
+  const pega=cam=>{m.classList.remove('on');const i=document.createElement('input');i.type='file';i.accept='image/*';if(cam)i.setAttribute('capture','environment');i.onchange=async()=>{const fl=i.files[0];if(!fl)return;const u=await compress(fl);if(!u)return toast('Não consegui ler a foto');fn(u);};i.click();};
+  $('#pfC').onclick=()=>pega(true);$('#pfG').onclick=()=>pega(false);$('#pfX').onclick=()=>m.classList.remove('on');}
+document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[data-eft],[data-efr],[data-efa]');if(!t)return;e.stopPropagation();edLer();const d=t.dataset,i=+d.i;
+  if(d.efr)confirmar('Remover esta foto?',()=>{ed.fotos[d.efr]=L.fotoOp(ed.fotos[d.efr],'remover',i);ed.fotos.mexeu[d.efr]=1;edTela();},'Sim, remover');
+  else if(d.eft)edPegar(u=>{ed.fotos[d.eft]=L.fotoOp(ed.fotos[d.eft],'trocar',i,u);ed.fotos.mexeu[d.eft]=1;edTela();});
+  else if(d.efa)edPegar(u=>{ed.fotos[d.efa]=L.fotoOp(ed.fotos[d.efa],'adicionar',-1,u);ed.fotos.mexeu[d.efa]=1;edTela();});},true);
+async function edSalvar(){edLer();const id=ed.id;
+  // v4.0.5: lê o registro do celular (com as fotos) antes de mexer
+  let r=null;try{r=await tx('readonly',s=>s.get(id));}catch(e){}if(!r)r=regs.find(x=>x.id===id);if(!r){ed=null;return render();}
+  if(!L.podeEditar(r,usuario())){ed=null;toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode editar');return render();}
+  const c=Object.assign({},ed.c);if(ed.tipo==='recebimento'){delete c.palete;delete c.volume;delete c.placa;delete c.motorista;}
+  const n=L.regEditar(r,c,ed.fotos,Date.now());const er=L.editValidar(n);if(er.length){$('#edErro').innerHTML=er.map(esc).join('<br>');return;}
+  const salvo=(window.Nuvem&&!Nuvem.admin)?L.semAutor(n):n;
+  if(salvo.cliente){if(ed.tipo==='recebimento'){const l=fornecedores();if(!l.includes(salvo.cliente)){l.push(salvo.cliente);setFornecedores(l);}}else{const l=clientes();if(!l.includes(salvo.cliente)){l.push(salvo.cliente);setClientes(l);}}}
+  await tx('readwrite',s=>s.put(salvo));await load();window.Nuvem&&Nuvem.salvar(salvo);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('editou',r,Object.assign({},salvo,{fotosMexeu:ed.fotos&&ed.fotos.mexeu}));ed=null;rascLimpar();detalhe=id;toast('✅ Alterações salvas');render();}
+
+// ---- v3.2: Localizar códigos (lista + câmera procurando) ----
+const locGet=()=>{try{const l=JSON.parse(localStorage.getItem('locLista')||'[]');return (Array.isArray(l)?l:[]).filter(x=>x&&x.cod!=null).map(x=>({cod:String(x.cod),al:Array.isArray(x.al)?x.al.map(String):[],alvo:+x.alvo||null,n:+x.n||(x.ok?1:0),ult:x.ult?String(x.ult):'',uh:x.uh?String(x.uh):''}));}catch(e){return [];}};
+const locSet=l=>localStorage.setItem('locLista',JSON.stringify(l));
+function locAdd(txt){try{const l=locGet();let n=0;L.parseLocLista(txt).forEach(c=>{const o=l.find(x=>L.locNorm(x.cod)===L.locNorm(c.cod));if(o){c.al.forEach(a=>{if(!o.al.includes(a))o.al.push(a);});if(c.alvo)o.alvo=c.alvo;}else{l.push(c);n++;}});locSet(l);return n;}catch(e){toast('Não consegui ler essa lista. Tente colar de novo ou um código por linha.');return 0;}}
+function locSoma(cod,d){const l=locGet(),x=l.find(i=>i.cod===cod);if(!x)return 0;x.n=Math.max(0,x.n+(d==null?1:d));locSet(l);return x.n;}
+function locCont(){const l=locGet(),a=l.filter(x=>x.n>0).length;return {n:l.length,a,f:l.length-a,t:l.reduce((s,x)=>s+x.n,0)};}
+window.locZerar=()=>{locSet(locGet().map(x=>Object.assign(x,{n:0})));if(tab==='loc')loc();};
+function locUlt(cod,raw){if(!cod)return;const l=locGet(),x=l.find(i=>i.cod===cod);if(!x)return;x.ult=String(raw||cod).replace(/\s+/g,' ').trim().slice(0,80);const d=new Date();x.uh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');locSet(l);}
+window.locAchou=(cod,raw)=>{if(cod){locSoma(cod,1);locUlt(cod,raw);}if(tab==='loc')loc();};
+function loc(){const l=locGet(),c=locCont();$('#main').innerHTML=`<div class="card" style="text-align:center"><b style="font-size:22px">🔍 Localizar códigos</b>
+ <p style="font-size:24px;margin:8px 0">📦 Total contado: <b>${c.t}</b></p>
+ <p style="font-size:20px;margin:8px 0"><span style="color:#1b8a3a">✅ Códigos achados: <b>${c.a}</b></span> · <span style="color:#c62828">⏳ Faltam: <b>${c.f}</b></span></p><small>Códigos na lista: ${c.n}</small></div>
+ <button class="big ok" id="locCam" style="font-size:24px;padding:22px">📷 Procurar e contar com a câmera</button>
+ <p><small>Passe a câmera devagar pelas caixas. Cada código da lista que aparecer soma +1, apita, vibra e fica verde. Segure parado: cada código só conta depois de 10 leituras iguais. A mesma etiqueta parada não conta de novo: tire da frente e coloque de novo.</small></p>
+ ${window.AndroidScan?'':`<button class="big alt" id="locBip">${localStorage.getItem('locBip')==='0'?'🔇 Bipe: DESLIGADO':'🔊 Bipe: LIGADO'}</button>`}
+ <label>Colar a lista (pode colar a tabela do e-mail: SAP, descrição e peças)</label><textarea id="locTxt" rows="4" placeholder="ABC123&#10;7891234567890"></textarea>
+ <button class="big" id="locAdd">➕ Colocar na lista</button><button class="big alt" id="locFoto">📷 Ler print/foto da tabela</button><input type="file" id="locImg" accept="image/*" hidden><button class="big alt" id="locArq">📄 Importar arquivo TXT/CSV</button><input type="file" id="locFile" accept=".csv,.txt,text/plain,text/csv" hidden>
+ <label>Lista (use − e + para corrigir)</label>${l.length?l.map((x,i)=>{const ok=x.alvo?x.n>=x.alvo:x.n>0;return `<div class="locit ${ok?'lok':x.n?'lmeio':''}"><div class="lt"><div class="lsap">${ok?'✅':x.n?'✔':'⏳'} ${esc(x.cod)}</div>${x.al.length?'<div class="ldesc">'+esc(x.al.join(' · '))+'</div>':''}<div class="lcont">${x.alvo?'contado <b>'+x.n+'</b> de <b>'+x.alvo+'</b>'+(ok?' · COMPLETO':''):'contado <b>'+x.n+'</b>'}</div>${x.ult?'<div class="lult">📷 Último lido: '+esc(x.ult)+' às '+esc(x.uh)+'</div>':'<div class="lult">Ainda não lido pela câmera</div>'}</div><div class="lbt"><button data-locq="1" data-loci="${i}">+</button><b>${x.n}</b><button data-locq="-1" data-loci="${i}">−</button></div></div>`;}).join(''):'<p><small>Lista vazia. Cole os códigos acima.</small></p>'}
+ ${l.length?'<button class="big alt" id="locZera">🔄 Zerar contagem</button><button class="big red" id="locDel">🗑 Apagar lista</button>':''}`;
+ $('#locAdd').onclick=()=>{if(!$('#locTxt').value.trim())return toast('Cole os códigos primeiro');locPrev($('#locTxt').value);};
+ $('#locFoto').onclick=()=>{$('#locImg').value='';$('#locImg').click();};
+ $('#locImg').onchange=ev=>{const fl=ev.target.files[0];if(fl)locFoto(fl);};
+ $('#locArq').onclick=()=>{$('#locFile').value='';$('#locFile').click();};
+ $('#locFile').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const rd=new FileReader();rd.onerror=()=>toast('Não consegui abrir o arquivo');rd.onload=()=>locPrev(rd.result);rd.readAsText(fl);};
+ document.querySelectorAll('[data-locq]').forEach(b=>b.onclick=()=>{const x=locGet()[+b.dataset.loci];if(x){locSoma(x.cod,+b.dataset.locq);loc();}});
+ if($('#locZera'))$('#locZera').onclick=()=>confirmar('Zerar a contagem? A lista continua.',()=>{locSet(locGet().map(x=>Object.assign(x,{n:0})));loc();},'Sim, zerar');
+ if($('#locDel'))$('#locDel').onclick=()=>confirmar('Apagar a lista de códigos?',()=>{locSet([]);loc();},'Sim, apagar');
+ if($('#locBip'))$('#locBip').onclick=()=>{localStorage.setItem('locBip',localStorage.getItem('locBip')==='0'?'1':'0');loc();};
+ $('#locCam').onclick=locCamera;}
+function locPrev(txt){let p;try{p=L.locPrevia(txt);}catch(e){p={itens:[],duv:0};}
+  const m=$('#modal');if(!p.itens.length){toast('Não entendi nenhum código. Confira o texto.');$('#locTxt')&&($('#locTxt').value=String(txt||''));return;}
+  m.innerHTML=`<div class="card" style="max-height:85vh;overflow:auto"><b style="font-size:22px">Entendi ${p.itens.length} ${p.itens.length>1?'itens':'item'}:</b>${p.duv?'<p style="color:#8a6d00"><b>⚠ '+p.duv+' em amarelo: confira</b></p>':''}
+   ${p.itens.map((x,i)=>`<div class="locit ${x.duv?'lduv':''}"><div class="lt"><div class="lsap">${esc(x.cod)}</div>${x.al.length?'<div class="ldesc">'+esc(x.al.join(' · '))+'</div>':''}<div class="lcont">${x.alvo?x.alvo+' peças':'sem quantidade'}</div>${x.duv?'<input data-pv="'+i+'" value="'+esc(L.locLinha(x))+'" style="width:100%;font-size:18px">':''}</div></div>`).join('')}
+   <button class="big ok" id="pvOk">✅ Confirmar</button><button class="big alt" id="pvEd">✏️ Corrigir</button></div>`;m.classList.add('on');
+  $('#pvOk').onclick=()=>{try{const lin=p.itens.map((x,i)=>{const e=m.querySelector('[data-pv="'+i+'"]');return e?e.value:L.locLinha(x);}).join('\n');m.classList.remove('on');
+    const n=locAdd(lin);toast(n?n+' item(ns) colocado(s)':'Lista atualizada');if($('#locTxt'))$('#locTxt').value='';loc();}catch(e){m.classList.remove('on');toast('Não consegui salvar. Tente de novo.');}};
+  $('#pvEd').onclick=()=>{const lin=p.itens.map((x,i)=>{const e=m.querySelector('[data-pv="'+i+'"]');return e?e.value:L.locLinha(x);}).join('\n');m.classList.remove('on');loc();$('#locTxt').value=lin;$('#locTxt').focus();toast('Corrija e toque em Colocar na lista');};}
+async function locFoto(fl){toast('Lendo a imagem...');try{const url=await new Promise((ok,er)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=er;r.readAsDataURL(fl);});
+  let txt='';if(window.AndroidOcr&&window.AndroidOcr.lerLinhas){const js=await new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.lerLinhas(url,id);});txt=L.ocrLinhas(JSON.parse(js||'[]'));}
+  else if(window.AndroidOcr){txt=await ocrTexto(url);}
+  else{if(!window.Tesseract)await loadScript('ocr/tesseract.min.js');if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true});
+    const r=await tessW.recognize(url);const ls=(r.data.lines||[]).flatMap(l=>(l.words||[]).map(w=>({t:w.text,x:w.bbox.x0,y:w.bbox.y0,h:w.bbox.y1-w.bbox.y0})));txt=ls.length?L.ocrLinhas(ls):(r.data.text||'');}
+  if(!txt.trim())return toast('Não achei texto na imagem. Tente um print mais nítido.');locPrev(txt);}catch(e){toast('Não consegui ler a imagem. Tente de novo.');}}
+function locCamera(){const l=locGet();if(!l.length)return toast('Coloque os códigos na lista primeiro');
+  if(window.AndroidScan&&window.AndroidScan.abrirLocalizar){try{const ch=L.scanChave(null,'Localizar e contar');if(window.AndroidScan.abrirLocalizarModo)window.AndroidScan.abrirLocalizarModo(JSON.stringify(l),scanModoGet(ch),ch);else window.AndroidScan.abrirLocalizar(JSON.stringify(l));return;}catch(e){}}
+  abrirScanner(null,{titulo:'Localizar e contar',noBip:()=>localStorage.getItem('locBip')==='0',cool:2500,match:t=>L.locCasa(t,locGet()),
+    onItem:(cod,raw)=>{const n=locSoma(cod,1);locUlt(cod,raw);const x=locGet().find(i=>i.cod===cod);if(x&&x.alvo&&n===x.alvo){bip();setTimeout(bip,200);toast('✅ '+cod+' COMPLETO');}return x&&x.alvo?n+' de '+x.alvo:n;},zerar:window.locZerar,onFim:()=>{if(tab==='loc')loc();}});}
+window.voltar=()=>{if(RC)return fecharRom();if(SC)return fecharScanner();if($('#modal').classList.contains('on'))return $('#modal').classList.remove('on');if(tab==='hist'&&detalhe){detalhe=null;return render();}if(tab!=='nova'){tab='nova';render();}};
+function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}</h3><div class="tw"><table><tr><th>${t==='Por dia'?'Dia':'Transportadora / Fornecedor'}</th><th>Registros</th><th>Coleta</th><th>Saída</th><th>Estorno</th><th>Receb.</th><th>Volumes</th><th>Paletes</th><th>Vol.</th></tr>`+
+  Object.entries(o).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.reg}</td><td>${v.coleta}</td><td>${v.saida}</td><td>${v.estorno||0}</td><td>${v.receb||0}</td><td>${v.vol}</td><td>${v.palete||0}</td><td>${v.volume||0}</td></tr>`).join('')+'</table></div>';
+  $('#main').innerHTML=mesSelHTML()+`<p><b>Total de ${mesNome(mesAt)}:</b> ${rm.length} registros · ${rm.reduce((s,r)=>s+r.volumes,0)} volumes</p>${tb(x.dia,'Por dia')}${tb(x.cli,'Por transportadora / fornecedor')}
+  <button class="big" id="csv">📄 Exportar CSV de ${mesNome(mesAt)}</button><button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
+  $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};
+  $('#csv').onclick=()=>{if(!rm.length)return toast('Sem registros neste mês');const c=L.csv(rm),n='qlog_'+mesAt.replace('/','-')+'.csv';shareArquivo(c,n,'text/csv');};}
+window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
+const APP_V='4.3.20';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+function updHTML(){return updNova?`<div class="card" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`:'';}
+window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;const novo=updNova!==v;updNova=v;const b=$('#updBox');if(b&&novo)b.innerHTML=updHTML();updBanner();};
+// v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app) e avisa num banner em qualquer tela
+const UPD_INT=12*60000,UPD_VOLTA=5*60000,UPD_DISP=30*60000;let updDisp_=0;
+function updBanner(forcar){if(!updNova||(!forcar&&Date.now()-updDisp_<UPD_DISP))return;const meio=regEmAndamento();let b=$('#updBan');if(!b){b=document.createElement('div');b.id='updBan';document.body.appendChild(b);}
+  b.innerHTML=meio?'<span>🔄 Nova versão disponível — Termine o registro pra atualizar</span><button id="updBanX">Atualizar depois</button>':'<span>🔄 Nova versão disponível</span><button id="updBanOk">Atualizar</button><button id="updBanX" aria-label="Fechar">✕</button>';b.style.display='flex';
+  if($('#updBanOk'))$('#updBanOk').onclick=e=>{e.stopPropagation();b.style.display='none';atualizarApp();};$('#updBanX').onclick=e=>{e.stopPropagation();updDisp_=Date.now();b.style.display='none';};}
+setInterval(()=>{updChecou=0;checarUpd();updBanner();},UPD_INT);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-updChecou>UPD_VOLTA){updChecou=0;checarUpd();updBanner();}});
+function checarUpd(){if(Date.now()-updChecou<60000)return;updChecou=Date.now();try{if(window.AndroidUpd&&AndroidUpd.checar){AndroidUpd.checar();return;}
+  if(!/^https?:/.test(location.protocol))return;fetch('version.json?t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&j.v)updDisp(j.v);}).catch(()=>{});}catch(e){}}
+// v4.3.9: nunca perder dados ao atualizar. Com registro pela metade não atualiza; antes de atualizar grava o rascunho (campos + fotos no qlogRasc) e envia o que estiver na fila da nuvem
+function regEmAndamento(){try{if(ed)return true;return !!(typeof f!=='undefined'&&f&&L.rascTem(f));}catch(e){return false;}}
+const updEsperar=ms=>new Promise(r=>setTimeout(r,ms));
+async function updPreparar(){try{await rascSalvarJa();}catch(e){}
+  try{if(typeof N!=='undefined'&&N){if(N.enviarFila)await Promise.race([N.enviarFila(),updEsperar(8000)]);if(N.fs&&N.fs.waitForPendingWrites)await Promise.race([N.fs.waitForPendingWrites(),updEsperar(8000)]);}}catch(e){}}
+async function atualizarApp(){if(regEmAndamento()){rascGravar();toast('Termine o registro pra atualizar');updBanner(true);return;}await updPreparar();if(window.AndroidUpd){updMsg('Procurando versão nova...',-1);AndroidUpd.verificar();return;}
+  updMsg('Atualizando...',-1);try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.update().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
+  location.replace(location.pathname+'?v='+Date.now());}
+window.nvMudou=()=>{if(tab==='sobre'&&!detalhe)render();else{navAdm();if(tab==='adm'&&!admOn())render();}};
+// v4.3.4: aba ⚙️ ADM (só aparece para ADM): 🔔 Avisos, 👥 Equipe e ⚙️ Configurações
+const admOn=()=>!!(window.Nuvem&&Nuvem.ativo()&&Nuvem.on&&Nuvem.admin);let admSub='av';
+function navAdm(){const b=document.querySelector('nav [data-t="adm"]');if(!b)return;const on=admOn();b.style.display=on?'':'none';document.querySelector('nav').classList.toggle('seis',on);}
+window.abrirAdm=sub=>{if(!admOn())return;admSub=sub||'av';tab='adm';detalhe=null;if($('#modal').classList.contains('on')&&!$('#modal').dataset.nv)$('#modal').classList.remove('on');render();};
+window.admAtualizar=sub=>{if(tab==='adm'&&admSub===sub&&!$('#modal').classList.contains('on'))admConteudo();};
+function admTela(){const b=(k,t)=>`<button class="big ${admSub===k?'ok':'alt'}" data-admsub="${k}" style="margin:4px 4px 4px 0;font-size:16px;padding:10px 4px">${t}</button>`;
+  $('#main').innerHTML=`<div class="row admsubs" style="flex-wrap:wrap">${b('av','🔔 Avisos')}${b('ch',(window.Tema?Tema.ic('suporte'):'')+' Chamados <span id="admChN" class="chN">'+chN()+'</span>')}${b('eq','👥 Equipe')}${b('cad','📋 Cadastros')}</div><div id="admBox"></div>`;admConteudo();}
+// 4.3.20: aba 🎧 Chamados (suporte) com a contagem de novos
+const chN=()=>{const n=window.Nuvem&&Nuvem.chamadosTodos?L.chamadosNovos(Nuvem.chamadosTodos()):0;return n?String(n):'';};
+window.admContagem=()=>{const x=$('#admChN');if(x)x.textContent=chN();};
+function admConteudo(){const bx=$('#admBox');if(!bx)return;if(admSub==='eq')return Nuvem.painel(bx);if(admSub==='cad')return cadTela(bx);if(admSub==='ch'){Nuvem.pedirNotif();return Nuvem.verChamados(bx);}Nuvem.verAvisos(bx);}
+// Cadastros (versão 4.3.10): ADM › 📋 Cadastros (listas, Arquivo e tempo de edição). Aparência fica só na Info
+function cadTela(bx){const j=Nuvem.janelaMin||60;
+  bx.innerHTML=`<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div><div class="card"><b style="font-size:20px">⏱ Tempo para o colaborador editar</b><p><small>Depois desse tempo, ele usa 📝 Pedir edição.</small></p>
+   <select id="cfgJan" style="width:100%;font-size:20px">${L.JANELA_OPCOES.map(m=>`<option value="${m}"${m===j?' selected':''}>${L.janelaNome(m)}</option>`).join('')}</select>
+   <button class="big ok" id="cfgJanOk">💾 Salvar tempo</button></div>
+   ${listasHTML()}`;
+  $('#cfgJanOk').onclick=()=>{const v=Number($('#cfgJan').value);confirmar('Mudar o tempo para editar para '+L.janelaNome(v)+'?',async()=>{try{await Nuvem.salvarJanela(v);toast('✅ Tempo salvo: '+L.janelaNome(v));}catch(e){toast(/permission/i.test(String(e&&(e.code||e.message)))?'Sem permissão (regras da nuvem)':'Não consegui. Precisa de internet.');}render();},'Sim, salvar','ok','Cancelar');};
+}
+// v4.3.7: listas da Info começam fechadas; tocar no título abre/fecha
+const abertas={cli:false,forn:false};
+function dobra(k,t,n){return `<b data-dobra="${k}" style="display:block;cursor:pointer;font-size:19px;padding:6px 0">${abertas[k]?'▾':'▸'} ${t} (${n})</b>`;}
+function listasHTML(){return `<div class="card">${dobra('cli','🚚 Transportadoras salvas',clientes().length)}${!abertas.cli?'':clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'}</div><div class="card">${dobra('forn','📥 Fornecedores / clientes salvos',fornecedores().length)}${!abertas.forn?'':fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
+function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.on?'<div class="card"><p style="font-size:19px;margin:4px 0">👤 '+esc(Nuvem.login||'Este celular')+' · '+L.papelNome(Nuvem.admin?'adm':'colab')+'</p>'+(Nuvem.dono?'':'<button class="big alt" id="nvSair">🚪 Sair / trocar usuário</button>')+'</div>':''}<div id="updBox">${updHTML()}</div>${window.Tema?Tema.html():''}<div class="card"><button class="big alt" id="probAbrir">🐞 Reportar problema</button></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}${window.Nuvem&&Nuvem.ativo()?'':listasHTML()}`;}
+let fotoAlvo='fotos';
+document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preventDefault();Nuvem.pedirEntrada();return;}const db_=e.target.closest('[data-dobra]');if(db_){const k=db_.dataset.dobra;abertas[k]=!abertas[k];render();return;}const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
+  if(t.id==='updApp'){atualizarApp();return;}
+  if(d.t){tab=d.t;detalhe=null;hist.sel=null;render();}else if(d.orig!==undefined){const o=d.orig&&regs.find(x=>x.id===d.orig);f=o?L.estDeOrigem(o):Object.assign(novo(),{origemOk:1});nova();}else if(t.id==='estTrocar'){estPick();}else if(d.tipo){if(d.tipo===f.tipo)return;f.tipo=d.tipo;if(d.tipo==='estorno'&&!f.origemOk)estPick();else nova();}else if(d.cli!==undefined){f.cliente=L.alternar(f.cliente,d.cli);nova();rascAgendar();}else if(d.forn!==undefined){f.forn=L.alternar(f.forn,d.forn);nova();rascAgendar();}
+  else if(t.id==='addForn'){const m=$('#modal');m.innerHTML='<div><label>Nome do fornecedor / cliente</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
+    $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=fornecedores();if(!c.includes(n))c.push(n);setFornecedores(c);f.forn=n;}m.classList.remove('on');nova();};}
+  else if(t.id==='recScan')lerContinuoForm();else if(t.id==='addCod')addCodManual();
+  else if(d.iq){const x=f.itens[+d.ii];if(x){f.itens=L.addItem(f.itens,x.cod,+d.iq);$('#itens').innerHTML=itensHTML();}}
+  else if(d.idel!==undefined){const x=f.itens[+d.idel];if(x)confirmar('Tirar o código '+x.cod+' da lista?',()=>{f.itens=f.itens.filter(i=>i!==x);$('#itens').innerHTML=itensHTML();},'Sim, tirar');}
+  else if(t.id==='addCli'){const m=$('#modal');m.innerHTML='<div><label>Nome da transportadora</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
+    $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=clientes();if(!c.includes(n))c.push(n);setClientes(c);f.cliente=n;}m.classList.remove('on');nova();};}
+  else if(d.foto){fotoAlvo=d.foto;$('#cam').value='';$('#cam').onchange=async ev=>{for(const fl of ev.target.files){const u=await compress(fl);if(u)f[fotoAlvo].push(u);}nova();};$('#cam').click();}
+  else if(d.del){f[d.del].splice(+d.i,1);nova();}else if(d.open){if(hist.sel){hist.sel.has(d.open)?hist.sel.delete(d.open):hist.sel.add(d.open);lista();$('#selN').textContent=hist.sel.size;document.querySelectorAll('.selN2').forEach(x=>x.textContent=hist.sel.size);}else{detalhe=d.open;render();}}
+  else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr)abrirScanner(d.ocr);
+  else if(t.id==='confScan')abrirScanner('lido');
+  else if(t.id==='reset')confirmar('Limpar tudo que foi preenchido nesta tela?',()=>{const tp=f.tipo;f=novo();f.tipo=tp;rascLimpar();nova();toast('🔄 Tela limpa');},'Sim, limpar');
+  else if(t.id==='lerRom')lerRomaneio();
+  else if(d.confit!==undefined)confOpcoes(+d.confit);
+  else if(d.confrm!==undefined){f.confLidos.splice(+d.confrm,1);nova();}
+  else if(t.id==='confLimpar')confirmar('Limpar a lista de produtos conferidos?',()=>{f.confLidos=[];nova();},'Sim, limpar');
+  
+  else if(t.id==='probAbrir'){reportarProblema();}
+  else if(t.id==='nvAdm'){if(admOn())window.abrirAdm('eq');else Nuvem.painel();}
+  else if(d.admsub){admSub=d.admsub;render();}
+  else if(t.id==='nvSair'){confirmar('Sair deste usuário neste celular?',async()=>{await Nuvem.sair();toast('Você saiu');render();},'Sair','red','Cancelar');}
+  else if(t.id==='arqAbrir'){tab='arquivo';render();}
+  else if(t.id==='arqFazer'){fazerArquivo(t.dataset.mes);}
+  else if((t.id==='resetCli'||d.rmforn!==undefined||d.rmcli!==undefined)&&window.Nuvem&&!Nuvem.pode())toast('Só o administrador pode apagar nomes');
+  else if(t.id==='resetCli')confirmar('Apagar a lista de transportadoras salvas? Os registros continuam.',()=>{setClientes([]);toast('Lista apagada');render();},'Sim, apagar lista');
+  else if((d.edcli!==undefined||d.edforn!==undefined)&&window.Nuvem&&!Nuvem.pode())toast('Só o administrador pode mudar nomes');
+  else if(d.edforn!==undefined)renomearModal(d.edforn,true);else if(d.edcli!==undefined)renomearModal(d.edcli,false);
+  else if(d.rmforn!==undefined){const n=d.rmforn;confirmar('Apagar "'+n+'" da lista de fornecedores? Os registros continuam.',()=>{setFornecedores(fornecedores().filter(c=>c!==n));if(f.forn===n)f.forn='';toast('Apagado');render();},'Sim, apagar');}
+  else if(d.rmcli!==undefined){const n=d.rmcli;confirmar('Apagar a transportadora "'+n+'" da lista? Os registros continuam.',()=>{setClientes(clientes().filter(c=>c!==n));if(f.cliente===n)f.cliente='';toast('Apagada');render();},'Sim, apagar');}
+  else if(t.id==='selOn'){hist.sel=new Set();hist();}
+  else if(t.id==='selEnv'){const sr=regs.filter(r=>hist.sel.has(r.id));if(!sr.length)return toast('Nenhum selecionado');const m=$('#modal');
+    m.innerHTML=`<div><p style="font-size:20px"><b>Enviar ${sr.length} registro(s)</b></p><button class="big ok" id="eHtml">💻 Arquivo pro notebook (com fotos)</button><button class="big" id="eCsv">📄 Planilha CSV</button><button class="big alt" id="eX">Cancelar</button></div>`;m.classList.add('on');
+    const nm='qlog_'+mesAt.replace('/','-')+'_'+sr.length+'sel';$('#eX').onclick=()=>m.classList.remove('on');
+    $('#eCsv').onclick=()=>{m.classList.remove('on');shareArquivo(L.csv(sr),nm+'.csv','text/csv');};
+    $('#eHtml').onclick=()=>{m.classList.remove('on');toast('Gerando arquivo...');shareArquivo(L.htmlMes(sr,mesAt),nm+'.html','text/html');};}else if(t.id==='selX'){hist.sel=null;hist();}
+  else if(t.id==='selAll'){L.filtrar(doMes(),hist.q).forEach(r=>hist.sel.add(r.id));hist();}
+  else if(t.id==='selDel'){if(window.Nuvem&&!Nuvem.pode())return toast('Só o administrador pode apagar');const ids=[...hist.sel];if(!ids.length)return toast('Nenhum selecionado');confirmar('Apagar '+ids.length+' registro(s)? Não tem como desfazer.',async()=>{await tx('readwrite',s=>ids.forEach(i=>s.delete(i)));if(window.Nuvem)ids.forEach(i=>Nuvem.apagar(i));await load();hist.sel=null;toast(ids.length+' apagado(s)');render();});}
+  else if(t.id==='expMes'){const m=mesAt;if(!doMes().length)return toast('Sem registros neste mês');const h=L.htmlMes(regs,m),n='qlog_'+m.replace('/','-')+'.html';toast('Gerando arquivo...');
+    shareArquivo(h,n,'text/html');}
+  else if(t.id==='salvar')salvar(false);else if(t.id==='salvarEnv')salvar(true);});
+openDB().then(x=>{db=x;return load();}).then(()=>{render();window.Nuvem&&Nuvem.iniciar();rascVerificar();}).catch(e=>{$('#main').textContent='Erro no banco: '+e;});
+
+function isIOSSafari(){const u=navigator.userAgent,ios=/iPad|iPhone|iPod/.test(u)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const st=navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);return ios&&/Safari/.test(u)&&!/CriOS|FxiOS|EdgiOS/.test(u)&&!st;}
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+if('serviceWorker' in navigator&&!window.AndroidShare&&location.protocol.startsWith('http'))addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+
+
+(function(){const m=document.getElementById('modal');if(!m)return;const fix=()=>{const k=m.children;if(k.length===1&&k[0].tagName==='DIV')return;const d=document.createElement('div');while(m.firstChild)d.appendChild(m.firstChild);m.appendChild(d);};new MutationObserver(fix).observe(m,{childList:true});})();
+function nomeAutor(r){return window.Nuvem&&Nuvem.nomeAutor?Nuvem.nomeAutor(r):'';}
+function renomearModal(velho,receb){const m=$('#modal');
+  m.innerHTML=`<div><p style="font-size:20px;margin-top:0"><b>✏️ Mudar nome</b></p><label for="rnNome">Novo nome</label><input id="rnNome" value="${esc(velho)}" autocomplete="off"><p><small>Os registros com o nome antigo também mudam.</small></p><div class="row"><button class="big ok" id="rnOk">💾 Salvar</button><button class="big alt" id="rnX">Cancelar</button></div></div>`;
+  m.classList.add('on');const rn=$('#rnNome');rn.focus();rn.select();rn.onkeydown=e=>{if(e.key==='Enter')$('#rnOk').click();};$('#rnX').onclick=()=>m.classList.remove('on');
+  $('#rnOk').onclick=async()=>{const lista=receb?fornecedores():clientes(),res=L.renomearNome(lista,velho,$('#rnNome').value);
+    if(res.erro)return toast(res.erro);if(res.nome===velho){m.classList.remove('on');return;}
+    receb?setFornecedores(res.lista):setClientes(res.lista);
+    if(receb&&f.forn===velho)f.forn=res.nome;if(!receb&&f.cliente===velho)f.cliente=res.nome;
+    const mud=L.regsRenomear(regs,velho,res.nome,receb);
+    if(mud.length)await tx('readwrite',s=>mud.forEach(r=>s.put(r)));if(window.Nuvem)mud.forEach(r=>Nuvem.salvar(r));
+    await load();m.classList.remove('on');toast('Nome mudado'+(mud.length?' em '+mud.length+' registro(s)':''));render();};}
+
+function autoCls(k){return (f.auto||[]).includes(k)?' style="background:#fff3a0"':'';}
+function autoDica(k){return (f.auto||[]).includes(k)?'<small style="color:#a07000">⚠️ preenchido pelo romaneio, confira</small>':'';}
+// v4.2: lista pequena dos códigos lidos (abre e fecha); tocar no código abre opções
+function confMiniHTML(l){l=l||[];if(!l.length)return '';
+  return `<details class="confMini"><summary style="padding:8px 0">📋 Códigos lidos: <b>${L.confResumo(l)}</b> <small>(toque para ver)</small></summary>${l.map((x,i)=>`<button class="confIt" data-confit="${i}" style="display:block;width:100%;text-align:left;border:0;border-radius:8px;margin:3px 0;padding:8px;font-size:17px;background:${x.ok?'#dff5e3':'#fde0e0'};color:${x.ok?'#14632b':'#9b1c1c'}">${x.ok?'✅':'❌'} <b>${esc(x.cod)}</b> <small>${x.ts?L.fmtHora(x.ts):''}${(x.n||1)>1?' · '+x.n+' vezes':''}</small></button>`).join('')}<button class="big alt" id="confLimpar">🔄 Limpar lista</button></details>`;}
+let relerIdx=-1;
+function confOpcoes(i){const x=f.confLidos[i];if(!x)return;const m=$('#modal');
+  m.innerHTML=`<div style="text-align:center"><p style="font-size:30px;margin:6px 0"><b>${esc(x.cod)}</b></p><p>${x.ok?'✅ Confere':'❌ Diferente'}</p>
+  <button class="big" id="coLer">🔁 Ler de novo</button><button class="big alt" id="coCor">✏️ Corrigir</button><button class="big red" id="coRem">❌ Remover</button><button class="big alt" id="coX">Voltar</button></div>`;m.classList.add('on');
+  $('#coX').onclick=()=>m.classList.remove('on');
+  $('#coRem').onclick=()=>{m.classList.remove('on');f.confLidos.splice(i,1);nova();toast('Código removido');};
+  $('#coLer').onclick=()=>{m.classList.remove('on');relerIdx=i;abrirScanner('lido');};
+  $('#coCor').onclick=()=>{m.innerHTML=`<div><label>Corrigir código</label><input id="coVal" style="text-transform:uppercase;font-size:26px" value="${esc(x.cod)}"><button class="big ok" id="coOk">✅ Salvar</button><button class="big alt" id="coX2">Cancelar</button></div>`;
+    $('#coX2').onclick=()=>m.classList.remove('on');$('#coOk').onclick=()=>{const v=$('#coVal').value.trim().toUpperCase();m.classList.remove('on');if(!v)return;relerIdx=i;conferirCod(v);};};}
+function confListaHTML(l,ed){l=l||[];if(!l.length)return '';
+  return `<div class="card" style="padding:10px"><b>📦 Produtos conferidos</b><p style="margin:4px 0"><b>${L.confResumo(l)}</b></p>${l.map((x,i)=>`<div class="row" style="align-items:center;border-radius:8px;margin:4px 0;padding:6px;background:${x.ok?'#dff5e3':'#fde0e0'};color:${x.ok?'#14632b':'#9b1c1c'}"><span style="flex:1">${x.ok?'✅':'❌'} <b>${esc(x.cod)}</b><br><small>${x.ts?L.fmtHora(x.ts):''}${(x.n||1)>1?' · '+x.n+' vezes':''}</small></span>${ed?`<button class="red" data-confrm="${i}" style="flex:0 0 56px;margin:0">🗑</button>`:''}</div>`).join('')}${ed?'<button class="big alt" id="confLimpar">🔄 Limpar lista</button>':''}</div>`;}
+// ===== v4.2: 📷 Ler romaneio (câmera com moldura da folha + leitura por campo + conferência) =====
+let RC=null;
+function fecharRom(){if(!RC)return;try{RC.stream&&RC.stream.getTracks().forEach(t=>t.stop());}catch(e){}const o=$('#romCam');o&&o.remove();RC=null;}
+function romGaleria(cam){const i=document.createElement('input');i.type='file';i.accept='image/*';if(cam)i.setAttribute('capture','environment');i.onchange=()=>{i.files[0]&&compress(i.files[0]).then(d=>d?lerRomImg(d,null):toast('Não consegui abrir a foto.'));};i.click();}
+async function lerRomaneio(){
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia))return romGaleria(1);
+  const o=document.createElement('div');o.id='romCam';o.className='scanner';o.style.cssText='position:fixed;inset:0;background:#000;z-index:60';
+  o.innerHTML=`<video id="rcVid" playsinline muted autoplay style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding-bottom:120px"><div id="rcBox" style="height:68%;aspect-ratio:${L.ROM.aspecto.toFixed(4)};max-width:90%;border:4px solid #3f3;border-radius:6px;box-shadow:0 0 0 2000px #0009"></div></div>
+  <div style="position:absolute;top:0;left:0;right:0;color:#fff;text-align:center;padding:14px;font-size:20px"><b>🧾 Ler romaneio</b><br><small>Encaixe a borda da tabela da folha no quadro verde. Folha reta e com luz.</small></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;padding:10px"><button class="big ok" id="rcFoto" style="font-size:24px">📸 Fotografar</button><div class="row"><button class="big alt" id="rcGal" style="margin:4px">🖼 Galeria</button><button class="big red" id="rcX" style="margin:4px">✖ Cancelar</button></div></div>`;
+  document.body.appendChild(o);RC={};
+  $('#rcX').onclick=fecharRom;$('#rcGal').onclick=()=>{fecharRom();romGaleria(0);};
+  try{RC.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});}
+  catch(e){fecharRom();toast('Câmera não liberada. Usando foto.');return romGaleria(1);}
+  if(!RC){return;}const v=$('#rcVid');v.srcObject=RC.stream;try{await v.play();}catch(e){}
+  $('#rcFoto').onclick=()=>{const b=$('#rcBox');if(!v.videoWidth)return;const vr=v.getBoundingClientRect(),br=b.getBoundingClientRect(),k=Math.max(vr.width/v.videoWidth,vr.height/v.videoHeight);
+    const ox=(vr.width-v.videoWidth*k)/2,oy=(vr.height-v.videoHeight*k)/2;const sx=Math.max(0,(br.left-vr.left-ox)/k),sy=Math.max(0,(br.top-vr.top-oy)/k),sw=Math.min(v.videoWidth-sx,br.width/k),sh=Math.min(v.videoHeight-sy,br.height/k);
+    const c=document.createElement('canvas'),z=Math.min(1,1600/sh);c.width=Math.round(sw*z);c.height=Math.round(sh*z);c.getContext('2d').drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);
+    const d=c.toDataURL('image/jpeg',0.85);fecharRom();lerRomImg(d,true);};}
+async function lerRomImg(d,recorte){const m=$('#modal');m.innerHTML='<div style="text-align:center"><p style="font-size:26px">⏳ Lendo o romaneio...</p><p><small>Pode levar alguns segundos.</small></p></div>';m.classList.add('on');
+  try{const im=await new Promise((ok,er)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=er;i.src=d;});let ls=[],txt='';
+    if(window.AndroidOcr&&window.AndroidOcr.lerLinhas){const js=await new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.lerLinhas(d,id);});ls=JSON.parse(js||'[]');txt=L.ocrLinhas(ls);}
+    else if(window.AndroidOcr){txt=await ocrTexto(d);}
+    else{if(!window.Tesseract)await loadScript('ocr/tesseract.min.js');if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true});
+      const r=await tessW.recognize(d);const ws=(r.data.words||[]).map(w=>({t:w.text,x:w.bbox.x0,y:w.bbox.y0,w:w.bbox.x1-w.bbox.x0,h:w.bbox.y1-w.bbox.y0}));ls=L.juntarPalavras(ws);txt=L.ocrLinhas(ls)||r.data.text||'';}
+    let dd=L.romRegioes(ls,im.width,im.height);if(!recorte&&!dd.ancoras)dd={transp:'',motorista:'',placa:'',data:'',linhas:[],nfs:[],volume:''};
+    dd=L.romJuntar(dd,L.lerRomaneio(txt));
+    // a foto (com CPF) só fica nas fotos do romaneio, que só a equipe autorizada vê
+    f.romaneio.push(await romFoto(d));romRevisar(dd);}
+  catch(e){m.classList.remove('on');toast('Não consegui ler a foto. Tente com mais luz e mais perto.');}}
+async function romFoto(d){try{const b=await (await fetch(d)).blob();return (await compress(b))||d;}catch(e){return d;}}
+function romRevisar(d){const m=$('#modal'),ls=d.linhas||[],uni=a=>a.filter((x,i)=>x&&a.indexOf(x)===i).join(', ');
+  const campo=(id,rot,val,dica)=>`<label>${rot}</label><input id="${id}" value="${esc(val||'')}" style="font-size:20px">${dica?'<small style="color:#a07000">'+dica+'</small>':''}`;
+  m.innerHTML=`<div><p style="font-size:22px;margin-top:0"><b>🧾 Confira o romaneio</b></p><p><small>Corrija o que estiver errado. O que foi escrito à mão pode vir errado. O CPF não é copiado.</small></p>
+  ${campo('rvTra','Transportadora',d.transp)}${campo('rvNfs','NFs (separe com -)',(d.nfs||[]).join('-'))}${campo('rvVol','Volumes (total)',d.volume)}
+  ${campo('rvCli','Cliente(s)',uni(ls.map(x=>x.cliente)))}${campo('rvRas','Rastreio',uni(ls.map(x=>x.rastreio)))}
+  ${campo('rvPla','Placa',d.placa,'✍️ escrito à mão, confira')}${campo('rvMot','Motorista',d.motorista,'✍️ escrito à mão, confira')}${campo('rvDat','Data do romaneio',d.data,'✍️ escrito à mão, confira')}
+  <button class="big ok" id="rvOk" style="font-size:24px">✅ Usar estes dados</button><button class="big alt" id="rvX">Cancelar</button></div>`;m.classList.add('on');
+  $('#rvX').onclick=()=>{m.classList.remove('on');nova();toast('A foto do romaneio ficou salva. Nada foi preenchido.');};
+  $('#rvOk').onclick=()=>{const g=id=>$('#'+id).value;const r=L.romAplicar(f,{transp:g('rvTra'),nfs:g('rvNfs'),volume:g('rvVol'),clientes:g('rvCli'),rastreio:g('rvRas'),placa:g('rvPla'),motorista:g('rvMot'),data:g('rvDat')},clientes());
+    if(r.nova){const l=clientes();if(!l.some(c=>L.semAcento(c)===L.semAcento(r.nova)))setClientes(l.concat(r.nova));}
+    f.auto=[...new Set((f.auto||[]).concat(r.auto))];m.classList.remove('on');nova();toast('Romaneio preenchido. Confira os campos em amarelo.');};}
+
+// ===== v4.1: foto leve para a nuvem (~150 KB) =====
+function fotoLeve(d){return new Promise(ok=>{if(L.tamDataUrl(d)<=L.FOTO_ALVO)return ok(d);const i=new Image();
+  i.onload=()=>{let r=d;for(const [m,q] of L.leveTentativas()){const k=Math.min(1,m/Math.max(i.width,i.height)),c=document.createElement('canvas');
+      c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);r=c.toDataURL('image/jpeg',q);if(L.tamDataUrl(r)<=L.FOTO_ALVO)break;}ok(r);};
+  i.onerror=()=>ok(d);i.src=d;});}
+window.fotoLeve=fotoLeve;
+// v4.3.1: 🐞 Reportar problema (todos veem; o relato vai para a nuvem ou fica na fila até ter internet)
+var telaAnt='nova';
+// 4.3.20: 🎧 Falar com o suporte (rodapé) — nome, mensagem e foto opcional (comprimida). Vai para a nuvem como chamado.
+function abrirSuporte(){const m=$('#modal');let img='';const N=window.Nuvem||{};const ic=window.Tema?Tema.ic('suporte'):'';
+  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">${ic} Falar com o suporte</b>
+   <label>Seu nome</label><input id="supNome" maxlength="60" style="width:100%;font-size:19px" value="${esc(N.nome||localStorage.getItem('nvNome')||'')}">
+   <label>Mensagem</label><textarea id="supMsg" rows="5" maxlength="2000" style="width:100%;font-size:19px" placeholder="Escreva sua dúvida ou o que aconteceu"></textarea>
+   <input type="file" id="supImg" accept="image/*" hidden style="display:none"><button class="big alt" id="supFoto">📷 Anexar foto (opcional)</button><div id="supPrev"></div>
+   <p style="color:#678;font-size:14px">A versão do app e o modelo do aparelho vão junto.</p>
+   <button class="big ok" id="supEnv">📤 Enviar</button><button class="big alt" id="supX">Cancelar</button></div>`;m.classList.add('on');
+  $('#supX').onclick=()=>m.classList.remove('on');$('#supFoto').onclick=()=>$('#supImg').click();
+  $('#supImg').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const r=new FileReader();r.onload=async()=>{img=await fotoLeve(String(r.result));
+    $('#supPrev').innerHTML=`<img src="${img}" style="max-width:100%;max-height:200px;margin:6px 0"><button class="big red" id="supTira">🗑 Tirar foto</button>`;$('#supTira').onclick=()=>{img='';$('#supPrev').innerHTML='';};};r.readAsDataURL(fl);};
+  $('#supEnv').onclick=async()=>{const nome=$('#supNome').value.trim(),msg=$('#supMsg').value.trim();if(!nome)return toast('Escreva seu nome');if(!msg)return toast('Escreva a mensagem');
+    const c=L.chamadoCriar({nome,msg,img,uid:N.uid||'',login:N.login||'',versao:APP_V,plataforma:L.probPlataforma(navigator.userAgent,!!window.AndroidScan),aparelho:navigator.userAgent,ts:Date.now()});
+    const b=$('#supEnv');b.disabled=true;b.textContent='Enviando...';const ok=N.enviarChamado?await N.enviarChamado(c):false;
+    if(ok){m.classList.remove('on');toast('✅ Mensagem enviada ao suporte. Obrigado!');}else{b.disabled=false;b.textContent='📤 Enviar';toast(N.fs?'Sem internet. Tente de novo.':'Sem conexão com a nuvem. Tente de novo.');}};}
+document.addEventListener('click',e=>{if(e.target.closest('#supAbrir')){e.preventDefault();abrirSuporte();}});
+function reportarProblema(){const m=$('#modal');let img='';const tela=telaAnt;
+  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">🐞 Reportar problema</b>
+   <label>O que aconteceu?</label><textarea id="probTxt" rows="5" maxlength="2000" style="width:100%;font-size:19px"></textarea>
+   <input type="file" id="probImg" accept="image/*" hidden><button class="big alt" id="probFoto">📷 Anexar print ou foto (opcional)</button><div id="probPrev"></div>
+   <p style="color:#678;font-size:14px">A versão do app, o modelo do celular e os últimos erros vão junto.</p>
+   <button class="big ok" id="probEnv">📤 Enviar</button><button class="big alt" id="probX">Cancelar</button></div>`;m.classList.add('on');
+  $('#probX').onclick=()=>m.classList.remove('on');$('#probFoto').onclick=()=>$('#probImg').click();
+  $('#probImg').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const r=new FileReader();r.onload=async()=>{img=await fotoLeve(String(r.result));
+    $('#probPrev').innerHTML=`<img src="${img}" style="max-width:100%;max-height:200px;margin:6px 0"><button class="big red" id="probTira">🗑 Tirar foto</button>`;$('#probTira').onclick=()=>{img='';$('#probPrev').innerHTML='';};};r.readAsDataURL(fl);};
+  $('#probEnv').onclick=async()=>{const txt=$('#probTxt').value.trim();if(!txt)return toast('Escreva o que aconteceu');
+    const N=window.Nuvem||{};const p=L.probCriar({txt,img,uid:N.uid||'',nome:N.nome||localStorage.getItem('nvNome')||'',versao:APP_V,plataforma:L.probPlataforma(navigator.userAgent,!!window.AndroidScan),
+      aparelho:navigator.userAgent,tela,erros:JSON.parse(localStorage.getItem('errosApp')||'[]'),ts:Date.now()});
+    m.classList.remove('on');const ok=N.reportar?await N.reportar(p):false;toast(ok?'✅ Problema enviado. Obrigado!':'📥 Guardado. Será enviado quando tiver internet.');};}
+window.reportarProblema=reportarProblema;
+// ===== v4.1: arquivo mensal =====
+const podeArquivar=()=>!(window.Nuvem&&Nuvem.ativo())||Nuvem.admin;
+const arqFeitos=()=>window.Nuvem&&Nuvem.on?Nuvem.feitos:JSON.parse(localStorage.getItem('arqLocal')||'[]').map(x=>x.mes);
+const arqLista=()=>window.Nuvem&&Nuvem.on?Nuvem.arquivos:JSON.parse(localStorage.getItem('arqLocal')||'[]');
+function arquivoTela(){const pend=podeArquivar()?L.mesArquivar(regs,Date.now(),arqFeitos()):'',l=arqLista();
+  $('#main').innerHTML=`<div class="card"><b style="font-size:22px">📦 Arquivo</b>
+  <p style="font-size:18px">Todo mês, os registros do mês que passou viram um arquivo <b>Qlog_ANO-MÊS.zip</b> com uma planilha e as fotos. Depois disso, registros com mais de 30 dias saem da nuvem (continuam neste celular).</p>
+  ${pend?`<button class="big ok" id="arqFazer" data-mes="${pend}">📦 Arquivar ${esc(L.nomeMes(pend))} agora</button>`:'<p>✅ Nada para arquivar agora.</p>'}</div>
+  <div class="card"><b>Meses arquivados</b>${l.length?l.map(x=>`<div style="font-size:19px;padding:6px 0;border-bottom:1px solid #ddd">📦 <b>${esc(L.nomeMes(x.mes))}</b> — ${x.regs||0} registros, ${x.fotos||0} fotos<br><small>${esc(x.nome||'Qlog_'+x.mes+'.zip')} · feito em ${L.fmtData(x.criado||0)}${x.onde?' · '+esc(x.onde):''}</small>${window.AndroidArq&&AndroidArq.existe(x.nome||'')?`<button class="big alt" data-arqenv="${esc(x.nome)}" style="margin-top:6px">📤 Enviar de novo</button>`:''}</div>`).join(''):'<p>Nenhum mês arquivado ainda.</p>'}</div>
+  <div class="card" style="background:#e8f1fb"><b>Como abrir um mês arquivado</b><ol style="font-size:18px;padding-left:22px">
+  <li>Abra o <b>Google Drive</b> e entre na pasta <b>Qlog Arquivo</b> (ou na pasta <b>Download › Qlog Arquivo</b> do celular).</li>
+  <li>Toque no arquivo <b>Qlog_ANO-MÊS.zip</b> e escolha <b>Extrair</b> (no computador: botão direito › Extrair tudo).</li>
+  <li>Abra <b>registros.csv</b> no Excel ou no Planilhas Google: uma linha por registro.</li>
+  <li>As fotos ficam na pasta <b>fotos</b>, uma pasta para cada registro (ex.: EXP-0014_03-09-2026).</li></ol></div>
+  <button class="big alt" id="arqVoltar">⬅️ Voltar</button>`;
+  $('#arqVoltar').onclick=()=>{if(admOn()){tab='adm';admSub='cad';}else tab='sobre';render();};
+  document.querySelectorAll('[data-arqenv]').forEach(b=>b.onclick=()=>AndroidArq.compartilhar(b.dataset.arqenv));}
+function b64de(u){let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
+async function fazerArquivo(mes){if(!podeArquivar())return toast('Só o administrador pode arquivar');const m=$('#modal');
+  const msg=t=>{m.innerHTML=`<div><p style="font-size:20px">⏳ ${t}</p></div>`;m.classList.add('on');};
+  try{msg('Juntando as fotos de '+L.nomeMes(mes)+'...');
+    if(window.Nuvem&&Nuvem.on)for(const r of regs.filter(r=>L.mesId(r.ts)===mes)){if(!L.precisaFotos(r,r))continue;
+      try{const fn=await Nuvem.fotosDe(r.id);const x=L.regMescla(r,r,fn);await tx('readwrite',s=>s.put(x));}catch(e){}}
+    await load();const A=L.arquivoItens(regs,mes),nome='Qlog_'+mes+'.zip',z=L.Zip();if(!A.regs){m.classList.remove('on');return toast('Nenhum registro em '+L.nomeMes(mes));}
+    msg('Montando o arquivo '+nome+'...');let onde='',blob=null;
+    if(window.AndroidArq){AndroidArq.inicio(nome);for(const it of A.itens)AndroidArq.parte(b64de(z.add(it.nome,L.itemBytes(it))));AndroidArq.parte(b64de(z.fim()));
+      onde=AndroidArq.fim()||'';if(!onde)throw new Error('não consegui gravar o arquivo');}
+    else{const parts=A.itens.map(it=>z.add(it.nome,L.itemBytes(it)));parts.push(z.fim());blob=new Blob(parts,{type:'application/zip'});}
+    arquivoPronto(mes,nome,A,onde,blob);}catch(e){m.classList.remove('on');toast('Erro ao arquivar: '+(e.message||e));}}
+function arquivoPronto(mes,nome,A,onde,blob){const m=$('#modal');let ok=!!onde&&onde!=='cache';
+  const nuvem=window.Nuvem&&Nuvem.on;
+  m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px">📦 ${esc(nome)}</b>
+   <p style="font-size:18px">${A.regs} registros e ${A.fotos} fotos de ${esc(L.nomeMes(mes))}.</p>
+   ${onde&&onde!=='cache'?`<p style="font-size:18px">✅ Salvo neste celular em <b>${esc(onde)}</b>.</p>`:''}
+   <p style="font-size:18px">Agora guarde no Google Drive: toque em <b>Enviar para o Drive</b>, escolha <b>Drive</b> e a pasta <b>Qlog Arquivo</b> (crie a pasta na primeira vez).</p>
+   <button class="big" id="arqEnv">📤 Enviar para o Drive</button>${blob?'<button class="big alt" id="arqBaixar">⬇️ Baixar o arquivo</button>':''}
+   <button class="big ok" id="arqOk" ${ok?'':'disabled style="opacity:.5"'}>✅ Pronto, já salvei</button><button class="big alt" id="arqDepois">Depois</button>
+   <p><small>${nuvem?'Quando tocar em “Pronto”, os registros com mais de 30 dias deste mês saem da nuvem. Eles continuam nos celulares.':'O arquivo fica marcado como feito.'}</small></p></div>`;m.classList.add('on');
+  const liberar=()=>{ok=true;const b=$('#arqOk');b.disabled=false;b.style.opacity=1;};
+  $('#arqEnv').onclick=async()=>{if(window.AndroidArq){AndroidArq.compartilhar(nome);liberar();return;}
+    const f=new File([blob],nome,{type:'application/zip'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:nome});liberar();}catch(e){}}else{baixar();toast('Arquivo baixado. Envie para o Drive pelo app Arquivos.');}};
+  const baixar=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},60000);liberar();};
+  if(blob)$('#arqBaixar').onclick=baixar;
+  $('#arqDepois').onclick=()=>m.classList.remove('on');
+  $('#arqOk').onclick=async()=>{if(!ok)return;const info={mes,nome,regs:A.regs,fotos:A.fotos,onde:onde&&onde!=='cache'?onde:'compartilhado'};
+    try{if(nuvem){await Nuvem.marcarArquivo(info);Nuvem.feitos=[...new Set(Nuvem.feitos.concat(mes))];const n=await Nuvem.limpar();toast('✅ Arquivado. '+n+' registros saíram da nuvem.');}
+      else{const l=JSON.parse(localStorage.getItem('arqLocal')||'[]').filter(x=>x.mes!==mes);l.unshift(Object.assign({criado:Date.now()},info));localStorage.setItem('arqLocal',JSON.stringify(l));toast('✅ Arquivado');}
+      m.classList.remove('on');tab='arquivo';render();}catch(e){toast('Precisa de internet para terminar. Tente de novo.');}};}
+// administrador abriu o app: pergunta se quer arquivar o mês que passou e limpa o que já foi arquivado
+window.arquivoAoAbrir=async()=>{if(!(window.Nuvem&&Nuvem.admin))return;try{const n=await Nuvem.limpar();if(n)toast('☁️ '+n+' registros antigos saíram da nuvem (continuam no celular)');}catch(e){}
+  const mes=L.mesArquivar(regs,Date.now(),Nuvem.feitos),hoje=L.fmtData(Date.now());if(!mes||localStorage.getItem('arqPerguntou')===mes+hoje||$('#modal').classList.contains('on'))return;
+  localStorage.setItem('arqPerguntou',mes+hoje);
+  confirmar('📦 '+L.nomeMes(mes)+' terminou. Quer arquivar agora? Vou montar o arquivo com a planilha e as fotos para você guardar no Google Drive.',()=>fazerArquivo(mes),'Sim, arquivar');};
+setTimeout(checarUpd,3000);
+
+// v4.2.8: Estorno a partir do registro de origem (coleta/saída)
+function estCab(){const o=f.origem&&regs.find(x=>x.id===f.origem);return `<div class="card" style="background:#fdeeee"><b>↩️ Estorno de:</b> ${o?esc(L.origemTxt(o)):'Sem registro de origem'}<button class="big alt" id="estTrocar">🔄 Trocar registro de origem</button></div>`;}
+function estPick(q){q=q||'';const v=L.estOrigens(regs,q);$('#main').innerHTML=tipoRow()+`<div class="card"><b style="font-size:21px">↩️ Estorno: escolha o registro de origem</b><label>Buscar por NF, transportadora ou placa</label><input id="estQ" inputmode="search" value="${esc(q)}"></div><div id="estLst">${v.map(r=>`<button class="big alt" data-orig="${r.id}" style="text-align:left">${esc(L.origemTxt(r))}</button>`).join('')||'<p>Nenhum registro encontrado.</p>'}</div><button class="big" data-orig="">✍️ Sem registro de origem</button>`;
+  const i=$('#estQ');i.oninput=()=>{const w=L.estOrigens(regs,i.value);$('#estLst').innerHTML=w.map(r=>`<button class="big alt" data-orig="${r.id}" style="text-align:left">${esc(L.origemTxt(r))}</button>`).join('')||'<p>Nenhum registro encontrado.</p>';};}
+function estLigacoes(r){let h='';if(r.tipo==='estorno'){const o=r.origem&&regs.find(x=>x.id===r.origem);h+=r.origem?`<div class="card" ${o?`data-open="${o.id}"`:''} style="background:#fdeeee;margin-top:8px">↩️ <b>Estorno de:</b> ${o?esc(L.origemTxt(o)):'registro não encontrado'}</div>`:'';}
+  else{for(const e of L.estornosDe(regs,r.id))h+=`<div class="card" data-open="${e.id}" style="background:#fdeeee;margin-top:8px">↩️ <b>Teve estorno</b> · ${esc(L.codigo(e))} · ${esc(L.fmtData(e.ts))}${e.motivo?' · '+esc(e.motivo):''}</div>`;}return h;}
+
+// v4.2.9: rascunho automático (campos no localStorage, fotos no IndexedDB)
+const RASC_K='rascunho';let rascH=0,rascPend=true,rascPerg=false;
+function rascDB(){return new Promise((ok,er)=>{try{const q=indexedDB.open('qlogRasc',1);q.onupgradeneeded=()=>q.result.createObjectStore('r');q.onsuccess=()=>ok(q.result);q.onerror=()=>er(q.error);}catch(e){er(e);}});}
+async function rascFotos(v){const d=await rascDB();return new Promise((ok,er)=>{const t=d.transaction('r',v===undefined?'readonly':'readwrite'),s=t.objectStore('r');
+  const q=v===undefined?s.get('fotos'):v===null?s.delete('fotos'):s.put(v,'fotos');t.oncomplete=()=>ok(q.result);t.onerror=()=>er(t.error);});}
+function rascCampos(){try{return JSON.parse(localStorage.getItem(RASC_K)||'null');}catch(e){return null;}}
+function rascGravar(){clearTimeout(rascH);if(rascPend)return;
+  if(ed&&tab==='hist'&&document.querySelector('[data-ec]'))edLer();
+  let p=null;if(ed)p=L.rascSeparar('edit',ed);else if(L.rascTem(f))p=L.rascSeparar('nova',f);
+  if(!p)return rascLimpar();
+  try{localStorage.setItem(RASC_K,JSON.stringify(p.campos));}catch(e){}
+  rascFotos(p.fotos).catch(()=>{});}
+// v4.3.8: grava o rascunho na hora (antes de atualizar o app) e espera as fotos
+async function rascSalvarJa(){clearTimeout(rascH);if(rascPend)return;if(ed&&tab==='hist'&&document.querySelector('[data-ec]'))edLer();let p=null;if(ed)p=L.rascSeparar('edit',ed);else if(L.rascTem(f))p=L.rascSeparar('nova',f);if(!p)return;
+  try{localStorage.setItem(RASC_K,JSON.stringify(p.campos));}catch(e){}await rascFotos(p.fotos);}
+function rascAgendar(){clearTimeout(rascH);rascH=setTimeout(rascGravar,1000);}
+function rascLimpar(){clearTimeout(rascH);try{localStorage.removeItem(RASC_K);}catch(e){}rascFotos(null).catch(()=>{});}
+async function rascVerificar(){if(rascPerg)return;const c=rascCampos();if(!c){rascPend=false;return;}rascPerg=true;rascPend=true;
+  let fo={};try{fo=(await rascFotos())||{};}catch(e){}const j=L.rascJuntar(c,fo);if(!j){rascPend=false;return rascLimpar();}
+  const mostrar=()=>{const m=$('#modal');if(!rascPend)return;if($('#rcSim'))return setTimeout(mostrar,1000);if(m.classList.contains('on'))return setTimeout(mostrar,1000);
+  m.innerHTML=`<div><p style="font-size:20px">Continuar o registro que ficou pela metade?</p><button class="big ok" id="rcSim">Continuar</button><button class="big red" id="rcNao">Descartar</button></div>`;m.classList.add('on');
+  $('#rcSim').onclick=()=>{m.classList.remove('on');rascPend=false;if(j.modo==='edit'){ed=j.d;tab='hist';detalhe=ed.id;}else{f=Object.assign(novo(),j.d);ed=null;tab='nova';detalhe=null;}render();toast('Registro recuperado');};
+  $('#rcNao').onclick=()=>{m.classList.remove('on');rascPend=false;rascLimpar();toast('Rascunho descartado');};setTimeout(mostrar,1000);};
+  setTimeout(mostrar,800);}
+{const _n=nova,_e=edTela;nova=function(){const r=_n.apply(this,arguments);if(!rascPerg&&!L.rascTem(f)&&rascCampos())rascVerificar();else rascAgendar();return r;};
+  edTela=function(){const r=_e.apply(this,arguments);rascAgendar();return r;};}
+document.addEventListener('input',rascAgendar,true);document.addEventListener('change',rascAgendar,true);
+document.addEventListener('click',()=>setTimeout(rascAgendar,0));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')rascGravar();});
+window.addEventListener('pagehide',rascGravar);

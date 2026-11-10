@@ -176,8 +176,10 @@ async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();setTim
       if(L.precisaFotos(loc,d))baixar.push(d);}
     await load();if(tab==='hist'||tab==='rel')render();if(baixar.length)baixarFotos(baixar);}catch(e){}},e=>{if(/permission/i.test(e.code||''))papel();}));
   setTimeout(()=>{reenviarPendentes();reenviarFotos();if(N.admin&&window.arquivoAoAbrir)window.arquivoAoAbrir();},4000);
-  ['clientes','fornecedores'].forEach(k=>N.unsub.push(N.fs.doc('listas/'+k).onSnapshot(d=>{if(!d.exists)return;const l=d.data().nomes||[];
-    const loc=JSON.parse(localStorage.getItem(k)||'[]');const tudo=N.admin?l:[...new Set(l.concat(loc))];localStorage.setItem(k,JSON.stringify(tudo));},()=>{})));}
+  ['clientes','fornecedores'].forEach(k=>N.unsub.push(N.fs.doc('listas/'+k).onSnapshot(d=>{if(!d.exists)return;const dd=d.data()||{},l=dd.nomes||[];
+    // v4.3.50: lista da nuvem vazia (sem "apagadoEm") nunca zera a lista do celular: mantém e devolve à nuvem
+    const loc=JSON.parse(localStorage.getItem(k)||'[]');const r=L.listaDaNuvem(loc,l,N.admin,!!dd.apagadoEm);localStorage.setItem(k,JSON.stringify(r.lista));
+    if(r.curar&&N.admin&&!(d.metadata&&d.metadata.fromCache))N.lista(k,r.lista);},()=>{})));}
 // app -> nuvem
 // nome de quem fez: só o administrador vê (vem de membros/{uid}, que só ele lê)
 // v4.3.38: o dono (criador) fica invisível para todos os outros, inclusive outros ADMs; ninguém além dele mexe no acesso dele
@@ -230,10 +232,14 @@ N.limpar=async()=>{if(!N.on||!N.admin)return 0;const ids=L.paraLimpar(regs.filte
     await tx('readwrite',s=>parte.forEach(id=>{const r=regs.find(x=>x.id===id);if(r){r.limpo=true;s.put(r);}}));
     try{await b.commit();n+=parte.length;parte.forEach(id=>localStorage.removeItem(sigK(id)));}catch(e){await tx('readwrite',s=>parte.forEach(id=>{const r=regs.find(x=>x.id===id);if(r){delete r.limpo;s.put(r);}}));throw e;}}
   await load();return n;};
-N.lista=async(k,l)=>{if(!N.on)return;try{const ref=N.fs.doc('listas/'+k);
+// v4.3.50: lista vazia NUNCA apaga a da nuvem (a nuvem manda e o celular copia de volta); só "Apagar todas" confirmado (forcar) grava vazio, com a marca apagadoEm
+N.lista=async(k,l,forcar)=>{if(!N.on)return;try{const ref=N.fs.doc('listas/'+k);l=Array.isArray(l)?l:[];
+  if(!l.length){
+    if(!forcar||!N.admin){const s=await ref.get(),c=(s.exists&&(s.data().nomes||[]))||[];if(L.listaEscrever(l,c,false)==='manter-nuvem')localStorage.setItem(k,JSON.stringify(c));return;}
+    await ref.set({nomes:[],apagadoEm:Date.now()});return;}
   if(N.admin)await ref.set({nomes:l});else await ref.set({nomes:firebase.firestore.FieldValue.arrayUnion(...l)},{merge:true});}catch(e){}};
 async function migrar(){try{for(const r of regs){if(!r.nuvem)await N.fs.doc('registros/'+r.id).set(L.regNuvem(r,'',r.autorUid||N.uid));}
-  for(const k of ['clientes','fornecedores'])await N.fs.doc('listas/'+k).set({nomes:JSON.parse(localStorage.getItem(k)||'[]')});
+  for(const k of ['clientes','fornecedores']){const l=JSON.parse(localStorage.getItem(k)||'[]');if(l.length)await N.fs.doc('listas/'+k).set({nomes:l});}
   localStorage.setItem('nvMigrou','1');toast('☁️ Dados antigos enviados para a nuvem');}catch(e){}}
 // administrador
 N.trocarSenha=async s=>{const h=L.senhaHash(s);const b=N.fs.batch();b.set(docS(),{hash:h});if(!N.login)b.set(docM(),{hash:h},{merge:true});await b.commit();};
