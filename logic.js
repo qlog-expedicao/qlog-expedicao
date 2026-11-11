@@ -40,7 +40,8 @@ function recStatus(r){return r&&r.tipo==='recebimento'?conferirSku(r.itens,r.sku
 function cheio(v){v=String(v==null?'':v).trim();return v&&!/^[-–—]+$/.test(v);}
 function nfsTxt(nfs){const o=[];(nfs||[]).forEach(n=>{n=String(n).trim().replace(/^NF[-\s]*e?\s*/i,'').replace(/^0+(?=\d)/,'');if(n&&!o.includes(n))o.push(n);});return o.join(', ');}
 // v4.3.38: fotos do compartilhar (romaneio + caminhão). Web/PWA manda TODAS num único navigator.share (álbum); não cola numa imagem.
-function shareFotos(r){return (r&&r.romaneio||[]).concat(r&&r.caminhao||[]).filter(Boolean);}
+// v4.3.51: no Recebimento vão também as fotos dos produtos (se existirem). Coleta/saída/estorno continuam só com romaneio + caminhão.
+function shareFotos(r){const rom=(r&&r.romaneio||[]).filter(Boolean);if(r&&r.tipo==='recebimento')return rom.concat((r.fotos||[]).filter(Boolean));return rom.concat((r.caminhao||[]).filter(Boolean));}
 function fotosTxt(r){const p=[],a=(r.fotos||[]).length,b=(r.romaneio||[]).length,c=(r.caminhao||[]).length;
   if(a)p.push(a+(a===1?' produto':' produtos'));if(b)p.push(b+(b===1?' romaneio':' romaneios'));if(c)p.push(c+(c===1?' caminhão':' caminhões'));return p.join(', ');}
 function resumoBase(r,titulo,rotulo){const x=[titulo+' '+codigo(r)];if(cheio(r.cliente))x.push(rotulo+': '+r.cliente.trim());const n=nfsTxt(r.nfs);if(n)x.push('NFs: '+n);return x;}
