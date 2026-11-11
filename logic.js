@@ -112,7 +112,8 @@ function locKeys(it){return typeof it==='string'?[it]:[it.cod].concat(it.al||[])
 function locCasa(texto,lista){const t=locNorm(texto),to=ocrNorm(t),out=[];if(!t)return out;
   for(const it of lista||[]){let ok=false;for(const c of locKeys(it)){const k=locNorm(c);if(!k)continue;ok=k.length<3?t===k:t.includes(k);if(!ok&&k.length>=4)ok=to.includes(ocrNorm(k));if(ok)break;}
     const id=typeof it==='string'?it:it.cod;if(ok&&!out.includes(id))out.push(id);}return out;}
-function validar(r){const e=[];if(r.tipo==='recebimento'){if(!(r.itens||[]).length)e.push('Leia ou adicione pelo menos um código');return e;} if(!r.cliente)e.push('Escolha a transportadora'); if(!(r.nfs||[]).length)e.push('Coloque pelo menos uma NF'); if(!(Number(r.volumes)>0))e.push('Coloque os volumes'); return e;}
+// v4.3.52: no Recebimento os códigos são opcionais (salva ao descarregar e completa depois no Histórico). Coleta/estorno seguem iguais.
+function validar(r){const e=[];if(r.tipo==='recebimento')return e; if(!r.cliente)e.push('Escolha a transportadora'); if(!(r.nfs||[]).length)e.push('Coloque pelo menos uma NF'); if(!(Number(r.volumes)>0))e.push('Coloque os volumes'); return e;}
 
 
 // v3.4: limpa colagem de WhatsApp/Excel antes de ler

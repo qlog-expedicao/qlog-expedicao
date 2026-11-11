@@ -24,6 +24,7 @@ function novaRec(){const fl=fornecedores();$('#main').innerHTML=tipoRow()+`
 <button class="big ok" id="recScan" style="font-size:24px;padding:22px">${ic('mira')} Ler código de barras (scanner)</button>
 <label>Itens recebidos</label><div id="itens">${itensHTML()}</div>
 <div class="row edAdd recAdd"><input id="addCodTxt" placeholder="Código"><button class="big ok" id="recScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="addCod">${ic('adicionar')} Adicionar</button></div>
+<p><small>Os códigos são opcionais. Pode salvar agora e completar depois no Histórico.</small></p>
 <label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
 <label>🧾 Romaneio (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio</button>
 <p><small>No WhatsApp vão as fotos do romaneio e dos produtos.</small></p>
@@ -211,11 +212,13 @@ function grpHTML(c){return [['c-ok','✔ OK',c.ok],['c-dif','⚠ Quantidade dife
   `<div class="grp"><div class="gh ${k}">${t} (${a.length})</div>${a.length?'<table><tr><th>Código</th><th>Esperado</th><th>Lido</th></tr>'+a.map(x=>`<tr><td>${esc(x.cod)}</td><td>${x.esp}</td><td>${x.lido}</td></tr>`).join('')+'</table>':'<p><small>Nenhum</small></p>'}</div>`).join('');}
 function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card">${tagHTML(r)} <span class="st ${stCls(c.status)}">${c.status}</span>
  <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre></div>
+ <div class="card"><b>${ic('lista')} Códigos dos produtos</b>${t.cods?`<p>${t.cods} código${t.cods===1?'':'s'} · ${t.un} unidade${t.un===1?'':'s'}</p><div id="detItens">`+edItensRead(r.itens)+'</div>':`<p>Nenhum código ainda. Pode adicionar para completar o registro.</p>`}
+ <button class="big" id="addCods">${ic('adicionar')} ${t.cods?'Adicionar mais códigos':'Adicionar códigos'}</button></div>
  <div class="card"><b>📋 Conferência com lista de SKU</b>${r.skuEsp?`<p>Lista: ${r.skuEsp.length} códigos · ${r.skuEsp.reduce((s,x)=>s+x.qtd,0)} unidades. Lido: ${t.cods} códigos · ${t.un} unidades.</p>`+grpHTML(c):'<p>Lista de SKU ainda não chegou. Quando chegar, toque abaixo.</p>'}
  <button class="big" id="skuBtn">📋 ${r.skuEsp?'Editar lista de SKU':'Conferir com lista de SKU'}</button></div>
  <div class="card"><label>🧾 Romaneio</label>${miniFotos(r.romaneio)}<label>📷 Produtos</label>${miniFotos(r.fotos)}</div>
  ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${r.nuvem&&!(r.fotos||[]).length&&(r.n_fotos||r.n_romaneio||r.n_caminhao)?'<p><small>📷 As fotos ficaram no celular de quem fez o registro.</small></p>':''} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}${nuvemBtn(r)}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
-  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);{const nb=$('#nvSt');if(nb)nb.onclick=()=>nuvemEnviar(r,nb);}ligarEd(r);$('#skuBtn').onclick=()=>skuModal(r);
+  $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);{const nb=$('#nvSt');if(nb)nb.onclick=()=>nuvemEnviar(r,nb);}ligarEd(r);$('#skuBtn').onclick=()=>skuModal(r);$('#addCods').onclick=()=>addCodsModal(r);
   $('#apagar').onclick=()=>(window.Nuvem&&!Nuvem.pode())?toast('Só o administrador pode apagar'):confirmar('Apagar o registro?',async()=>{await tx('readwrite',s=>s.delete(r.id));window.Nuvem&&Nuvem.apagar(r.id);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('apagou',r);await load();detalhe=null;toast('Apagado');render();},'Apagar','red','Cancelar');}
 function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90vh;overflow:auto"><p style="font-size:20px;margin-top:0"><b>📋 Lista de SKU esperada</b></p>
   <p><small>Um código por linha. Pode ter quantidade: <b>SKU;qtd</b> ou <b>SKU qtd</b>. Sem quantidade = 1.</small></p>
@@ -230,6 +233,39 @@ function skuModal(r){const m=$('#modal');m.innerHTML=`<div style="max-height:90v
   $('#skuArq').onclick=()=>{$('#skuFile').value='';$('#skuFile').click();};
   $('#skuFile').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const rd=new FileReader();rd.onload=()=>{const l=L.parseSkuLista(rd.result);if(!l.length)return toast('Não achei códigos no arquivo');$('#skuTxt').value=L.skuTexto(l);toast(l.length+' códigos importados');};rd.readAsText(fl);};
   $('#skuCam').onclick=()=>{let tmp=L.parseSkuLista($('#skuTxt').value);abrirMulti('Lista de SKU: ler códigos',code=>{tmp=L.addItem(tmp,code);const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);return qtdDe(tmp,code);},()=>{const e=$('#skuTxt');if(e)e.value=L.skuTexto(tmp);},tmp);};}
+
+const edItensRead=it=>(it||[]).map(x=>`<div class="item"><span class="icod">${esc(x.cod)}</span><b class="iqt">${x.qtd}</b></div>`).join('');
+// v4.3.52: completar códigos de um Recebimento pelo Histórico (mesma gravação/nuvem da edição)
+function addCodsModal(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode adicionar códigos');
+  let itens=(r.itens||[]).map(x=>({cod:x.cod,qtd:x.qtd}));
+  const m=$('#modal');
+  const lista=()=>{const t=L.itensTot(itens),el=$('#acItens');if(el)el.innerHTML=(itens.length?itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button type="button" data-acq="-1" data-i="${i}">−</button><b class="iqt">${x.qtd}</b><button type="button" data-acq="1" data-i="${i}">+</button><button type="button" data-acdel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;};
+  m.innerHTML=`<div style="max-height:90vh;overflow:auto;overflow-x:hidden"><p style="font-size:20px;margin-top:0"><b>${ic('adicionar')} Adicionar códigos · ${esc(L.codigo(r))}</b></p>
+    <p><small>Complementa este Recebimento. A alteração vai para a nuvem como qualquer outra edição.</small></p>
+    <button class="big ok" id="acScan">${ic('mira')} Ler código de barras (scanner)</button>
+    <div id="acItens"></div>
+    <div class="row edAdd recAdd"><input id="acCodTxt" placeholder="Código"><button class="big ok" id="acScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="acAdd">${ic('adicionar')} Adicionar</button></div>
+    <p id="acE" style="color:#c62828"></p>
+    <button class="big ok" id="acOk">💾 Salvar códigos</button><button class="big alt" id="acX">Cancelar</button></div>`;
+  m.classList.add('on');lista();
+  const add=v=>{v=String(v||'').trim();if(!v)return;itens=L.addItem(itens,v);lista();};
+  $('#acX').onclick=()=>m.classList.remove('on');
+  $('#acAdd').onclick=()=>{add($('#acCodTxt').value);$('#acCodTxt').value='';$('#acCodTxt').focus();};
+  $('#acCodTxt').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#acAdd').click();}};
+  $('#acItens').onclick=e=>{const b=e.target.closest('[data-acq],[data-acdel]');if(!b)return;const d=b.dataset;
+    if(d.acq){const x=itens[+d.i];if(x){itens=L.addItem(itens,x.cod,+d.acq);lista();}}
+    else if(d.acdel!==undefined){const x=itens[+d.acdel];if(x){itens=itens.filter(i=>i!==x);lista();}}};
+  const ler=()=>abrirMulti('Recebimento: ler códigos',code=>{itens=L.addItem(itens,code);lista();return qtdDe(itens,code);},()=>{},itens);
+  $('#acScan').onclick=ler;$('#acScan2').onclick=ler;
+  $('#acOk').onclick=async()=>{if(!edPode())return toast('Acesso bloqueado pelo ADM');
+    let rec=null;try{rec=await tx('readonly',s=>s.get(r.id));}catch(e){}if(!rec)rec=regs.find(x=>x.id===r.id);if(!rec){m.classList.remove('on');return render();}
+    if(!L.podeEditar(rec,usuario())){m.classList.remove('on');return toast(L.podePedir(rec,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode adicionar códigos');}
+    const n=L.regEditar(rec,{itens},null,Date.now()),er=L.editValidar(n);if(er.length){$('#acE').textContent=er.join(' · ');return;}
+    const salvo=(window.Nuvem&&!Nuvem.admin)?L.semAutor(n):n;
+    await tx('readwrite',s=>s.put(salvo));await load();window.Nuvem&&Nuvem.salvar(salvo);if(window.Nuvem&&Nuvem.avisar)Nuvem.avisar('editou',rec,salvo);
+    m.classList.remove('on');detalhe=r.id;toast('✅ Códigos gravados');render();};
+}
+
 // v4.3.38: link/PWA/iPhone — UMA chamada navigator.share com TODAS as fotos (álbum no WhatsApp, dá pra abrir cada uma). Não cola JPEG; não faz share por foto. Android nativo inalterado.
 // v4.3.49: um botão só no detalhe — amarelo piscando = ainda não chegou na nuvem (toque para enviar); verde = salvo na nuvem
 function nuvemBtn(r){if(!(window.Nuvem&&Nuvem.exige&&Nuvem.exige()))return '';const ok=L.naNuvem(r);
@@ -407,7 +443,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.51';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.52';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
