@@ -17,13 +17,13 @@ const TIPOS=[['coleta','📦 Coleta'],['estorno','↩️ Estorno'],['recebimento
 const tipoRow=()=>`<div class="row tipo">${TIPOS.map(([k,t])=>`<button data-tipo="${k}" class="${f.tipo===k?'on':''}">${window.Tema?Tema.ic(k)+'<span>'+t.replace(/^\S+\s/,'')+'</span>':t}</button>`).join('')}</div>`;
 const tagHTML=r=>`<span class="tag ${r.tipo==='recebimento'?'rec':r.tipo}">${L.tipoNome(r.tipo).toUpperCase()}</span>`;
 const stCls=s=>s==='CONFERIDO OK'?'c-ok':s==='DIVERGENTE'?'c-bad':'c-wait';
-function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-iq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-iq="1" data-ii="${i}">+</button><button data-idel="${i}" class="idel">🗑</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+
+function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-iq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-iq="1" data-ii="${i}">+</button><button data-idel="${i}" class="idel">🗑</button></div>`).join(''):'<p><small>Nenhum código ainda. Bipe com o leitor, use o scanner ou digite abaixo.</small></p>')+
   `<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
 function novaRec(){const fl=fornecedores();$('#main').innerHTML=tipoRow()+`
 <label>Cliente</label><div class="cli">${fl.map(c=>`<button data-forn="${esc(c)}" class="${f.forn===c?'on':''}">${esc(c)}</button>`).join('')}<button id="addForn">➕ Novo cliente</button></div>
 <button class="big ok" id="recScan" style="font-size:24px;padding:22px">${ic('mira')} Ler código de barras (scanner)</button>
 <label>Itens recebidos</label><div id="itens">${itensHTML()}</div>
-<div class="row edAdd recAdd"><input id="addCodTxt" placeholder="Código"><button class="big ok" id="recScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="addCod">${ic('adicionar')} Adicionar</button></div>
+<div class="row edAdd recAdd"><input id="addCodTxt" placeholder="Código" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="big ok" id="recScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="addCod">${ic('adicionar')} Adicionar</button></div>
 <p><small>Os códigos são opcionais. Pode salvar agora e completar depois no Histórico.</small></p>
 <label>📷 Fotos dos produtos (${f.fotos.length})</label>${fotosHTML(f.fotos,'fotos',1)}<button class="big alt" data-foto="fotos">📷 Tirar foto dos produtos</button>
 <label>🧾 Romaneio (${f.romaneio.length})</label>${fotosHTML(f.romaneio,'romaneio',1)}<button class="big alt" data-foto="romaneio">🧾 Tirar foto do romaneio</button>
@@ -33,8 +33,27 @@ function novaRec(){const fl=fornecedores();$('#main').innerHTML=tipoRow()+`
 <button class="big ok" id="salvar">💾 Salvar</button><button class="big" id="salvarEnv">💾 Salvar e 📤 Compartilhar</button><button class="big alt" id="reset">🔄 Limpar (reset)</button>
 <input type="file" id="cam" accept="image/*" capture="environment" multiple hidden>`;
   ['obs'].forEach(k=>$('#'+k).oninput=e=>f[k]=e.target.value);
-  $('#addCodTxt').onkeydown=e=>{if(e.key==='Enter')addCodManual();};}
-function addCodManual(){const v=$('#addCodTxt').value.trim();if(!v)return;f.itens=L.addItem(f.itens,v);$('#itens').innerHTML=itensHTML();$('#addCodTxt').value='';$('#addCodTxt').focus();}
+  ligarLeitor('#addCodTxt',addCodManual);}
+function addCodManual(v0){const i=$('#addCodTxt');if(!i)return;const vs=L.leitorQuebra(v0!=null?v0:i.value);i.value='';if(!vs.length)return;vs.forEach(v=>{f.itens=L.addItem(f.itens,v);});if($('#itens'))$('#itens').innerHTML=itensHTML();try{i.focus({preventScroll:true});}catch(e){i.focus();}}
+// v4.3.53: campo de código no Recebimento (e no Histórico/Editar) aceita leitor físico/bluetooth: Enter (também keyCode 13), Tab, quebra de linha; bip vale mesmo sem o campo focado
+function ligarLeitor(sel,addFn){const i=$(sel);if(!i)return;
+  i.setAttribute('autocomplete','off');i.setAttribute('autocapitalize','off');i.setAttribute('spellcheck','false');
+  i.onkeydown=e=>{if(L.leitorEnter(e)||(L.leitorTab(e)&&String(i.value||'').trim())){e.preventDefault();addFn();}};
+  i.addEventListener('input',()=>{if(/[\r\n]/.test(i.value)){const vs=L.leitorQuebra(i.value);i.value='';vs.forEach(v=>addFn(v));}});}
+let leitorSt={buf:'',t:0,rapido:false,n:0,maxGap:0},leitorH=0;
+function leitorAlvo(){if($('#scanner'))return null;
+  if($('#acCodTxt'))return {i:$('#acCodTxt'),add:v=>{const i=$('#acCodTxt');if(i)i.value=v;const b=$('#acAdd');if(b)b.click();}};
+  if($('#edCodTxt'))return {i:$('#edCodTxt'),add:v=>{const i=$('#edCodTxt');if(i)i.value=v;const b=$('#edCodAdd');if(b)b.click();}};
+  if($('#modal')&&$('#modal').classList.contains('on'))return null;
+  if(tab==='nova'&&f&&f.tipo==='recebimento'&&$('#addCodTxt'))return {i:$('#addCodTxt'),add:v=>addCodManual(v)};
+  return null;}
+document.addEventListener('keydown',e=>{const al=leitorAlvo();if(!al)return;if(e.target===al.i)return;
+  const t=e.target;if(t&&(t.tagName==='TEXTAREA'||t.tagName==='INPUT'||t.tagName==='SELECT'||t.isContentEditable))return;
+  const r=L.leitorTecla(leitorSt,e,Date.now());leitorSt=r;clearTimeout(leitorH);
+  if(r.fim){if(r.code){e.preventDefault();al.add(r.code);}return;}
+  if(r.buf)al.i.value=r.buf;
+  if(r.rapido)leitorH=setTimeout(()=>{const p=L.leitorPausa(leitorSt,Date.now());leitorSt=p;if(p.fim&&p.code){const a=leitorAlvo();if(a)a.add(p.code);}},L.LEITOR_PAUSA+20);
+},true);
 const qtdDe=(it,c)=>{const x=it.find(i=>i.cod===L.addItem([],c)[0].cod);return x?x.qtd:0;};
 function lerContinuoForm(){abrirMulti('Recebimento: ler códigos',code=>{f.itens=L.addItem(f.itens,code);if($('#itens'))$('#itens').innerHTML=itensHTML();return qtdDe(f.itens,code);},()=>{if(tab==='nova')nova();},f.itens);}
 function openDB(){return new Promise((ok,er)=>{const q=indexedDB.open('qlog',1);q.onupgradeneeded=()=>q.result.createObjectStore('regs',{keyPath:'id'});q.onsuccess=()=>ok(q.result);q.onerror=()=>er(q.error);});}
@@ -132,7 +151,8 @@ async function scDetectar(me,c){const m=me.modo;let cands=[],texto='',longe=fals
     const hs=o.ls.filter(l=>L.extrairCods(l.t).length).map(l=>l.h);if(cands.length&&hs.length&&L.longeTxt(Math.max(...hs),c.height))longe=true;return {cands,texto,longe};}
   let r=[];const d=await scDetector(me);
   if(d){try{r=(await d.detect(c)).filter(x=>!x.format||L.modoAceitaFormato(m,x.format)).map(x=>({v:String(x.rawValue||'').trim(),w:x.boundingBox&&x.boundingBox.width}));}catch(e){r=[];}}
-  else{try{await zxCarregar();}catch(e){}r=zxLer(c,m);}
+  // v4.3.53: no link (Chrome/Android tem BarcodeDetector, mas às vezes não lê) tenta o ZXing também; iPhone já usava só o ZXing
+  if(!r.length){try{await zxCarregar();}catch(e){}r=zxLer(c,m);}
   r=r.filter(x=>x.v);cands=L.candsModo(m,r.map(x=>x.v).join('\n'));texto=cands.join('\n');if(r.length&&r.every(x=>L.longeBar(x.w,c.width)))longe=true;return {cands,texto,longe};}
 // ---- v2.8: leitura contínua (Recebimento). Android = ScanActivity modo multi; iPhone/PWA = loop JS ----
 const multiCbs={};
@@ -149,6 +169,9 @@ window.scanResult=(id,text,err)=>{const al=scanCbs[id];if(!al)return;delete scan
   if(err==='foto')return fotoOcr(al);if(err==='cancelado')return;if(err==='permissao'){toast('Câmera não liberada. Usando foto.');return fotoOcr(al);}
   if(err||text==null){toast('Scanner falhou. Usando foto.');return fotoOcr(al);}
   const md=scanModoGet(L.scanChave(al));ocrModal(al,L.candsModo(md,text),text,md);};
+async function scCam(){const ts=[{video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false},{video:{facingMode:{ideal:'environment'}},audio:false},{video:{facingMode:'environment'},audio:false},{video:true,audio:false}];
+  let last=null;for(const c of ts){try{return await navigator.mediaDevices.getUserMedia(c);}catch(e){last=e;}}throw last||new Error('cam');}
+function scQuadro(){const v=$('#scVid');if(!v||!v.videoWidth)return null;const c=document.createElement('canvas'),z=Math.min(1,1000/v.videoWidth);c.width=Math.round(v.videoWidth*z);c.height=Math.round(v.videoHeight*z);c.getContext('2d').drawImage(v,0,0,c.width,c.height);return c;}
 async function abrirScanner(al,multi){
   if(window.AndroidScan&&!multi){const id='s'+(++scanSeq);scanCbs[id]=al;try{const tt=al==='esp'?'Código da NF':'Código da etiqueta',ch=L.scanChave(al);if(window.AndroidScan.abrirModo)window.AndroidScan.abrirModo(id,tt,scanModoGet(ch),ch);else window.AndroidScan.abrir(id,tt);}catch(e){delete scanCbs[id];fotoOcr(al);}return;}
   if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){if(multi){toast('Câmera ao vivo indisponível. Digite os códigos.');return multi.onFim();}return fotoOcr(al);}
@@ -156,11 +179,11 @@ async function abrirScanner(al,multi){
   o.innerHTML=`<video id="scVid" playsinline muted autoplay></video><div class="scMask"><div class="scBox" id="scBox"></div></div>
   <div class="scTop">${multi?esc(multi.titulo):al==='esp'?'Código da NF':'Código da etiqueta'}${scModosHTML(scanModoGet(L.scanChave(al,multi&&multi.titulo)))}<small id="scMsg">Aponte o código dentro do quadro</small><div id="scLast" class="scLast"></div></div>
   <div class="scBot">${multi?(multi.zerar?'<button class="big alt" id="scZera">🔄 Zerar</button>':'')+'<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big ok" id="scFim">✔ Concluir</button>':`<button class="big alt" id="scTorch" style="display:none">🔦 Lanterna</button><button class="big alt" id="scFoto">📷 Tirar foto</button><button class="big red" id="scCancel">✖ Cancelar</button>`}</div>`;
-  document.body.appendChild(o);const sch=L.scanChave(al,multi&&multi.titulo);SC={on:true,al,busy:false,torch:false,multi,seen:{},chave:sch,modo:scanModoGet(sch)};
+  document.body.appendChild(o);zxCarregar().catch(()=>{});const sch=L.scanChave(al,multi&&multi.titulo);SC={on:true,al,busy:false,torch:false,multi,seen:{},chave:sch,modo:scanModoGet(sch)};
   o.querySelectorAll('[data-scmodo]').forEach(b=>b.onclick=()=>{if(!SC)return;SC.modo=L.scanModoOk(b.dataset.scmodo);scanModoSet(SC.chave,SC.modo);SC.st=null;SC.ms={};
     o.querySelectorAll('[data-scmodo]').forEach(x=>x.classList.toggle('on',x===b));scMsg('Aponte o código dentro do quadro');});
   if(multi)$('#scFim').onclick=fecharScanner;if($('#scZera'))$('#scZera').onclick=()=>{if(confirm('Zerar a contagem? A lista continua.')){multi.zerar();SC.seen={};SC.ms={};const z=$('#scLast');if(z)z.textContent='Contagem zerada';}};else{$('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};}
-  let st;try{st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});}
+  let st;try{st=await scCam();}
   catch(e){fecharScanner();if(multi){toast('Câmera ao vivo não liberada. Digite os códigos.');return;}toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
   if(!SC||!SC.on){st.getTracks().forEach(t=>t.stop());return;}SC.stream=st;
   const v=$('#scVid');v.srcObject=SC.stream;try{await v.play();}catch(e){}
@@ -180,7 +203,9 @@ async function ocrCaixas(url){
   const r=await tessW.recognize(url);const ls=(r.data.lines||[]).map(l=>({t:l.text.trim(),x:l.bbox.x0,y:l.bbox.y0,w:l.bbox.x1-l.bbox.x0,h:l.bbox.y1-l.bbox.y0}));return {texto:r.data.text||'',ls};}
 function scMsg(t,cor){const m=$('#scMsg');if(m){m.textContent=t;m.style.color=cor||'';}}
 async function scLoop(){if(!SC||!SC.on)return;const me=SC;let rapido=false;
-  try{const c=scCrop();if(c){const md=me.modo;const dt=await scDetectar(me,c);let {cands,texto,longe}=dt;const bars=md!=='texto';
+  try{const c=scCrop();if(c){const md=me.modo;let dt=await scDetectar(me,c);
+    if((!dt.cands||!dt.cands.length)&&!dt.longe){const q=scQuadro();if(q){const dt2=await scDetectar(me,q);if(dt2.cands&&dt2.cands.length)dt={cands:dt2.cands,texto:dt2.texto,longe:false};}}
+    let {cands,texto,longe}=dt;const bars=md!=='texto';
     if(SC!==me||!me.on)return;
     if(longe){me.st=null;me.ms={};scMsg('🔍 Aproxime o celular','#ff0');}
     else if(me.multi){const acc=me.multi.match?me.multi.match(texto):cands.length?(bars?cands:[cands[0]]):[];
@@ -239,19 +264,20 @@ const edItensRead=it=>(it||[]).map(x=>`<div class="item"><span class="icod">${es
 function addCodsModal(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode adicionar códigos');
   let itens=(r.itens||[]).map(x=>({cod:x.cod,qtd:x.qtd}));
   const m=$('#modal');
-  const lista=()=>{const t=L.itensTot(itens),el=$('#acItens');if(el)el.innerHTML=(itens.length?itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button type="button" data-acq="-1" data-i="${i}">−</button><b class="iqt">${x.qtd}</b><button type="button" data-acq="1" data-i="${i}">+</button><button type="button" data-acdel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;};
+  const lista=()=>{const t=L.itensTot(itens),el=$('#acItens');if(el)el.innerHTML=(itens.length?itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button type="button" data-acq="-1" data-i="${i}">−</button><b class="iqt">${x.qtd}</b><button type="button" data-acq="1" data-i="${i}">+</button><button type="button" data-acdel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Bipe com o leitor, use o scanner ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;};
   m.innerHTML=`<div style="max-height:90vh;overflow:auto;overflow-x:hidden"><p style="font-size:20px;margin-top:0"><b>${ic('adicionar')} Adicionar códigos · ${esc(L.codigo(r))}</b></p>
     <p><small>Complementa este Recebimento. A alteração vai para a nuvem como qualquer outra edição.</small></p>
     <button class="big ok" id="acScan">${ic('mira')} Ler código de barras (scanner)</button>
     <div id="acItens"></div>
-    <div class="row edAdd recAdd"><input id="acCodTxt" placeholder="Código"><button class="big ok" id="acScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="acAdd">${ic('adicionar')} Adicionar</button></div>
+    <div class="row edAdd recAdd"><input id="acCodTxt" placeholder="Código" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="big ok" id="acScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="acAdd">${ic('adicionar')} Adicionar</button></div>
     <p id="acE" style="color:#c62828"></p>
     <button class="big ok" id="acOk">💾 Salvar códigos</button><button class="big alt" id="acX">Cancelar</button></div>`;
   m.classList.add('on');lista();
-  const add=v=>{v=String(v||'').trim();if(!v)return;itens=L.addItem(itens,v);lista();};
+  const add=v=>{L.leitorQuebra(v).forEach(x=>{itens=L.addItem(itens,x);});lista();};
   $('#acX').onclick=()=>m.classList.remove('on');
-  $('#acAdd').onclick=()=>{add($('#acCodTxt').value);$('#acCodTxt').value='';$('#acCodTxt').focus();};
-  $('#acCodTxt').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#acAdd').click();}};
+  const acAdd=v=>{add(v!=null?v:$('#acCodTxt').value);$('#acCodTxt').value='';try{$('#acCodTxt').focus({preventScroll:true});}catch(e){$('#acCodTxt').focus();}};
+  $('#acAdd').onclick=()=>acAdd();
+  ligarLeitor('#acCodTxt',acAdd);
   $('#acItens').onclick=e=>{const b=e.target.closest('[data-acq],[data-acdel]');if(!b)return;const d=b.dataset;
     if(d.acq){const x=itens[+d.i];if(x){itens=L.addItem(itens,x.cod,+d.acq);lista();}}
     else if(d.acdel!==undefined){const x=itens[+d.acdel];if(x){itens=itens.filter(i=>i!==x);lista();}}};
@@ -336,11 +362,11 @@ function abrirEdicao(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r
 function edLer(){if(!ed)return;document.querySelectorAll('[data-ec]').forEach(i=>{ed.c[i.dataset.ec]=i.value;});}
 // v4.3.30: produtos e leitores também no Editar (igual ao Novo)
 const ic=k=>window.Tema?Tema.ic(k):'';
-function edItensHTML(){const it=ed.c.itens,t=L.itensTot(it);return (it.length?it.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-eiq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-eiq="1" data-ii="${i}">+</button><button data-eidel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Use o leitor ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
+function edItensHTML(){const it=ed.c.itens,t=L.itensTot(it);return (it.length?it.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-eiq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-eiq="1" data-ii="${i}">+</button><button data-eidel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Bipe com o leitor, use o scanner ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
 function edConfHTML(){const l=ed.c.confLidos;return (l.length?`<p class="tot">${esc(L.confResumo(l))}</p>`+l.map((x,i)=>`<div class="item edCf ${x.ok?'c-ok':'c-bad'}"><span class="icod">${ic(x.ok?'ok':'erro')} ${esc(x.cod)}${(x.n||1)>1?' <small>· '+x.n+' vezes</small>':''}</span><button data-ecrm="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código conferido ainda.</small></p>');}
 function edProdHTML(rec){return rec?`<div class="card edProd"><b class="edTit">${ic('recebimento')} Itens recebidos</b>
   <button class="big ok" id="edScan">${ic('mira')} Ler código de barras (scanner)</button><div id="edItens">${edItensHTML()}</div>
-  <div class="row edAdd recAdd"><input id="edCodTxt" placeholder="Código"><button class="big ok" id="edScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="edCodAdd">${ic('adicionar')} Adicionar</button></div></div>`
+  <div class="row edAdd recAdd"><input id="edCodTxt" placeholder="Código" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="big ok" id="edScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="edCodAdd">${ic('adicionar')} Adicionar</button></div></div>`
  :`<div class="card edProd"><b class="edTit">${ic('lista')} Conferência de código</b>
   <label>Código(s) da NF (esperado)</label><div class="row edAdd"><input data-ec="confEsp" id="edEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(ed.c.confEsp)}"><button class="big alt" id="edEspScan">${ic('camera')} Ler</button></div>
   <label>Código da etiqueta</label><div class="row edAdd"><input id="edLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="edLidoOk">${ic('ok')} Conferir</button></div>
@@ -352,7 +378,7 @@ document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[d
   if(d.eiq){const x=ed.c.itens[+d.ii];if(x){ed.c.itens=L.addItem(ed.c.itens,x.cod,+d.eiq);$('#edItens').innerHTML=edItensHTML();}}
   else if(d.eidel!==undefined){const x=ed.c.itens[+d.eidel];if(x)confirmar('Tirar o código '+x.cod+' da lista?',()=>{ed.c.itens=ed.c.itens.filter(i=>i!==x);$('#edItens').innerHTML=edItensHTML();},'Sim, tirar');}
   else if(d.ecrm!==undefined){ed.c.confLidos.splice(+d.ecrm,1);$('#edConf').innerHTML=edConfHTML();}
-  else if(t.id==='edCodAdd'){const i=$('#edCodTxt'),v=i.value.trim();if(!v)return;ed.c.itens=L.addItem(ed.c.itens,v);$('#edItens').innerHTML=edItensHTML();i.value='';i.focus();}
+  else if(t.id==='edCodAdd'){const i=$('#edCodTxt'),vs=L.leitorQuebra(i&&i.value);if(!vs.length)return;vs.forEach(v=>{ed.c.itens=L.addItem(ed.c.itens,v);});$('#edItens').innerHTML=edItensHTML();i.value='';try{i.focus({preventScroll:true});}catch(e){i.focus();}}
   else if(t.id==='edLidoOk'){const i=$('#edLido');if(edConferir(i.value)){i.value='';}}
   else if(t.id==='edScan'||t.id==='edScan2')abrirMulti('Editar: ler códigos',code=>{if(!ed)return 0;ed.c.itens=L.addItem(ed.c.itens,code);const o=$('#edItens');if(o)o.innerHTML=edItensHTML();return qtdDe(ed.c.itens,code);},()=>{if(ed)edTela();},ed.c.itens);
   else if(t.id==='edEspScan')abrirMulti('Código da NF',code=>{if(!ed)return 0;const n=L.normCod(code);if(n&&!L.parseCods(ed.c.confEsp).includes(n))ed.c.confEsp=(ed.c.confEsp.trim()?ed.c.confEsp.trim()+' ':'')+n;return 1;},()=>{if(ed)edTela();},[]);
@@ -369,7 +395,7 @@ function edTela(){const rec=ed.tipo==='recebimento',lst=rec?fornecedores():clien
   ${edProdHTML(rec)}
   <div class="card">${edFotos('romaneio','🧾 Romaneio')}${rec?'':edFotos('caminhao','🚛 Caminhão carregado')}${edFotos('fotos','📷 Produtos')}</div>
   <p id="edErro" style="color:#c62828"></p><button class="big ok" id="edOk">💾 Salvar alterações</button><button class="big alt" id="edX2">Cancelar</button>`;
-  if($('#edCodTxt'))$('#edCodTxt').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#edCodAdd').click();}};if($('#edLido'))$('#edLido').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#edLidoOk').click();}};
+  if($('#edCodTxt'))ligarLeitor('#edCodTxt',v=>{const i=$('#edCodTxt');if(v!=null&&i)i.value=v;if($('#edCodAdd'))$('#edCodAdd').click();});if($('#edLido'))$('#edLido').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#edLidoOk').click();}};
   const sair=()=>{ed=null;rascLimpar();render();};$('#edX').onclick=sair;$('#edX2').onclick=sair;$('#edOk').onclick=()=>confirmar('Salvar as alterações?',edSalvar,'Sim','ok','Cancelar');}
 // câmera primeiro; galeria como segunda opção
 function edPegar(fn){const m=$('#modal');m.innerHTML=`<div><p style="font-size:20px;margin-top:0"><b>Escolha a foto</b></p><button class="big ok" id="pfC">📷 Tirar foto</button><button class="big alt" id="pfG">🖼️ Pegar da galeria</button><button class="big alt" id="pfX">Cancelar</button></div>`;m.classList.add('on');
@@ -443,7 +469,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.52';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.53';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
