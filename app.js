@@ -469,7 +469,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.53';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.54';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
@@ -501,12 +501,13 @@ function navAdm(){const b=document.querySelector('nav [data-t="adm"]');if(!b)ret
 window.abrirAdm=sub=>{if(!admOn())return;admSub=sub||'av';tab='adm';detalhe=null;if($('#modal').classList.contains('on')&&!$('#modal').dataset.nv)$('#modal').classList.remove('on');render();};
 window.admAtualizar=sub=>{if(tab==='adm'&&admSub===sub&&!$('#modal').classList.contains('on'))admConteudo();};
 function admTela(){const b=(k,t)=>`<button class="big ${admSub===k?'ok':'alt'}" data-admsub="${k}" style="margin:4px 4px 4px 0;font-size:16px;padding:10px 4px">${t}</button>`;
-  $('#main').innerHTML=`<div class="row admsubs" style="flex-wrap:wrap">${b('av','🔔 Avisos')}${b('ch',(window.Tema?Tema.ic('suporte'):'')+' Chamados <span id="admChN" class="chN">'+chN()+'</span>')}${b('eq','👥 Equipe <span id="admEqN" class="chN">'+eqN()+'</span>')}${b('cad','📋 Cadastros')}</div><div id="admBox"></div>`;admConteudo();}
+  const sc=window.scriptsBotaoHTML?scriptsBotaoHTML(admSub):'';
+  $('#main').innerHTML=`<div class="row admsubs" style="flex-wrap:wrap">${b('av','🔔 Avisos')}${b('ch',(window.Tema?Tema.ic('suporte'):'')+' Chamados <span id="admChN" class="chN">'+chN()+'</span>')}${b('eq','👥 Equipe <span id="admEqN" class="chN">'+eqN()+'</span>')}${b('cad','📋 Cadastros')}${sc}</div><div id="admBox"></div>`;admConteudo();}
 // 4.3.28: aba 🎧 Chamados (suporte) com a contagem de novos
 const chN=()=>{const n=window.Nuvem&&Nuvem.chamadosTodos?L.chamadosNovos(Nuvem.chamadosTodos()):0;return n?String(n):'';};
 const eqN=()=>{const n=window.Nuvem&&Nuvem.acessos?Nuvem.acessos.length+(Nuvem.celulares||[]).length:0;return n?String(n):'';};
 window.admContagem=()=>{const x=$('#admChN');if(x)x.textContent=chN();const y=$('#admEqN');if(y)y.textContent=eqN();};
-function admConteudo(){const bx=$('#admBox');if(!bx)return;if(admSub==='eq')return Nuvem.painel(bx);if(admSub==='cad')return cadTela(bx);if(admSub==='ch'){Nuvem.pedirNotif();return Nuvem.verChamados(bx);}Nuvem.verAvisos(bx);}
+function admConteudo(){const bx=$('#admBox');if(!bx)return;if(admSub==='sc'){if(!(window.Nuvem&&Nuvem.dono)){admSub='av';return Nuvem.verAvisos(bx);}if(window.scriptsPainel)return scriptsPainel(bx);return;}if(admSub==='eq')return Nuvem.painel(bx);if(admSub==='cad')return cadTela(bx);if(admSub==='ch'){Nuvem.pedirNotif();return Nuvem.verChamados(bx);}Nuvem.verAvisos(bx);}
 // Cadastros (versão 4.3.10): ADM › 📋 Cadastros (listas, Arquivo e tempo de edição). Aparência fica só na Info
 function cadTela(bx){const j=Nuvem.janelaMin||60;
   bx.innerHTML=`<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div><div class="card"><b style="font-size:20px">⏱ Tempo para o colaborador editar</b><p><small>Depois desse tempo, ele usa 📝 Pedir edição.</small></p>

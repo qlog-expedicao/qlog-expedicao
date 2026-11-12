@@ -29,7 +29,7 @@ async function papel(){N.admin=false;N.membro=false;let negado=false,doCache=fal
   if((N.admin||N.membro)&&N.travado()&&doCache&&!N.admin){N.on=false;N.travar();N.status();return;}
   if(N.admin||N.membro){N.on=true;N.destravar();N.portaFim();localStorage.setItem(FOI,'1');await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();}
   else{if(N.trocado){N.on=false;N.telaTrocado();N.status();return;}N.on=false;if(N.travado()||(negado&&localStorage.getItem(FOI)))N.travar();else N.pedirEntrada();N.porta();}
-  N.status();}
+  N.status();try{if(window.QlogScriptsAposPapel)QlogScriptsAposPapel(N);}catch(e){}}
 // v4.3.29: trava de segurança — membro bloqueado/removido pelo ADM não usa mais o app (fica salvo, vale offline e ao reabrir)
 const TRAVA='nvBloq',FOI='nvFoiMembro';
 
