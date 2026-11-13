@@ -585,5 +585,27 @@ function scriptsPediuLimpar(href,hash){
   return /(?:[?&#]limparTeste=1\b|#limparTeste\b)/.test(h);
 }
 
-const L={listaEscrever,listaDaNuvem,nomesDosRegistros,naNuvem,ONLINE_MS,estaOnline,loginsOnline,pendentesNuvem,shareFotos,identPedido,regChave,codCadastro,celTxt,chamadoCriar,chamadoParaProblema,chamadoDeProblema,chamadosLista,chamadosNovos,alternar,JANELA_MS,JANELA_OPCOES,janelaOk,janelaMs,janelaNome,acessoPedido,acessoTxt,REG_FIXOS,ehMeu,criadoBase,dentroJanela,limiteEdicao,podePedir,loginNorm,loginValido,loginHash,papelNome,pedidoCriar,pedidoTxt,ERROS_MAX,PROB_TXT_MAX,PROB_FILA_MAX,PROB_IMG_MAX,errosAdd,probCriar,probFilaAdd,probPlataforma,SCAN_MODOS,FORMATOS_BARRA,scanModoOk,scanChave,formatosModo,zxFormatosModo,modoAceitaFormato,candsModo,RASC_FOTOS,rascTem,rascSeparar,rascJuntar,estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,LEITOR_GAP,LEITOR_RAPIDO,LEITOR_PAUSA,LEITOR_MIN,leitorEnter,leitorTab,leitorChar,leitorTecla,leitorPausa,leitorQuebra,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes,SCRIPTS_ARQS,SCRIPTS_KEY,SCRIPTS_TESTOU,SCRIPTS_PEDIDO,SCRIPTS_FALHOU,SCRIPTS_VOLTA,SCRIPTS_MAX,SCRIPTS_PARTES,scriptsESuperAdm,scriptsPodeVer,scriptsArqOk,scriptsPacoteOk,scriptsSintaxeOk,scriptsLerTeste,scriptsGuardarTeste,scriptsMarcarTestou,scriptsJaTestou,scriptsLimparTeste,scriptsDeveAplicar,scriptsPodeEnviar,scriptsMontarPedido,scriptsFiltrarPartes,scriptsPedidoTxt,scriptsLinhas,scriptsEsc,scriptsCodigoHTML,scriptsMesmoConteudo,scriptsPediuLimpar};
+// v4.3.55: auto-atualização do site — uma vez por versão nova de verdade, sem loop.
+const UPD_TENTOU_KEY='qlog_upd_tentou';
+function updJaTentou(v,sto){
+  try{
+    const t=JSON.parse((sto||{getItem:()=>null}).getItem(UPD_TENTOU_KEY)||'null');
+    return !!(t&&t.v===String(v||''));
+  }catch(e){return false;}
+}
+function updMarcarTentou(v,sto,ts){
+  try{(sto||{setItem:()=>{}}).setItem(UPD_TENTOU_KEY,JSON.stringify({v:String(v||''),ts:ts||Date.now()}));}catch(e){}
+  return true;
+}
+function updPodeAuto(v,atual,o){
+  o=o||{};
+  if(!v||!versaoNova(v,atual))return {ok:false,motivo:'igual'};
+  if(o.android)return {ok:false,motivo:'android'};
+  if(o.meioRegistro)return {ok:false,motivo:'registro'};
+  if(o.telaAcesso)return {ok:false,motivo:'identificacao'};
+  if(o.jaAuto||o.jaTentou)return {ok:false,motivo:'ja-tentou'};
+  return {ok:true};
+}
+
+const L={listaEscrever,listaDaNuvem,nomesDosRegistros,naNuvem,ONLINE_MS,estaOnline,loginsOnline,pendentesNuvem,shareFotos,identPedido,regChave,codCadastro,celTxt,chamadoCriar,chamadoParaProblema,chamadoDeProblema,chamadosLista,chamadosNovos,alternar,JANELA_MS,JANELA_OPCOES,janelaOk,janelaMs,janelaNome,acessoPedido,acessoTxt,REG_FIXOS,ehMeu,criadoBase,dentroJanela,limiteEdicao,podePedir,loginNorm,loginValido,loginHash,papelNome,pedidoCriar,pedidoTxt,ERROS_MAX,PROB_TXT_MAX,PROB_FILA_MAX,PROB_IMG_MAX,errosAdd,probCriar,probFilaAdd,probPlataforma,SCAN_MODOS,FORMATOS_BARRA,scanModoOk,scanChave,formatosModo,zxFormatosModo,modoAceitaFormato,candsModo,RASC_FOTOS,rascTem,rascSeparar,rascJuntar,estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,LEITOR_GAP,LEITOR_RAPIDO,LEITOR_PAUSA,LEITOR_MIN,leitorEnter,leitorTab,leitorChar,leitorTecla,leitorPausa,leitorQuebra,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes,SCRIPTS_ARQS,SCRIPTS_KEY,SCRIPTS_TESTOU,SCRIPTS_PEDIDO,SCRIPTS_FALHOU,SCRIPTS_VOLTA,SCRIPTS_MAX,SCRIPTS_PARTES,scriptsESuperAdm,scriptsPodeVer,scriptsArqOk,scriptsPacoteOk,scriptsSintaxeOk,scriptsLerTeste,scriptsGuardarTeste,scriptsMarcarTestou,scriptsJaTestou,scriptsLimparTeste,scriptsDeveAplicar,scriptsPodeEnviar,scriptsMontarPedido,scriptsFiltrarPartes,scriptsPedidoTxt,scriptsLinhas,scriptsEsc,scriptsCodigoHTML,scriptsMesmoConteudo,scriptsPediuLimpar,UPD_TENTOU_KEY,updJaTentou,updMarcarTentou,updPodeAuto};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);

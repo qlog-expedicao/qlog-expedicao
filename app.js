@@ -469,16 +469,25 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.54';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
+const APP_V='4.3.55';document.addEventListener('DOMContentLoaded',()=>{const v=document.getElementById('ftV');if(v)v.textContent=APP_V;});let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
   return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><button class="big ok" id="updApp">🔄 Atualizar app</button><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
 function updLimpaBan(){const b=$('#updBan');if(b){b.style.display='none';b.remove();}}
 function updInfoBox(){const b=$('#updBox');if(b)b.innerHTML=updHTML();}
+function updNaIdentificacao(){try{
+  // Porta de entrada, espera, bloqueio ou troca: não recarrega sozinho (perde o que a pessoa digitou).
+  if(document.getElementById('nvPorta')||document.getElementById('nvEspera')||document.getElementById('nvTrava')||document.getElementById('nvTroca'))return true;
+  const el=document.activeElement;
+  if(el&&(el.id==='poN'||el.id==='nvN'))return true;
+  const n=document.getElementById('poN')||document.getElementById('nvN');
+  if(n&&String(n.value||'').trim())return true;
+}catch(e){}return false;}
 let updAuto_=false;window.updDisp=v=>{if(!v||!L.versaoNova(v,APP_V))return;updNova=v;updLimpaBan();updInfoBox();
   // Link/PWA: atualiza sozinho. Android: só o card na Info. Com registro pela metade, só avisa na Info.
-  if(!window.AndroidUpd){if(regEmAndamento())return;if(updAuto_)return;updAuto_=true;atualizarApp();}};
+  // v4.3.55: uma vez por versão nova (guarda no celular); na identificação não recarrega com campo focado ou preenchido.
+  if(!window.AndroidUpd){if(regEmAndamento())return;if(updNaIdentificacao())return;if(updAuto_)return;if(L.updJaTentou(v,localStorage))return;updAuto_=true;L.updMarcarTentou(v,localStorage);atualizarApp();}};
 // v4.3.8: procura versão nova com o app aberto (a cada 12 min e ao voltar para o app); aviso só na aba Info
 const UPD_INT=12*60000,UPD_VOLTA=5*60000;
 setInterval(()=>{updChecou=0;checarUpd();},UPD_INT);
