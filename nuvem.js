@@ -36,7 +36,8 @@ const TRAVA='nvBloq',FOI='nvFoiMembro';
 // v4.3.46: rodapé discreto (recarregar + reportar) + resumo profissional nas telas de bloqueio e identificação
 const _ajK=0x5A,_ajC=[40,53,62,53,55,59,40,49,104,108,107,107,26,61,55,59,51,54,116,57,53,55];
 function ajDest(){return String.fromCharCode.apply(null,_ajC.map(function(c){return c^_ajK;}));}
-N.sobreApp=function(){return `<div class="nvSobre" role="note"><p>O Qlog Expedição registra e confere a saída das mercadorias no celular: notas, volumes e fotos.</p><p>O objetivo é organizar a expedição e deixar cada envio documentado e conferido.</p></div>`;};
+// v4.3.57: resumo profissional vai no rodapé (letra menor, no fundo da tela, sem sobrepor o cartão)
+N.sobreApp=function(){return `<div class="nvSobre" role="note"><p>O Qlog Expedição registra e confere a saída das mercadorias: notas, volumes e imagens.</p><p>Ágil e prático, o objetivo é organizar a expedição e deixar cada envio documentado e conferido.</p></div>`;};
 N.rodapeAjuda=function(tela){const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
   return `<div class="nvAjuda" data-tela="${tela}"><button type="button" class="nvAjBtn" data-aj="reload">${ti('limpar')} Recarregar página</button><button type="button" class="nvAjBtn" data-aj="report">${ti('suporte')} Reportar um problema</button></div></div>`+N.sobreApp();};
 N.ligarRodape=function(root){const box=root&&root.querySelector('.nvAjuda');if(!box||box.dataset.ligado)return;box.dataset.ligado='1';
@@ -382,7 +383,7 @@ N.esperar=()=>{const pd=pendGet();if(!pd||!document.body)return;const e=s=>Strin
    <b class="qwH">Pedido enviado ao ADM</b><p class="qwMsg">Aguarde a liberação. Quando o ADM liberar, o app abre sozinho.</p>
    <div class="qwUser"><b>${e(pd.nome||pd.u)}</b><small>${pd.novo?'Celular novo':'Este celular'}</small></div>
    <p class="qwNota"><span class="qwDot"></span>Verificando automaticamente</p>
-   <p id="peE" class="qwInfo"></p><button class="big ok" id="peV">${ti('limpar')} Verificar agora</button><button class="big red" id="peC">${ti('erro')} Cancelar pedido</button></div>`;
+   <p id="peE" class="qwInfo"></p><button class="big ok" id="peV">${ti('limpar')} Verificar agora</button><button class="big red" id="peC">${ti('erro')} Cancelar pedido</button></div>${N.sobreApp()}`;
   document.body.classList.add('esperando');
   document.getElementById('peV').onclick=()=>checarPend(true);
   document.getElementById('peC').onclick=async()=>{if(!confirm('Cancelar o seu pedido de acesso?'))return;

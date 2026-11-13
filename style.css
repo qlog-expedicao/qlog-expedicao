@@ -225,19 +225,26 @@ body.semAcesso{overflow:hidden}body.semAcesso #modal{z-index:2147483100}
 #nvPorta input{width:100%;box-sizing:border-box;font-size:18px;min-height:46px}
 #nvPorta .qwWelcome{margin:14px 0 4px;font-size:17px;font-weight:600;color:var(--txt,#354350);opacity:.9}#nvPorta .poAdm{margin:4px 0 0;font-size:13px}#nvPorta .poAdm a{opacity:.65;text-decoration:underline}
 #nvPorta .poAdm .ic,#nvPorta .poAdm svg{width:1em;height:1em;vertical-align:-.15em}
-/* v4.3.46: rodapé discreto + resumo profissional nas telas de bloqueio e identificação */
+/* v4.3.46: rodapé discreto (recarregar + reportar) nas telas de bloqueio e identificação */
 .nvAjuda{margin-top:18px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--txt,#354350) 14%,transparent);display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;box-sizing:border-box}
 .nvAjBtn{appearance:none;-webkit-appearance:none;background:none;border:0;margin:0;padding:8px 10px;color:var(--txt,#354350);opacity:.52;font:inherit;font-size:14px;font-weight:500;line-height:1.35;text-align:center;cursor:pointer;max-width:100%;overflow-wrap:normal;word-break:normal;hyphens:none;white-space:normal}
 .nvAjBtn:hover,.nvAjBtn:focus{opacity:.82;text-decoration:underline;outline:none}
 .nvAjBtn .qi,.nvAjBtn svg,.nvAjBtn img{width:1em;height:1em;vertical-align:-.15em;opacity:.9}
 #nvTrava .nvAjuda,#nvPorta .nvAjuda{margin-top:16px}
-.nvSobre{margin:0 auto;padding:20px 28px 28px;max-width:320px;box-sizing:border-box;text-align:center;color:var(--txt,#354350);opacity:.48;font-size:13.5px;line-height:1.5;font-weight:400;overflow-wrap:normal;word-break:normal;hyphens:none;white-space:normal}
-.nvSobre p{margin:0 0 10px}.nvSobre p:last-child{margin-bottom:0}
-#nvPorta .nvPoCx{margin:0 auto 0}
-#nvPorta .nvSobre{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:72px;width:100%;padding-top:18px;padding-bottom:24px}
-#nvTrava{flex-direction:column;justify-content:center;gap:0}
-#nvTrava .nvTrCx{flex:0 0 auto}
-#nvTrava .nvSobre{flex:0 0 auto;width:100%;padding-top:18px;padding-bottom:8px}
+/* v4.3.57: resumo profissional como rodapé — letra ~11px, cor suave, centralizado, preso no fundo da tela; se o conteúdo for alto, flui depois do cartão com espaço, sem sobrepor */
+.nvSobre{margin:0 auto;padding:12px 22px calc(12px + env(safe-area-inset-bottom,0px));max-width:360px;width:100%;box-sizing:border-box;text-align:center;color:var(--txt,#354350);opacity:.42;font-size:11px;line-height:1.35;font-weight:400;overflow-wrap:normal;word-break:normal;hyphens:none;white-space:normal;flex:0 0 auto;border-top:1px solid color-mix(in srgb,var(--txt,#354350) 14%,transparent);overflow-x:hidden}
+.nvSobre p{margin:0 0 4px}.nvSobre p:last-child{margin-bottom:0}
+#nvPorta .nvPoCx{margin:0 auto 8px;flex:0 0 auto}
+#nvPorta .nvSobre,#nvTrava .nvSobre,#nvEspera .nvSobre{flex:0 0 auto;margin-top:auto;min-height:0;width:100%;padding-top:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));display:block}
+#nvTrava{flex-direction:column;justify-content:flex-start;gap:0}
+#nvTrava .nvTrCx{flex:0 0 auto;margin-top:auto;margin-bottom:8px}
+#nvEspera{flex-direction:column;justify-content:flex-start;align-items:stretch}
+#nvEspera .esCx{flex:0 0 auto;margin-top:auto;margin-bottom:8px}
+html[data-tema=escuro] .nvSobre{color:#c5d0da;opacity:.5;border-top-color:color-mix(in srgb,#c5d0da 18%,transparent)}
+html[data-tema=escuro] #nvPorta,html[data-tema=escuro] #nvTrava,html[data-tema=escuro] #nvEspera,html[data-tema=escuro] #nvTroca{background:#0d141b;color:#e3eaf1}
+html[data-tema=retro] .nvSobre{color:#5a4030;opacity:.52;border-top-color:color-mix(in srgb,#5a4030 20%,transparent)}
+html[data-tema=retro] #nvEspera{background:#f3eadc;color:#3d2b1f}
+#nvPorta,#nvTrava,#nvEspera{padding-bottom:0}#nvTrava{overflow-x:hidden}
 #modal>div.nvRep{text-align:center}
 #modal>div.nvRep .nvRepIc{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:color-mix(in srgb,var(--ac,#0b4f8a) 12%,#fff);margin:4px auto 6px}
 #modal>div.nvRep .nvRepIc .qi,#modal>div.nvRep .nvRepIc svg{width:26px;height:26px}
