@@ -37,7 +37,7 @@ const TRAVA='nvBloq',FOI='nvFoiMembro';
 const _ajK=0x5A,_ajC=[40,53,62,53,55,59,40,49,104,108,107,107,26,61,55,59,51,54,116,57,53,55];
 function ajDest(){return String.fromCharCode.apply(null,_ajC.map(function(c){return c^_ajK;}));}
 // v4.3.57: resumo profissional vai no rodapé (letra menor, no fundo da tela, sem sobrepor o cartão)
-N.sobreApp=function(){return `<div class="nvSobre" role="note"><p>O Qlog Expedição registra e confere a saída das mercadorias: notas, volumes e imagens.</p><p>Ágil e prático, o objetivo é organizar a expedição e deixar cada envio documentado e conferido.</p></div>`;};
+N.sobreApp=function(){return `<div class="nvSobre" role="note"><p>+QiDok registra e confere a saída das mercadorias: notas, volumes e imagens.</p><p>Ágil e prático, o objetivo é organizar a expedição e deixar cada envio documentado e conferido.</p></div>`;};
 N.rodapeAjuda=function(tela){const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
   return `<div class="nvAjuda" data-tela="${tela}"><button type="button" class="nvAjBtn" data-aj="reload">${ti('limpar')} Recarregar página</button><button type="button" class="nvAjBtn" data-aj="report">${ti('suporte')} Reportar um problema</button></div></div>`+N.sobreApp();};
 N.ligarRodape=function(root){const box=root&&root.querySelector('.nvAjuda');if(!box||box.dataset.ligado)return;box.dataset.ligado='1';
