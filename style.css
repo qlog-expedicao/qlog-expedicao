@@ -280,6 +280,41 @@ html[data-tema=escuro] .luzOn{background:#66bb6a}html[data-tema=escuro] .luzOff{
 html[data-tema=escuro] .big.nvStOk{background:#388e3c}html[data-tema=escuro] .big.nvStPend{background:#fbc02d;color:#2a1f00}
 .fotosMini{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}.fotosMini img{width:48px;height:48px;object-fit:cover;border-radius:6px;border:1px solid #0002}
 
+/* v4.3.56: visualizador de foto em tela cheia (sem baixar de novo) */
+.fotosMini img,.fotos img{cursor:pointer}
+.fotosMini .fotoFalta{width:48px;height:48px;padding:0;margin:0;border-radius:6px;border:1px solid #0002;background:#e8eef3;color:#607080;display:inline-flex;align-items:center;justify-content:center;flex:0 0 48px}
+.fotosMini .fotoFalta .qi,.fotosMini .fotoFalta svg{width:22px;height:22px}
+body.fotoVerOn{overflow:hidden}
+#fotoVer{display:none;position:fixed;inset:0;background:#000;z-index:30;touch-action:none;overflow:hidden;overflow-x:hidden}
+#fotoVer.on{display:block}
+#fotoVer .fvStage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+#fotoVer #fvImg{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform-origin:center center;user-select:none;-webkit-user-drag:none}
+#fotoVer .fvStatus{color:#fff;font-size:18px;text-align:center;padding:24px;max-width:90%;margin:0}
+#fotoVer .fvX,#fotoVer .fvNav{position:absolute;z-index:2;border:0;background:#000a;color:#fff;border-radius:24px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;padding:0;margin:0}
+#fotoVer .fvX{top:max(8px,env(safe-area-inset-top));right:8px}
+#fotoVer .fvMeta{position:absolute;top:max(14px,env(safe-area-inset-top));left:60px;right:60px;z-index:2;color:#fff;text-align:center;font-size:17px;pointer-events:none;text-shadow:0 1px 4px #000;overflow-wrap:normal;white-space:nowrap}
+#fotoVer .fvNav{top:50%;margin-top:-24px}
+#fotoVer .fvPrev{left:8px}
+#fotoVer .fvNext{right:8px}
+#fotoVer .fvNext .qi,#fotoVer .fvNext svg{transform:rotate(180deg)}
+#fotoVer .fvX .qi,#fotoVer .fvX svg,#fotoVer .fvNav .qi,#fotoVer .fvNav svg{width:26px;height:26px;stroke:#fff;color:#fff}
+.fotoAviso{cursor:pointer}
+.fotosMini .fotoMini,.fotos .fotoMini{position:relative;display:inline-block;width:48px;height:48px;flex:0 0 48px;cursor:pointer}
+.fotos .fotoMini{width:96px;height:96px;flex:0 0 96px}
+.fotoMini img{width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid #0002;display:block;cursor:pointer}
+.fotos .fotoMini img{border-radius:8px}
+.fotoOlho{position:absolute;right:2px;bottom:2px;width:18px;height:18px;border-radius:9px;background:#000a;color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none;box-shadow:0 0 0 1px #fff8}
+.fotos .fotoOlho{width:22px;height:22px;border-radius:11px;right:3px;bottom:3px}
+.fotoOlho .qi,.fotoOlho svg{width:12px;height:12px;stroke:#fff;color:#fff}
+.fotos .fotoOlho .qi,.fotos .fotoOlho svg{width:14px;height:14px}
+.fotosMini .fotoFalta{position:relative}
+.fotosMini .fotoFalta .fotoOlho{position:absolute}
+html[data-tema=escuro] .fotoOlho{background:#000c;box-shadow:0 0 0 1px #fff7}
+html[data-tema=escuro] .fotosMini .fotoFalta{background:#1b2430;border-color:#fff3;color:#c5d0da}
+html[data-tema=retro] .fotoOlho{background:#3d2b1fe6;color:#fff8ee;box-shadow:0 0 0 1px #fff6}
+html[data-tema=retro] .fotosMini .fotoFalta{background:#eadcc6;border-color:#c4a265;color:#5a4030}
+
+
 /* v4.3.52: tema Retrô (creme, texto sépia, acentos suaves) */
 html[data-tema=retro]{color-scheme:light;--card:#fff8ee;--nav:#eadcc6;--tx:#3d2b1f;--bg:#f3eadc;--hd:#5a4030;--hdl:#c4a265;--txt:#3d2b1f}
 html[data-tema=retro] body{background:#f3eadc;color:#3d2b1f}

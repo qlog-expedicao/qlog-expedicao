@@ -168,13 +168,13 @@ async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();setTim
   if(N.admin){ouvirAvisos();ouvirProblemas();ouvirChamados();ouvirPedidos();ouvirAcessos();ouvirCelulares();}else{N.celulares=[];N.avisos=[];N.problemas=[];N.chamados=[];N.pedidos=[];N.acessos=[];sinoMostrar();ouvirMeusPedidos();}
   ouvirAjustes();ouvirMeuAcesso();
   await ouvirArquivo();
-  N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{const baixar=[];for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
+  N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
       let loc=null;try{loc=await tx('readonly',s=>s.get(d.id));}catch(e){}if(!loc)loc=regs.find(r=>r.id===d.id);
       if(ch.type==='removed'){if(!L.manterAoRemover(loc,N.feitos))await tx('readwrite',s=>s.delete(d.id));continue;}
       if(N.admin&&('autor' in d)){try{await ch.doc.ref.update({autor:firebase.firestore.FieldValue.delete()});}catch(e){}}
       {let o=N.admin?L.regMescla(loc,d):L.semAutor(L.regMescla(loc,d));if(ch.doc.metadata&&ch.doc.metadata.hasPendingWrites)o.nuvem=!!(loc&&loc.nuvem);await tx('readwrite',s=>s.put(o));}
-      if(L.precisaFotos(loc,d))baixar.push(d);}
-    await load();if(tab==='hist'||tab==='rel')render();if(baixar.length)baixarFotos(baixar);}catch(e){}},e=>{if(/permission/i.test(e.code||''))papel();}));
+      /* v4.3.56: não grava foto de outro celular no aparelho. baixarFotos() segue disponível para arquivo/compartilhar. */}
+    await load();if(tab==='hist'||tab==='rel')render();}catch(e){}},e=>{if(/permission/i.test(e.code||''))papel();}));
   setTimeout(()=>{reenviarPendentes();reenviarFotos();if(N.admin&&window.arquivoAoAbrir)window.arquivoAoAbrir();},4000);
   ['clientes','fornecedores'].forEach(k=>N.unsub.push(N.fs.doc('listas/'+k).onSnapshot(d=>{if(!d.exists)return;const dd=d.data()||{},l=dd.nomes||[];
     // v4.3.50: lista da nuvem vazia (sem "apagadoEm") nunca zera a lista do celular: mantém e devolve à nuvem
