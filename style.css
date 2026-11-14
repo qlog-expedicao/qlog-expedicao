@@ -93,7 +93,9 @@ html[data-tema=escuro] img[src="logo.png"]{background:#eef2f6;border-radius:14px
 
 /* v4.3.28: sem estouro lateral */
 *,*::before,*::after{box-sizing:border-box}html,body{max-width:100%;overflow-x:hidden}img,input,select,textarea,button,.card,table{max-width:100%}.card,label,b,small,span,p{overflow-wrap:anywhere}.eqp{overflow-x:hidden}.acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.acts .big{flex:1 1 calc(50% - 6px);min-width:0;width:auto;margin:0;font-size:16px;padding:10px 8px;white-space:normal}
-footer{overflow-wrap:anywhere;line-height:1.5;padding:16px 12px}
+footer{overflow-wrap:anywhere;line-height:1.5;padding:16px 12px;overflow-x:hidden;max-width:100%;box-sizing:border-box}
+/* v4.3.59: resumo da Info, o mesmo texto da entrada, sem estouro lateral */
+.ftSobre,#ftSobre{display:block;margin:8px auto 10px;max-width:28em;padding:0 4px;overflow-wrap:anywhere;word-break:normal;hyphens:none;overflow-x:hidden;box-sizing:border-box}
 .tipo button span,button span,button b,nav span{overflow-wrap:normal;word-break:normal}.tipo button{min-width:0;padding-left:4px;padding-right:4px}@media(max-width:400px){.tipo button span{font-size:15px}}
 /* v4.3.28 */.supBtn{background:none;border:1.5px solid #0b4f8a;color:#0b4f8a;border-radius:20px;padding:6px 14px;font-size:14px;margin:0 0 8px;cursor:pointer;max-width:100%}.supBtn .qi{width:1.2em;height:1.2em;vertical-align:-.25em;margin-right:4px}footer small{font-size:11px}.chN:not(:empty){background:#e08a00;color:#fff;border-radius:10px;padding:0 7px;margin-left:4px;font-size:14px}.admsubs .big{flex:1 1 calc(50% - 8px);min-width:0}html[data-tema=escuro] .supBtn{color:#8cc4ff;border-color:#8cc4ff}
 
