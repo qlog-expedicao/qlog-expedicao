@@ -3,7 +3,7 @@
 (function(){const g=e=>{try{const l=L.errosAdd(JSON.parse(localStorage.getItem('errosApp')||'[]'),e);localStorage.setItem('errosApp',JSON.stringify(l));}catch(x){}};
   window.addEventListener('error',ev=>g({msg:ev.message||String(ev.error||'erro'),onde:(ev.filename||'').split('/').pop()+':'+(ev.lineno||0)}));
   window.addEventListener('unhandledrejection',ev=>g({msg:'Promise: '+String((ev.reason&&ev.reason.message)||ev.reason||'erro'),onde:''}));})();
-const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=s=>document.querySelector(s), esc=s=>String(s==null?'':s).replace(/[&<>"'`]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
 let db, regs=[], tab='nova', detalhe=null;
 // v4.3.2: o app sempre abre em Coleta
 // v4.3.3: logins ADM / Colaborador, 1 hora para editar, 📝 Pedir edição
@@ -15,7 +15,7 @@ const fornecedores=()=>JSON.parse(localStorage.getItem('fornecedores')||'[]');
 const setFornecedores=(c,forcar)=>{localStorage.setItem('fornecedores',JSON.stringify(c));window.Nuvem&&Nuvem.lista('fornecedores',c,forcar);};
 const TIPOS=[['coleta','📦 Coleta'],['estorno','↩️ Estorno'],['recebimento','📥 Recebimento']];
 const tipoRow=()=>`<div class="row tipo">${TIPOS.map(([k,t])=>`<button data-tipo="${k}" class="${f.tipo===k?'on':''}">${window.Tema?Tema.ic(k)+'<span>'+t.replace(/^\S+\s/,'')+'</span>':t}</button>`).join('')}</div>`;
-const tagHTML=r=>`<span class="tag ${r.tipo==='recebimento'?'rec':r.tipo}">${L.tipoNome(r.tipo).toUpperCase()}</span>`;
+const tagHTML=r=>`<span class="tag ${esc(r.tipo==='recebimento'?'rec':r.tipo)}">${L.tipoNome(r.tipo).toUpperCase()}</span>`;
 const stCls=s=>s==='CONFERIDO OK'?'c-ok':s==='DIVERGENTE'?'c-bad':'c-wait';
 function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-iq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-iq="1" data-ii="${i}">+</button><button data-idel="${i}" class="idel">🗑</button></div>`).join(''):'<p><small>Nenhum código ainda. Bipe com o leitor, use o scanner ou digite abaixo.</small></p>')+
   `<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
@@ -73,10 +73,10 @@ function compress(file){return new Promise(ok=>{const u=URL.createObjectURL(file
 // v4.3.56: toque na mini abre a foto já guardada; se faltar (outro celular), tenta carregar uma vez
 function fotoOlhoHTML(){return '<span class="fotoOlho" aria-hidden="true">'+ic('olho')+'</span>';}
 function miniFotos(r,campo){const arr=(r&&r[campo]||[]).filter(Boolean),esp=Math.max(arr.length,Number(r&&r['n_'+campo])||0);if(!esp)return '';
-  const bits=[];for(let i=0;i<esp;i++){if(arr[i])bits.push(`<span class="fotoMini"><img src="${arr[i]}" alt="" data-ver="${campo}" data-i="${i}">`+fotoOlhoHTML()+'</span>');
+  const bits=[];for(let i=0;i<esp;i++){if(arr[i]){if(L.imgOk(arr[i]))bits.push(`<span class="fotoMini"><img src="${esc(arr[i])}" alt="" data-ver="${campo}" data-i="${i}">`+fotoOlhoHTML()+'</span>');}
     else bits.push(`<button type="button" class="fotoFalta" data-verfalt="${campo}" data-i="${i}" aria-label="Ver foto">${ic('galeria')}`+fotoOlhoHTML()+'</button>');}
   return '<div class="fotosMini">'+bits.join('')+'</div>';}
-function fotosHTML(arr,key,edit){return '<div class="fotos">'+arr.map((d,i)=>'<div><span class="fotoMini"><img src="'+d+'" alt="" data-ver="'+(key||'')+'" data-i="'+i+'">'+fotoOlhoHTML()+'</span>'+(edit?'<b data-del="'+(key||'')+'" data-i="'+i+'">✕</b>':'')+'</div>').join('')+'</div>';}
+function fotosHTML(arr,key,edit){return '<div class="fotos">'+arr.map((d,i)=>'<div><span class="fotoMini"><img src="'+esc(L.imgSrc(d))+'" alt="" data-ver="'+(key||'')+'" data-i="'+i+'">'+fotoOlhoHTML()+'</span>'+(edit?'<b data-del="'+(key||'')+'" data-i="'+i+'">✕</b>':'')+'</div>').join('')+'</div>';}
 let fv=null,fvCarregando=null,fvTentou={};
 function fotosDaTela(){if(ed&&ed.fotos)return L.fotosLista(ed.fotos);if(tab==='nova')return L.fotosLista(f);if(detalhe){const r=regs.find(x=>x.id===detalhe);if(r)return L.fotosLista(r);}return [];}
 function fotoVerAberta(){const el=$('#fotoVer');return !!(el&&el.classList.contains('on'));}
@@ -89,7 +89,7 @@ function fotoVerPintar(){if(!fv)return fotoVerFechar();const meta=$('#fvMeta'),p
   if(fv.msg){if(meta)meta.innerHTML='';if(prev)prev.style.display='none';if(next)next.style.display='none';fotoVerMsg(fv.msg);fotoVerResetZoom();return;}
   if(!fv.lista.length){fotoVerMsg('Carregando foto…');if(meta)meta.innerHTML='';return;}
   fv.i=(fv.i+fv.lista.length)%fv.lista.length;const x=fv.lista[fv.i];fotoVerMsg('');
-  if(img){img.src=x.d;img.alt=x.lab;}if(meta)meta.innerHTML='<b>'+esc(x.lab)+'</b> · '+(fv.i+1)+' / '+fv.lista.length;
+  if(img){if(L.imgOk(x.d))img.src=x.d;else img.removeAttribute('src');img.alt=x.lab;}if(meta)meta.innerHTML='<b>'+esc(x.lab)+'</b> · '+(fv.i+1)+' / '+fv.lista.length;
   const muitos=fv.lista.length>1;if(prev)prev.style.display=muitos?'':'none';if(next)next.style.display=muitos?'':'none';fotoVerResetZoom();}
 function fotoVerIr(d){if(!fv||fv.lista.length<2)return;fv.i+=d;fotoVerPintar();}
 function fotoVerMontar(){const el=fotoVerEl();
@@ -397,10 +397,10 @@ function hist(){if(ed&&$('#edOk')){edLer();return edTela();}if(ed&&detalhe!==ed.
   const sm=!!hist.sel;$('#main').innerHTML=mesSelHTML()+`<input id="q" placeholder="🔍 Buscar NF, transportadora, código, data, EXP/REC" value="${esc(hist.q||'')}">
   ${sm?`<div class="row"><button class="big red" id="selDel" style="margin:0">🗑 Apagar selecionados (<span id="selN">${hist.sel.size}</span>)</button><button class="big alt" id="selX" style="margin:0;flex:0 0 120px">Cancelar</button></div><button class="big ok" id="selEnv">📤 Enviar selecionados (<span class="selN2">${hist.sel.size}</span>)</button><button class="big alt" id="selAll">☑ Marcar todos da lista</button>`:(doMes().length?'<button class="big alt" id="selOn">☑ Selecionar para apagar</button>':'')}<div id="lista"></div>`;
   $('#q').oninput=e=>{hist.q=e.target.value;lista();};$('#mesAt').onchange=e=>{mesAt=e.target.value;hist.sel=null;hist();};lista();}
-function lista(){const v=L.filtrar(doMes(),hist.q);$('#lista').innerHTML=v.length?v.map(r=>`<div class="card${hist.sel&&hist.sel.has(r.id)?' selc':''}" data-open="${r.id}">${hist.sel?`<span style="font-size:26px;float:right">${hist.sel.has(r.id)?'☑':'☐'}</span>`:''}${tagHTML(r)}${r.tipo==='recebimento'?` <span class="st ${stCls(L.recStatus(r))}">${L.recStatus(r)}</span>
- <b>${L.codigo(r)} · ${esc(r.cliente||'Sem cliente')}</b><br>${(r.nfs||[]).length?'NFs '+esc(r.nfs.join('-'))+' · ':''}${L.itensTot(r.itens).cods} itens · ${L.itensTot(r.itens).un} un.<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length}</small></div>`:`
- <b>${L.codigo(r)} · ${esc(r.cliente)}</b><br>NFs ${esc(r.nfs.join('-'))} · ${esc(L.volTxt(r))} vol${L.confStatus(r.conf)?' · 🔎 '+L.confStatus(r.conf):''}<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length} · 🚛 ${(r.caminhao||[]).length}</small></div>`}`).join(''):'<p>Nenhum registro neste mês.</p>';}
-function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card"><span class="tag ${r.tipo}">${L.tipoNome(r.tipo).toUpperCase()}</span>${estLigacoes(r)}
+function lista(){const v=L.filtrar(doMes(),hist.q);$('#lista').innerHTML=v.length?v.map(r=>`<div class="card${hist.sel&&hist.sel.has(r.id)?' selc':''}" data-open="${esc(r.id)}">${hist.sel?`<span style="font-size:26px;float:right">${hist.sel.has(r.id)?'☑':'☐'}</span>`:''}${tagHTML(r)}${r.tipo==='recebimento'?` <span class="st ${stCls(L.recStatus(r))}">${L.recStatus(r)}</span>
+ <b>${esc(L.codigo(r))} · ${esc(r.cliente||'Sem cliente')}</b><br>${(r.nfs||[]).length?'NFs '+esc(r.nfs.join('-'))+' · ':''}${L.itensTot(r.itens).cods} itens · ${L.itensTot(r.itens).un} un.<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length}</small></div>`:`
+ <b>${esc(L.codigo(r))} · ${esc(r.cliente)}</b><br>NFs ${esc(r.nfs.join('-'))} · ${esc(L.volTxt(r))} vol${L.confStatus(r.conf)?' · 🔎 '+L.confStatus(r.conf):''}<br><small>${L.fmtData(r.ts)} ${L.fmtHora(r.ts)} · 📷 ${r.fotos.length} · 🧾 ${r.romaneio.length} · 🚛 ${(r.caminhao||[]).length}</small></div>`}`).join(''):'<p>Nenhum registro neste mês.</p>';}
+function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card"><span class="tag ${esc(r.tipo)}">${L.tipoNome(r.tipo).toUpperCase()}</span>${estLigacoes(r)}
  <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre><label>🧾 Romaneio</label>${miniFotos(r,'romaneio')}<label>🚛 Caminhão carregado</label>${miniFotos(r,'caminhao')}${r.conf&&(r.conf.lidos||[]).length?confListaHTML(r.conf.lidos,0):''}<label>📷 Produtos</label>${miniFotos(r,'fotos')}</div>
  ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${fotosAvisoHTML(r)} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}${nuvemBtn(r)}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
   $('#voltar').onclick=voltar;$('#share').onclick=()=>compartilhar(r);{const nb=$('#nvSt');if(nb)nb.onclick=()=>nuvemEnviar(r,nb);}ligarEd(r);
@@ -453,7 +453,7 @@ document.addEventListener('click',e=>{if(!ed)return;const t=e.target.closest('[d
   else if(t.id==='edEspScan')abrirMulti('Código da NF',code=>{if(!ed)return 0;const n=L.normCod(code);if(n&&!L.parseCods(ed.c.confEsp).includes(n))ed.c.confEsp=(ed.c.confEsp.trim()?ed.c.confEsp.trim()+' ':'')+n;return 1;},()=>{if(ed)edTela();},[]);
   else if(t.id==='edConfScan'){if(!L.parseCods(ed.c.confEsp).length)return toast('Coloque primeiro o código esperado da NF');abrirMulti('Editar: conferir códigos',code=>{if(!ed)return 0;const c=edConferir(code);return c?(ed.c.confLidos.find(x=>x.cod===c.cod&&!!x.ok===!!c.ok)||{n:1}).n:0;},()=>{if(ed)edTela();},[]);}
 },true);
-function edFotos(k,titulo){const a=ed.fotos[k];return `<label>${titulo} (${a.length})</label><div class="fotos">${a.map((d,i)=>`<div><span class="fotoMini"><img src="${d}" alt="" data-ver="${k}" data-i="${i}">`+fotoOlhoHTML()+`</span><div class="row" style="gap:4px"><button class="big" data-eft="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">🔄 Trocar</button><button class="big red" data-efr="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">❌ Remover</button></div></div>`).join('')}</div><button class="big alt" data-efa="${k}">📷 Adicionar foto</button>`;}
+function edFotos(k,titulo){const a=ed.fotos[k];return `<label>${titulo} (${a.length})</label><div class="fotos">${a.map((d,i)=>`<div><span class="fotoMini"><img src="${esc(L.imgSrc(d))}" alt="" data-ver="${k}" data-i="${i}">`+fotoOlhoHTML()+`</span><div class="row" style="gap:4px"><button class="big" data-eft="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">🔄 Trocar</button><button class="big red" data-efr="${k}" data-i="${i}" style="margin:2px 0;font-size:15px;padding:6px">❌ Remover</button></div></div>`).join('')}</div><button class="big alt" data-efa="${k}">📷 Adicionar foto</button>`;}
 function edTela(){const rec=ed.tipo==='recebimento',lst=rec?fornecedores():clientes(),inp=(k,lb,ex)=>`<label>${lb}</label><input data-ec="${k}" value="${esc(ed.c[k])}" ${ex||''}>`;
   $('#main').innerHTML=`<button class="big alt" id="edX">⬅ Cancelar</button><div class="card"><b style="font-size:21px">✏️ Editar registro</b>
   <label>${rec?'Cliente':'Transportadora'}</label><input data-ec="cliente" list="edLst" value="${esc(ed.c.cliente)}"><datalist id="edLst">${lst.map(c=>`<option value="${esc(c)}">`).join('')}</datalist>
@@ -538,7 +538,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.59';const APP_ATUALIZADO='14/11/2026';function pintarRodapeInfo(){const v=document.getElementById('ftV');if(v)v.textContent=APP_V;const d=document.getElementById('ftData');if(d)d.textContent=APP_ATUALIZADO;const s=document.getElementById('ftSobre');if(s&&window.L&&L.sobreFrases)s.innerHTML=L.sobreFrases.map(x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>');}document.addEventListener('DOMContentLoaded',pintarRodapeInfo);let updNova=null,updChecou=0;
+const APP_V='4.3.60';const APP_ATUALIZADO='15/11/2026';function pintarRodapeInfo(){const v=document.getElementById('ftV');if(v)v.textContent=APP_V;const d=document.getElementById('ftData');if(d)d.textContent=APP_ATUALIZADO;const s=document.getElementById('ftSobre');if(s&&window.L&&L.sobreFrases)s.innerHTML=L.sobreFrases.map(x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>');}document.addEventListener('DOMContentLoaded',pintarRodapeInfo);let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
@@ -649,7 +649,9 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(t.id==='expMes'){const m=mesAt;if(!doMes().length)return toast('Sem registros neste mês');const h=L.htmlMes(regs,m),n='qlog_'+m.replace('/','-')+'.html';toast('Gerando arquivo...');
     shareArquivo(h,n,'text/html');}
   else if(t.id==='salvar')salvar(false);else if(t.id==='salvarEnv')salvar(true);});
-openDB().then(x=>{db=x;return load();}).then(()=>{render();window.Nuvem&&Nuvem.iniciar();rascVerificar();}).catch(e=>{$('#main').textContent='Erro no banco: '+e;});
+// v4.3.60: a nuvem só liga depois de todos os scripts carregados (o banco do celular pode abrir antes do nuvem.js)
+const nuvemIniciar=()=>{window.Nuvem&&Nuvem.iniciar();};
+openDB().then(x=>{db=x;return load();}).then(()=>{render();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',nuvemIniciar,{once:true});else nuvemIniciar();rascVerificar();}).catch(e=>{$('#main').textContent='Erro no banco: '+e;});
 
 function isIOSSafari(){const u=navigator.userAgent,ios=/iPad|iPhone|iPod/.test(u)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   const st=navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);return ios&&/Safari/.test(u)&&!/CriOS|FxiOS|EdgiOS/.test(u)&&!st;}
@@ -747,8 +749,8 @@ function abrirSuporte(){const m=$('#modal');let img='';const N=window.Nuvem||{};
    <p style="color:#678;font-size:14px">A versão do app e o modelo do aparelho vão junto.</p>
    <button class="big ok" id="supEnv">📤 Enviar</button><button class="big alt" id="supX">Cancelar</button></div>`;m.classList.add('on');
   $('#supX').onclick=()=>m.classList.remove('on');$('#supFoto').onclick=()=>$('#supImg').click();
-  $('#supImg').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const r=new FileReader();r.onload=async()=>{img=await fotoLeve(String(r.result));
-    $('#supPrev').innerHTML=`<img src="${img}" style="max-width:100%;max-height:200px;margin:6px 0"><button class="big red" id="supTira">🗑 Tirar foto</button>`;$('#supTira').onclick=()=>{img='';$('#supPrev').innerHTML='';};};r.readAsDataURL(fl);};
+  $('#supImg').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const r=new FileReader();r.onload=async()=>{img=L.imgSrc(await fotoLeve(String(r.result)));if(!img){$('#supPrev').innerHTML='';return toast('Não deu para usar essa imagem');}
+    $('#supPrev').innerHTML=`<img src="${esc(img)}" style="max-width:100%;max-height:200px;margin:6px 0"><button class="big red" id="supTira">🗑 Tirar foto</button>`;$('#supTira').onclick=()=>{img='';$('#supPrev').innerHTML='';};};r.readAsDataURL(fl);};
   $('#supEnv').onclick=async()=>{const nome=$('#supNome').value.trim(),msg=$('#supMsg').value.trim();if(!nome)return toast('Escreva seu nome');if(!msg)return toast('Escreva a mensagem');
     const c=L.chamadoCriar({nome,msg,img,uid:N.uid||'',login:N.login||'',versao:APP_V,plataforma:L.probPlataforma(navigator.userAgent,!!window.AndroidScan),aparelho:navigator.userAgent,ts:Date.now()});
     const b=$('#supEnv');b.disabled=true;b.textContent='Enviando...';const ok=N.enviarChamado?await N.enviarChamado(c):false;
@@ -764,8 +766,8 @@ function reportarProblema(){const m=$('#modal');let img='';const tela=telaAnt;
    <button class="big ok" id="probEnv">📤 Enviar</button><button class="big alt" id="probX">Cancelar</button></div>`;m.classList.add('on');
   let fbT='erro';$('#fbTipo').onclick=ev=>{const b=ev.target.closest('[data-fb]');if(!b)return;fbT=b.dataset.fb;m.querySelectorAll('[data-fb]').forEach(x=>x.classList.toggle('on',x===b));$('#fbLbl').textContent=fbT==='melhoria'?'Qual a sua sugestão?':'O que aconteceu?';};
   $('#probX').onclick=()=>m.classList.remove('on');$('#probFoto').onclick=()=>$('#probImg').click();
-  $('#probImg').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const r=new FileReader();r.onload=async()=>{img=await fotoLeve(String(r.result));
-    $('#probPrev').innerHTML=`<img src="${img}" style="max-width:100%;max-height:200px;margin:6px 0"><button class="big red" id="probTira">🗑 Tirar foto</button>`;$('#probTira').onclick=()=>{img='';$('#probPrev').innerHTML='';};};r.readAsDataURL(fl);};
+  $('#probImg').onchange=ev=>{const fl=ev.target.files[0];if(!fl)return;const r=new FileReader();r.onload=async()=>{img=L.imgSrc(await fotoLeve(String(r.result)));if(!img){$('#probPrev').innerHTML='';return toast('Não deu para usar essa imagem');}
+    $('#probPrev').innerHTML=`<img src="${esc(img)}" style="max-width:100%;max-height:200px;margin:6px 0"><button class="big red" id="probTira">🗑 Tirar foto</button>`;$('#probTira').onclick=()=>{img='';$('#probPrev').innerHTML='';};};r.readAsDataURL(fl);};
   $('#probEnv').onclick=async()=>{const t0=$('#probTxt').value.trim();if(!t0)return toast(fbT==='melhoria'?'Escreva a sua sugestão':'Escreva o que aconteceu');const txt=fbT==='melhoria'?'[Melhoria] '+t0:t0;
     const N=window.Nuvem||{};const p=L.probCriar({txt,img,uid:N.uid||'',nome:N.nome||localStorage.getItem('nvNome')||'',versao:APP_V,plataforma:L.probPlataforma(navigator.userAgent,!!window.AndroidScan),
       aparelho:navigator.userAgent,tela,erros:JSON.parse(localStorage.getItem('errosApp')||'[]'),ts:Date.now()});
@@ -829,10 +831,10 @@ setTimeout(checarUpd,3000);
 
 // v4.2.8: Estorno a partir do registro de origem (coleta/saída)
 function estCab(){const o=f.origem&&regs.find(x=>x.id===f.origem);return `<div class="card" style="background:#fdeeee"><b>↩️ Estorno de:</b> ${o?esc(L.origemTxt(o)):'Sem registro de origem'}<button class="big alt" id="estTrocar">🔄 Trocar registro de origem</button></div>`;}
-function estPick(q){q=q||'';const v=L.estOrigens(regs,q);$('#main').innerHTML=tipoRow()+`<div class="card"><b style="font-size:21px">↩️ Estorno: escolha o registro de origem</b><label>Buscar por NF, transportadora ou placa</label><input id="estQ" inputmode="search" value="${esc(q)}"></div><div id="estLst">${v.map(r=>`<button class="big alt" data-orig="${r.id}" style="text-align:left">${esc(L.origemTxt(r))}</button>`).join('')||'<p>Nenhum registro encontrado.</p>'}</div><button class="big" data-orig="">✍️ Sem registro de origem</button>`;
-  const i=$('#estQ');i.oninput=()=>{const w=L.estOrigens(regs,i.value);$('#estLst').innerHTML=w.map(r=>`<button class="big alt" data-orig="${r.id}" style="text-align:left">${esc(L.origemTxt(r))}</button>`).join('')||'<p>Nenhum registro encontrado.</p>';};}
-function estLigacoes(r){let h='';if(r.tipo==='estorno'){const o=r.origem&&regs.find(x=>x.id===r.origem);h+=r.origem?`<div class="card" ${o?`data-open="${o.id}"`:''} style="background:#fdeeee;margin-top:8px">↩️ <b>Estorno de:</b> ${o?esc(L.origemTxt(o)):'registro não encontrado'}</div>`:'';}
-  else{for(const e of L.estornosDe(regs,r.id))h+=`<div class="card" data-open="${e.id}" style="background:#fdeeee;margin-top:8px">↩️ <b>Teve estorno</b> · ${esc(L.codigo(e))} · ${esc(L.fmtData(e.ts))}${e.motivo?' · '+esc(e.motivo):''}</div>`;}return h;}
+function estPick(q){q=q||'';const v=L.estOrigens(regs,q);$('#main').innerHTML=tipoRow()+`<div class="card"><b style="font-size:21px">↩️ Estorno: escolha o registro de origem</b><label>Buscar por NF, transportadora ou placa</label><input id="estQ" inputmode="search" value="${esc(q)}"></div><div id="estLst">${v.map(r=>`<button class="big alt" data-orig="${esc(r.id)}" style="text-align:left">${esc(L.origemTxt(r))}</button>`).join('')||'<p>Nenhum registro encontrado.</p>'}</div><button class="big" data-orig="">✍️ Sem registro de origem</button>`;
+  const i=$('#estQ');i.oninput=()=>{const w=L.estOrigens(regs,i.value);$('#estLst').innerHTML=w.map(r=>`<button class="big alt" data-orig="${esc(r.id)}" style="text-align:left">${esc(L.origemTxt(r))}</button>`).join('')||'<p>Nenhum registro encontrado.</p>';};}
+function estLigacoes(r){let h='';if(r.tipo==='estorno'){const o=r.origem&&regs.find(x=>x.id===r.origem);h+=r.origem?`<div class="card" ${o?`data-open="${esc(o.id)}"`:''} style="background:#fdeeee;margin-top:8px">↩️ <b>Estorno de:</b> ${o?esc(L.origemTxt(o)):'registro não encontrado'}</div>`:'';}
+  else{for(const e of L.estornosDe(regs,r.id))h+=`<div class="card" data-open="${esc(e.id)}" style="background:#fdeeee;margin-top:8px">↩️ <b>Teve estorno</b> · ${esc(L.codigo(e))} · ${esc(L.fmtData(e.ts))}${e.motivo?' · '+esc(e.motivo):''}</div>`;}return h;}
 
 // v4.2.9: rascunho automático (campos no localStorage, fotos no IndexedDB)
 const RASC_K='rascunho';let rascH=0,rascPend=true,rascPerg=false;

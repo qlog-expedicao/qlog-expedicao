@@ -3,6 +3,8 @@
 (function(){
 const N={on:false,uid:null,admin:false,membro:false,login:'',dono:false,papel:'',pedidos:[],acessos:[],janelaMin:Number(localStorage.getItem('janMin'))||60,nome:localStorage.getItem('nvNome')||'',erro:'',fs:null,unsub:[]};
 window.Nuvem=N;
+// v4.3.60: sem onerror dentro do HTML (CSP) — logo que falhar volta para o ícone
+document.addEventListener('error',ev=>{const t=ev.target;if(t&&t.tagName==='IMG'&&t.classList&&t.classList.contains('qwLogo')&&!t.dataset.fb){t.dataset.fb='1';t.src='icone.png';}},true);
 const cfgOk=()=>!!(window.QLOG_FB&&window.QLOG_FB.projectId&&window.firebase);
 N.ativo=()=>cfgOk();
 // v4.3.38: porta de acesso — com a nuvem configurada, ninguém usa o app sem acesso liberado (web/iPhone e Android, offline, voltar e recarregar)
@@ -10,9 +12,19 @@ const exige=()=>!!(window.QLOG_FB&&window.QLOG_FB.projectId);N.exige=exige;// v4
 const lembra=()=>localStorage.getItem('nvFoiMembro')==='1'&&localStorage.getItem('nvBloq')!=='1'&&localStorage.getItem('nvTrocado')!=='1'&&!N.negado;N.lembra=lembra;
 N.liberado=()=>!exige()||N.on||lembra();
 N.pode=()=>!cfgOk()||N.admin; // editar/apagar
-const docE=()=>N.fs.doc('config/equipe'),docS=()=>N.fs.doc('config/segredo'),docM=u=>N.fs.doc('membros/'+(u||N.uid));
+const docE=()=>N.fs.doc('config/equipe'),docM=u=>N.fs.doc('membros/'+(u||N.uid));
+// v4.3.60: App Check preparado e DESLIGADO (QLOG_APPCHECK.on=false). Android: ponte nativa AndroidAppCheck (ainda não existe no APK);
+// site/iPhone: reCAPTCHA Enterprise; debug só para teste. Sem chave ou sem SDK: segue sem App Check (nada muda).
+const acEspera={};let acSeq=0;
+window.appCheckToken=(id,tok,exp)=>{const p=acEspera[id];if(!p)return;delete acEspera[id];if(tok)p.ok({token:String(tok),expireTimeMillis:Number(exp)||Date.now()+30*60000});else p.er(new Error('appcheck'));};
+function ligarAppCheck(){const c=window.QLOG_APPCHECK,ac=window.firebase&&firebase.appCheck,ponte=!!(window.AndroidAppCheck&&typeof AndroidAppCheck.pedir==='function');
+  const modo=L.appCheckModo(c,!!ac,ponte);if(modo==='off'||modo==='sem-sdk'||modo==='sem-chave')return modo;
+  try{let prov;
+    if(modo==='android')prov=new ac.CustomProvider({getToken:()=>new Promise((ok,er)=>{const id='ac'+(++acSeq);acEspera[id]={ok,er};AndroidAppCheck.pedir(id);setTimeout(()=>{if(acEspera[id]){delete acEspera[id];er(new Error('tempo'));}},20000);})});
+    else{if(modo==='debug')self.FIREBASE_APPCHECK_DEBUG_TOKEN=c.debug===true?true:String(c.debug);prov=new ac.ReCaptchaEnterpriseProvider(c.siteKey||'debug');}
+    firebase.appCheck().activate(prov,true);return modo;}catch(e){return 'erro';}}
 async function iniciar(){if(exige()&&!window.firebase){N.erro='não carregou';N.porta();return;}if(!cfgOk())return;
-  try{firebase.initializeApp(window.QLOG_FB);N.fs=firebase.firestore();
+  try{firebase.initializeApp(window.QLOG_FB);N.appCheck=ligarAppCheck();N.fs=firebase.firestore();
     try{N.fs.settings({experimentalAutoDetectLongPolling:true,merge:true});}catch(e){}
     try{await N.fs.enablePersistence({synchronizeTabs:false});}catch(e){}
     firebase.auth().onAuthStateChanged(async u=>{if(!u){try{await firebase.auth().signInAnonymously();}catch(e){N.erro='sem internet';N.porta();if(window.nvMudou)window.nvMudou();}return;}
@@ -27,9 +39,14 @@ async function papel(){N.admin=false;N.membro=false;let negado=false,doCache=fal
     catch(e){if(/permission/i.test(String(e.code||e.message))){N.membro=false;negado=true;}}}
   N.papel=N.admin?'adm':(N.membro?'colab':'');N.negado=negado&&!N.admin&&!N.membro;N.cod=(N.admin||N.membro)&&N.login?L.codCadastro(N.login):(N.cod||'');
   if((N.admin||N.membro)&&N.travado()&&doCache&&!N.admin){N.on=false;N.travar();N.status();return;}
-  if(N.admin||N.membro){N.on=true;N.destravar();N.portaFim();localStorage.setItem(FOI,'1');await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();}
+  if(N.admin||N.membro){N.on=true;N.destravar();N.portaFim();localStorage.setItem(FOI,'1');await ouvir();if(N.admin&&!localStorage.getItem('nvMigrou'))migrar();if(N.admin)preencherUidAtivo();}
   else{if(N.trocado){N.on=false;N.telaTrocado();N.status();return;}N.on=false;if(N.travado()||(negado&&localStorage.getItem(FOI)))N.travar();else N.pedirEntrada();N.porta();}
   N.status();try{if(window.QlogScriptsAposPapel)QlogScriptsAposPapel(N);}catch(e){}}
+// v4.3.60: um celular por cadastro — ADM preenche logins/{u}.uidAtivo de quem já usa o app (só quando há exatamente 1 celular ativo)
+let m2Feito=false;async function preencherUidAtivo(){if(m2Feito||!N.fs)return;m2Feito=true;
+  try{const [ls,ms]=await Promise.all([N.fs.collection('logins').get(),N.fs.collection('membros').get()]);
+    const l=L.m2Preencher(ls.docs.map(d=>Object.assign({u:d.id},d.data())),ms.docs.map(d=>Object.assign({uid:d.id},d.data())),{dono:!!N.dono,donoLogin:N.donoLogin||''});
+    if(!l.length)return;const b=N.fs.batch();l.forEach(a=>b.update(N.fs.doc('logins/'+a.u),{uidAtivo:a.uid}));await b.commit();}catch(e){}}
 // v4.3.29: trava de segurança — membro bloqueado/removido pelo ADM não usa mais o app (fica salvo, vale offline e ao reabrir)
 const TRAVA='nvBloq',FOI='nvFoiMembro';
 
@@ -47,7 +64,7 @@ N.ligarRodape=function(root){const box=root&&root.querySelector('.nvAjuda');if(!
 N.recarregarPagina=async function(){try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
   location.replace(location.pathname+'?v='+Date.now());};
 N.abrirReportar=function(tela){const m=document.getElementById('modal');if(!m)return;const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
-  const nome0=(N.nome||localStorage.getItem('nvNome')||'').replace(/"/g,'&quot;');
+  const nome0=L.escHTML(N.nome||localStorage.getItem('nvNome')||'');
   const rotulo={bloqueado:'bloqueado',identificacao:'identificação',trocado:'outro celular',espera:'aguardando ADM'}[tela]||tela||'acesso';
   m.dataset.nv='1';m.innerHTML=`<div class="qwel nvRep"><div class="qwTop"><span class="nvRepIc">${ti('suporte')}</span><b class="qwH">Reportar um problema</b><small class="qwSub">Descreva o que aconteceu. Abrimos o e-mail no seu aparelho.</small></div>
    <label for="ajN">Seu nome (opcional)</label><input id="ajN" maxlength="40" value="${nome0}" autocomplete="name">
@@ -71,7 +88,7 @@ N.travado=()=>cfgOk()&&localStorage.getItem(TRAVA)==='1';
 N.travar=()=>{localStorage.setItem(TRAVA,'1');document.body&&document.body.classList.add('travado');let t=document.getElementById('nvTrava');
   const m=document.getElementById('modal');if(m&&!(m.classList.contains('on')&&m.dataset.nv)){m.classList.remove('on');delete m.dataset.nv;}
   if(t)return;const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';t=document.createElement('div');t.id='nvTrava';t.setAttribute('role','alertdialog');
-  t.innerHTML=`<div class="qwel nvTrCx"><div class="qwTop"><img src="marca.png" alt="Qlog" class="qwLogo" onerror="this.src='icone.png'"><span class="nvTrIc">${ti('bloquear')}</span><b class="qwH">Seu acesso foi bloqueado ou removido pelo ADM</b><small class="qwSub">Fale com o ADM para liberar de novo</small></div>
+  t.innerHTML=`<div class="qwel nvTrCx"><div class="qwTop"><img src="marca.png" alt="Qlog" class="qwLogo"><span class="nvTrIc">${ti('bloquear')}</span><b class="qwH">Seu acesso foi bloqueado ou removido pelo ADM</b><small class="qwSub">Fale com o ADM para liberar de novo</small></div>
    <button class="big ok" id="nvTrOk">${ti('usuario')} Entrar com outro acesso</button>${N.rodapeAjuda('bloqueado')}`;
   document.body.appendChild(t);N.ligarRodape(t);
   // Outro acesso: limpa a sessão deste celular e volta à identificação (Pedir acesso). Quem já tem sessão liberada não passa por aqui.
@@ -125,33 +142,20 @@ N.portaFim=()=>{const p=document.getElementById('nvPorta');if(p)p.remove();docum
 if(exige())N.porta();
 window.addEventListener('pageshow',()=>{if(exige()&&!N.on)N.porta();});
 N.status=()=>{if(exige()&&!N.on)N.porta();setTimeout(()=>N.enviarFila&&N.enviarFila(),1500);N.checado=true;if(window.nvMudou)window.nvMudou();};
-// primeira abertura. v4.3.3: usuário + senha (criados pelo ADM em 👥 Equipe); a senha de acesso antiga continua valendo
+// primeira abertura. v4.3.3: usuário + senha (criados pelo ADM em 👥 Equipe). v4.3.60: a senha de acesso antiga (da equipe) não vale mais
 N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esperar();const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;
   // v4.3.8: primeira abertura (sem login salvo) já abre no ✍️ Criar meu acesso
   if(equipe===undefined&&N.existe!==false)return N.criarMeuAcesso();m.dataset.nv='1';
-  const cria=N.existe===false,velho=cria||equipe===true;const ic='<img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">';
-  if(velho)m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">Identifique-se para acesso</b>
-   <label>Seu nome</label><input id="nvN" value="${(N.nome||'').replace(/"/g,'&quot;')}" style="width:100%;font-size:20px">
-   <label>Senha de acesso</label><input id="nvS" type="password" autocomplete="off" style="width:100%;font-size:20px">
-   <p id="nvE" style="color:#c62828"></p>
-   <button class="big ok" id="nvOk"><img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">Entrar / Registrar</button>${cria?'':'<button class="big alt" id="nvAltModo">👤 Entrar com usuário e senha</button>'}${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
-  else m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">${ic}Entrar no Qlog</b>
+  const ic='<img src="icone.png" alt="QLog" style="height:1.2em;width:1.2em;vertical-align:-0.25em;margin-right:6px;border-radius:4px">';
+  m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:10px">${ic}Entrar no Qlog</b>
    <label>Usuário</label><input id="nvU" autocapitalize="none" autocomplete="username" style="width:100%;font-size:20px">
    <label>Senha</label><input id="nvS" type="password" autocomplete="current-password" style="width:100%;font-size:20px">
    <p id="nvE" style="color:#c62828"></p>
-   <button class="big ok" id="nvOk">✅ Entrar</button><button class="big" id="nvCriar">✍️ Criar meu acesso</button><button class="big alt" id="nvAltModo">🔑 Entrar com a senha de acesso</button>${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
+   <button class="big ok" id="nvOk">✅ Entrar</button><button class="big" id="nvCriar">✍️ Criar meu acesso</button>${N.on?'<button class="big alt" id="nvX">Agora não</button>':''}</div>`;
   m.classList.add('on');const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
   const nx=document.getElementById('nvX');if(nx)nx.onclick=fecha;
-  const tr=document.getElementById('nvAltModo');if(tr)tr.onclick=()=>{fecha();N.pedirEntrada(!velho);};
   const cr=document.getElementById('nvCriar');if(cr)cr.onclick=()=>{fecha();N.criarMeuAcesso();};
   document.getElementById('nvOk').onclick=async()=>{const s=document.getElementById('nvS').value;const er=document.getElementById('nvE');
-    if(velho){const nome=document.getElementById('nvN').value.trim();if(!nome)return er.textContent='Digite seu nome';if(!s)return er.textContent='Digite a senha';
-      const h=L.senhaHash(s);er.textContent='Conferindo...';
-      try{if(cria){const b=N.fs.batch();b.set(docE(),{admin:N.uid,criado:Date.now()});b.set(docS(),{hash:h});b.set(docM(),{nome,hash:h,bloq:false,ts:Date.now()});await b.commit();}
-        else await docM().set({nome,hash:h,bloq:false,ts:Date.now()});
-        N.nome=nome;localStorage.setItem('nvNome',nome);fecha();await papel();toast('✅ Conectado à equipe');
-      }catch(e){er.textContent=/permission/i.test(String(e.code||e.message))?'Senha errada ou celular bloqueado':'Sem internet. Tente de novo.';}
-      return;}
     const u=L.loginNorm(document.getElementById('nvU').value);if(!u)return er.textContent='Digite seu usuário';if(!s)return er.textContent='Digite a senha';
     er.textContent='Conferindo...';
     try{await docM().set({nome:u,login:u,hash:L.loginHash(u,s),bloq:false,ts:Date.now()});fecha();await papel();toast('✅ Bem-vindo! Você entrou como '+(N.admin?'ADM':'colaborador'));}
@@ -170,7 +174,7 @@ async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();setTim
   if(N.admin){ouvirAvisos();ouvirProblemas();ouvirChamados();ouvirPedidos();ouvirAcessos();ouvirCelulares();}else{N.celulares=[];N.avisos=[];N.problemas=[];N.chamados=[];N.pedidos=[];N.acessos=[];sinoMostrar();ouvirMeusPedidos();}
   ouvirAjustes();ouvirMeuAcesso();
   await ouvirArquivo();
-  N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{for(const ch of q.docChanges()){const d=ch.doc.data();d.id=ch.doc.id;
+  N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{for(const ch of q.docChanges()){if(!L.regIdOk(ch.doc.id))continue;const d=L.regLimpo(ch.doc.data());d.id=ch.doc.id;
       let loc=null;try{loc=await tx('readonly',s=>s.get(d.id));}catch(e){}if(!loc)loc=regs.find(r=>r.id===d.id);
       if(ch.type==='removed'){if(!L.manterAoRemover(loc,N.feitos))await tx('readwrite',s=>s.delete(d.id));continue;}
       if(N.admin&&('autor' in d)){try{await ch.doc.ref.update({autor:firebase.firestore.FieldValue.delete()});}catch(e){}}
@@ -244,7 +248,6 @@ async function migrar(){try{for(const r of regs){if(!r.nuvem)await N.fs.doc('reg
   for(const k of ['clientes','fornecedores']){const l=JSON.parse(localStorage.getItem(k)||'[]');if(l.length)await N.fs.doc('listas/'+k).set({nomes:l});}
   localStorage.setItem('nvMigrou','1');toast('☁️ Dados antigos enviados para a nuvem');}catch(e){}}
 // administrador
-N.trocarSenha=async s=>{const h=L.senhaHash(s);const b=N.fs.batch();b.set(docS(),{hash:h});if(!N.login)b.set(docM(),{hash:h},{merge:true});await b.commit();};
 N.membros=async()=>(await N.fs.collection('membros').get()).docs.map(d=>Object.assign({uid:d.id},d.data()));
 N.protegeDono=x=>{if(!N.dono&&N.ehDono(x))throw new Error('dono');};
 N.bloquear=async(uid,v)=>{N.protegeDono({uid});return docM(uid).update({bloq:!!v});};
@@ -263,7 +266,7 @@ N.senhaLogin=async(u,senha)=>{N.protegeDono({u});return N.fs.doc('loginSeg/'+u).
 // v4.3.47: Equipe sem Celulares/senha antiga; luz piscante online/offline por cadastro
 N.painel=async(box)=>{const m=document.getElementById('modal');const A=box||m;let ms=[],ls=[];try{[ms,ls]=await Promise.all([N.membros(),N.logins()]);}catch(e){return toast('Sem internet ou regras da nuvem ainda não atualizadas');}
   {const d=ms.find(x=>x.uid===N.adminUid);if(d)N.donoLogin=d.login||'';}ms=N.esconde(ms);ls=N.esconde(ls);
-  const e=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');ls.sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
+  const e=L.escHTML;ls.sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
   // v4.3.48: luz = presença de verdade (sinal da nuvem nos últimos 2 min), não só ter celular liberado
   const on=L.loginsOnline(ms,Date.now());if(N.on&&N.login)on.add(N.login);
   A.innerHTML=`<div class="eqp" style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">👥 Equipe</b>
@@ -295,8 +298,16 @@ N.confirmarTodos=async()=>{const ids=N.avisos.map(a=>a.id);for(let i=0;i<ids.len
 // v4.3.1: 🐞 problemas relatados — qualquer celular do app envia; só o dono da equipe vê e apaga
 N.problemas=[];
 const filaP=()=>{try{return JSON.parse(localStorage.getItem('probFila')||'[]');}catch(e){return [];}};
+// v4.3.60: relato/chamado com limite de 1 por minuto por celular (limites/{uid}_p ou _c, hora do servidor).
+// Quem só pediu acesso manda o usuário do pedido (pendU) para as regras conferirem. Regras antigas (sem limites): jeito antigo.
+async function criarComLimite(col,suf,dados){const d=Object.assign({},dados);delete d.pendU;const pd=pendGet();if(pd&&!pd.novo&&pd.u&&!N.on&&L.loginOk(pd.u))d.pendU=pd.u;
+  const b=N.fs.batch();b.set(N.fs.doc('limites/'+N.uid+'_'+suf),{ts:firebase.firestore.FieldValue.serverTimestamp()});b.set(N.fs.collection(col).doc(),d);
+  try{await b.commit();return;}catch(e){if(!/permission/i.test(String(e.code||e.message)))throw e;}
+  const v=Object.assign({},d);delete v.pendU;await N.fs.collection(col).add(v);}
+// fila: se não foi (limite de 1 por minuto ou sem internet), tenta de novo em ~1 minuto (até 30 vezes por abertura)
+let filaT=0,filaN=0;function filaDepois(){if(filaT||filaN>=30)return;filaN++;filaT=setTimeout(()=>{filaT=0;N.enviarFila();},65000);}
 N.enviarFila=async()=>{if(!N.fs||!N.uid||!navigator.onLine)return false;let f=filaP();if(!f.length)return true;
-  while(f.length){const p=Object.assign({},f[0],{quemUid:N.uid});if(!p.quem&&N.nome)p.quem=N.nome;try{await N.fs.collection('problemas').add(p);}catch(e){return false;}f.shift();localStorage.setItem('probFila',JSON.stringify(f));}return true;};
+  while(f.length){const p=Object.assign({},f[0],{quemUid:N.uid});if('img' in p&&!L.imgOk(p.img))delete p.img;if(!p.quem&&N.nome)p.quem=N.nome;try{await criarComLimite('problemas','p',p);}catch(e){filaDepois();return false;}f.shift();localStorage.setItem('probFila',JSON.stringify(f));}return true;};
 N.reportar=async p=>{if(!p)return false;try{localStorage.setItem('probFila',JSON.stringify(L.probFilaAdd(filaP(),p)));}catch(e){try{const q=Object.assign({},p);delete q.img;localStorage.setItem('probFila',JSON.stringify(L.probFilaAdd(filaP(),q)));}catch(x){}}
   if(!N.fs||!N.uid)return false;return await Promise.race([N.enviarFila(),new Promise(r=>setTimeout(()=>r(false),8000))]);};
 window.addEventListener('online',()=>N.enviarFila());
@@ -309,8 +320,8 @@ function probHTML(e){const l=(N.problemas||[]).filter(p=>p.tela!=='suporte');if(
   return '<b style="font-size:21px;display:block;margin:12px 0 6px">🐞 Problemas relatados</b>'+l.map(p=>`<div class="card" style="margin:6px 0;border-left:5px solid #c62828"><div style="font-size:18px;white-space:pre-wrap"><b>${e(p.txt)}</b></div>
    <small>${p.ts?L.fmtData(p.ts)+' às '+L.fmtHora(p.ts):''}${p.quem?' · '+e(p.quem):''}</small><details style="margin:6px 0"><summary>Detalhes</summary><small>Versão ${e(p.versao)} · ${e(p.plataforma)} · tela: ${e(p.tela)}<br>${e(p.aparelho)}</small>
    ${(p.erros||[]).length?'<ul style="margin:6px 0;padding-left:20px;font-size:13px">'+p.erros.map(x=>'<li>'+(x.ts?L.fmtHora(x.ts)+' ':'')+e(x.m)+(x.o?' ('+e(x.o)+')':'')+'</li>').join('')+'</ul>':'<p><small>Nenhum erro registrado.</small></p>'}</details>
-   ${p.img?`<img src="${e(p.img)}" style="max-width:100%;max-height:300px;margin:4px 0">`:''}<button class="big ok" data-probok="${e(p.id)}">✅ Resolvido</button></div>`).join('');}
-N.verAvisos=(box)=>{const m=document.getElementById('modal');if(!m)return;const A=box||m;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');if(!box)m.dataset.av='1';
+   ${L.imgOk(p.img)?`<img src="${e(p.img)}" style="max-width:100%;max-height:300px;margin:4px 0">`:''}<button class="big ok" data-probok="${e(p.id)}">✅ Resolvido</button></div>`).join('');}
+N.verAvisos=(box)=>{const m=document.getElementById('modal');if(!m)return;const A=box||m;const e=L.escHTML;if(!box)m.dataset.av='1';
   const fecha=()=>{if(box)return;m.classList.remove('on');delete m.dataset.av;};
   A.innerHTML=`<div style="max-height:85vh;overflow:auto">${acHTML(e)}<b style="font-size:22px;display:block;margin-bottom:8px">🔔 Alterações no histórico</b>
    ${N.avisos.length?N.avisos.map(a=>`<div class="card" style="margin:6px 0"><div style="font-size:18px"><b>${e(L.avisoTxt(a))}</b></div><small>${a.ts?L.fmtData(a.ts)+' às '+L.fmtHora(a.ts):''}</small>${(a.mud||[]).length?'<ul style="margin:6px 0;padding-left:20px">'+a.mud.map(x=>'<li>'+e(x)+'</li>').join('')+'</ul>':''}<button class="big ok" data-avok="${e(a.id)}">✅ Confirmar</button></div>`).join('')+'<button class="big ok" id="avTodos">✅ Confirmar todos</button>':'<p>Nenhuma alteração nova.</p>'}${pedHTML(e)}${probHTML(e)}
@@ -347,7 +358,7 @@ function ouvirMeusPedidos(){const vistos={};
     q.docChanges().forEach(c=>{const x=c.doc.data();
       if(c.type==='removed'&&x.estado==='aberto'&&!vistos[c.doc.id])toast('✅ Edição liberada: '+(x.codigo||''));
       else if(c.type!=='removed'&&x.estado==='recusado'&&!vistos[c.doc.id]){vistos[c.doc.id]=1;recusaAviso(c.doc.id,x);}});},()=>{}));}
-function recusaAviso(id,x){const m=document.getElementById('modal');if(!m)return;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function recusaAviso(id,x){const m=document.getElementById('modal');if(!m)return;const e=L.escHTML;
   const mostra=()=>{if(m.classList.contains('on'))return setTimeout(mostra,3000);
     m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:8px">❌ Pedido de edição recusado</b><p style="font-size:19px">O ADM recusou o seu pedido para editar <b>${e(x.codigo)}</b>.</p><p><small>${e(x.txt)}</small></p><button class="big ok" id="rcOk">Entendi</button></div>`;
     m.classList.add('on');document.getElementById('rcOk').onclick=async()=>{m.classList.remove('on');try{await N.fs.doc('pedidos/'+id).delete();}catch(e){}};};mostra();}
@@ -358,7 +369,7 @@ function pendLimpar(){localStorage.removeItem(PEND);if(N._pendOff){N._pendOff();
 N.criarMeuAcesso=()=>{const m=document.getElementById('modal');if(m&&m.dataset.nv){m.classList.remove('on');delete m.dataset.nv;}N.porta();const n=document.getElementById('poN');if(n&&!N.erro)try{n.focus({preventScroll:true});}catch(e){}};
 N.criarComSenha=()=>{const m=document.getElementById('modal');if(!m)return;m.dataset.nv='1';
   const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
-  m.innerHTML=`<div class="qwel"><div class="qwTop"><img src="marca.png" alt="Qlog" class="qwLogo" onerror="this.src='icone.png'"><b class="qwH">Bem-vindo ao Qlog Expedição</b><small class="qwSub">Crie seu acesso. O ADM libera e você já começa a usar.</small></div>
+  m.innerHTML=`<div class="qwel"><div class="qwTop"><img src="marca.png" alt="Qlog" class="qwLogo"><b class="qwH">Bem-vindo ao Qlog Expedição</b><small class="qwSub">Crie seu acesso. O ADM libera e você já começa a usar.</small></div>
    <label>Seu nome</label><input id="caN" autocomplete="name">
    <label>Usuário (sem espaço)</label><input id="caU" autocapitalize="none" autocomplete="username">
    <label>Senha (pelo menos 6)</label><input id="caS" type="password" autocomplete="new-password">
@@ -376,7 +387,7 @@ N.criarComSenha=()=>{const m=document.getElementById('modal');if(!m)return;m.dat
     catch(e){er.textContent=/permission/i.test(String(e.code||e.message))?'Esse usuário já existe ou já foi pedido. Escolha outro.':'Sem internet. Tente de novo.';return;}
     localStorage.setItem(PEND,JSON.stringify({u:p.u,nome:p.doc.nome,h:p.seg.hash}));N.nome=p.doc.nome;localStorage.setItem('nvNome',p.doc.nome);fecha();N.esperar();};};
 // tela de espera; quando o ADM decide, o pedido some da nuvem: se liberou, este celular entra sozinho; se recusou, avisa
-N.esperar=()=>{const pd=pendGet();if(!pd||!document.body)return;const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+N.esperar=()=>{const pd=pendGet();if(!pd||!document.body)return;const e=L.escHTML;
   // v4.3.29: espera em tela cheia (como a abertura), não fecha com o voltar
   const m=document.getElementById('modal');if(m){m.classList.remove('on');delete m.dataset.nv;}
   const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';let w=document.getElementById('nvEspera');if(!w){w=document.createElement('div');w.id='nvEspera';w.setAttribute('aria-label','Aguardando liberação');document.body.appendChild(w);}
@@ -404,7 +415,7 @@ async function checarPend(manual){const pd=pendGet();if(!pd||!N.fs||!N.uid||chec
     catch(x){if(/permission/i.test(String(x.code||x.message))){pendLimpar();recusado(pd);}else if(er)er.textContent='Sem internet. Tente de novo.';return;}
     pendLimpar();N.esperaFim();const m=document.getElementById('modal');m.classList.remove('on');delete m.dataset.nv;await papel();toast('✅ Acesso liberado! Você entrou como '+(N.admin?'ADM':'colaborador'));}
   finally{checando=false;}}
-function recusado(pd){N.esperaFim();const m=document.getElementById('modal');const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');m.dataset.nv='1';
+function recusado(pd){N.esperaFim();const m=document.getElementById('modal');const e=L.escHTML;m.dataset.nv='1';
   m.innerHTML=`<div><b style="font-size:22px;display:block;margin-bottom:8px">❌ Acesso recusado</b><p style="font-size:19px">O ADM recusou o pedido de acesso de <b>${e(pd.nome||pd.u)}</b>.</p><button class="big ok" id="reOk">Entendi</button></div>`;
   m.classList.add('on');document.getElementById('reOk').onclick=()=>{m.classList.remove('on');delete m.dataset.nv;N.criarMeuAcesso();};}
 // ADM: pedidos de acesso chegam no 🔔 (e na aba ⚙️ ADM) com 👷 Colaborador, ADM ou ❌ Recusar
@@ -421,17 +432,24 @@ function ouvirCelulares(){let primeiro=true;
 N.liberarCelular=async uid=>{const x=N.celulares.find(a=>a.uid===uid);if(!x)return;N.protegeDono(x);const l=await N.fs.doc('logins/'+x.u).get();
   if(!l.exists)throw new Error('sem cadastro');if(l.data().bloq)throw new Error('bloqueado');
   // chave nova do cadastro, gravada no cadastro e em todos os celulares liberados dele (ninguém vê)
-  const h=L.loginHash(x.u,sorte(24)),b=N.fs.batch();b.set(N.fs.doc('loginSeg/'+x.u),{hash:h});
+  const h=L.loginHash(x.u,sorte(24)),ms=(await N.fs.collection('membros').where('login','==',x.u).get()).docs;
   // v4.3.38: um celular ativo por cadastro — o anterior é desativado e mostra 'aberto em outro celular'
-  (await N.fs.collection('membros').where('login','==',x.u).get()).docs.forEach(d=>{if(d.id!==uid)b.update(d.ref,{hash:h,bloq:true,trocado:true});});
-  b.set(docM(uid),{nome:String(l.data().nome||x.nome).slice(0,60),login:x.u,hash:h,bloq:false,ts:Date.now()});b.delete(N.fs.doc('aparelhos/'+uid));await b.commit();};
+  // v4.3.60: no mesmo envio o cadastro passa a apontar para este celular (uidAtivo); regras antigas recusam o campo: vai sem ele
+  const vai=com=>{const b=N.fs.batch();b.set(N.fs.doc('loginSeg/'+x.u),{hash:h});ms.forEach(d=>{if(d.id!==uid)b.update(d.ref,{hash:h,bloq:true,trocado:true});});
+    b.set(docM(uid),{nome:String(l.data().nome||x.nome).slice(0,60),login:x.u,hash:h,bloq:false,ts:Date.now()});b.delete(N.fs.doc('aparelhos/'+uid));
+    if(com)b.update(N.fs.doc('logins/'+x.u),{uidAtivo:uid});return b.commit();};
+  try{await vai(true);}catch(e){if(!/permission/i.test(String(e.code||e.message)))throw e;await vai(false);}};
 N.bloquearCelular=async uid=>{const x=N.celulares.find(a=>a.uid===uid);if(!x)return;N.protegeDono(x);const b=N.fs.batch();
   b.set(docM(uid),{nome:String(x.nome||'').slice(0,60),bloq:true,ts:Date.now()});b.delete(N.fs.doc('aparelhos/'+uid));await b.commit();};
 function celHTML(e){const l=N.celulares||[];if(!l.length)return '';const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
   return l.map(c=>`<div class="card celAlerta"><div class="celTit">${ti('erro')} ${e(L.celTxt(c))}</div><small>${e(c.nome)} pediu acesso em um novo celular${c.ts?' · '+L.fmtData(c.ts)+' às '+L.fmtHora(c.ts):''}</small>
    <div class="row"><button class="big ok" data-celok="${e(c.uid)}">${ti('ok')} Liberar</button><button class="big red" data-celno="${e(c.uid)}">${ti('bloq')} Bloquear</button></div></div>`).join('');}
-N.aprovarAcesso=async(u,p)=>{const x=N.acessos.find(a=>a.u===u);if(!x)return;N.protegeDono(x);const b=N.fs.batch();
-  b.set(N.fs.doc('logins/'+u),{nome:String(x.nome||u).slice(0,60),papel:p==='adm'?'adm':'colab',bloq:false,ts:Date.now()});b.delete(N.fs.doc('pendentes/'+u));await b.commit();};
+N.aprovarAcesso=async(u,p)=>{const x=N.acessos.find(a=>a.u===u);if(!x)return;N.protegeDono(x);
+  const doc={nome:String(x.nome||u).slice(0,60),papel:p==='adm'?'adm':'colab',bloq:false,ts:Date.now()};
+  // v4.3.60: um celular por cadastro — o cadastro guarda qual celular (uid) está ativo; regras antigas não aceitam o campo: grava sem ele
+  const vai=d=>{const b=N.fs.batch();b.set(N.fs.doc('logins/'+u),d);b.delete(N.fs.doc('pendentes/'+u));return b.commit();};
+  if(L.uidOk(x.uid)){try{await vai(Object.assign({},doc,{uidAtivo:x.uid}));return;}catch(e){if(!/permission/i.test(String(e.code||e.message)))throw e;}}
+  await vai(doc);};
 N.recusarAcesso=async u=>{const b=N.fs.batch();b.delete(N.fs.doc('pendentes/'+u));b.delete(N.fs.doc('loginSeg/'+u));await b.commit();};
 function acHTML(e){const l=N.acessos||[];if(!l.length)return celHTML(e);
   return celHTML(e)+'<b style="font-size:21px;display:block;margin:0 0 6px">✍️ Pedidos de acesso</b>'+l.map(p=>`<div class="card" style="margin:6px 0;border-left:5px solid #3f8a5f"><div class="celTit">${e(L.celTxt(p))}</div><div style="font-size:19px"><b>${e(p.nome)}</b> <small>(cadastro novo)</small></div>
@@ -449,7 +467,7 @@ N.janelaMs=()=>L.janelaMs(N.janelaMin);
 N.salvarJanela=async min=>{if(!L.janelaOk(min))throw new Error('valor');await docE().update({janelaMin:Number(min)});N.janelaMin=Number(min);localStorage.setItem('janMin',String(min));};
 
 // v4.3.46: cartão da própria pessoa na Info — nome + ID (só este celular vê)
-N.euHTML=()=>{if(!N.on)return '';const e=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+N.euHTML=()=>{if(!N.on)return '';const e=L.escHTML;
   const nome=e(N.nome||N.login||'Este celular');const papel=L.papelNome(N.admin?'adm':'colab');
   const cod=e(N.cod||(N.login?L.codCadastro(N.login):''));
   return `<div class="card nvEu"><p class="nvEuNome">${window.Tema?Tema.ic('usuario'):''} <b>${nome}</b> · ${papel}</p>`
@@ -474,7 +492,7 @@ setInterval(()=>{N.pulso();N.luzes();},N.PULSO_MS);
 // 4.3.28: 🎧 Falar com o suporte — chamados (Firestore, plano grátis). Foto comprimida dentro do próprio documento.
 N.chamados=[];N.chamadosTodos=()=>L.chamadosLista(N.chamados,N.problemas);
 N.enviarChamado=async c=>{if(!c)return false;if(!N.fs||!N.uid)return false;c.quemUid=N.uid;if(N.login)c.login=N.login;
-  const tenta=async()=>{try{await N.fs.collection('chamados').add(c);return true;}catch(e){try{await N.fs.collection('problemas').add(L.chamadoParaProblema(c));return true;}catch(x){return false;}}};
+  const tenta=async()=>{try{await criarComLimite('chamados','c',c);return true;}catch(e){try{await criarComLimite('problemas','p',L.chamadoParaProblema(c));return true;}catch(x){return false;}}};
   return await Promise.race([tenta(),new Promise(r=>setTimeout(()=>r(false),10000))]);};
 N.notificar=(t,m)=>{try{if(window.AndroidNotif&&AndroidNotif.mostrar){AndroidNotif.mostrar(String(t),String(m||''));return;}
   if('Notification' in window&&Notification.permission==='granted'){const o={body:String(m||''),icon:'icone.png',tag:'qlog-chamado'};
@@ -488,11 +506,11 @@ function ouvirChamados(){let primeiro=true;
     if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites&&c.doc.data().status==='novo');avisarChamado(novos.map(c=>c.doc.data()));}
     primeiro=false;chAtualizar();},()=>{}));}
 N.resolverChamado=async c=>{if(c.reserva)await N.fs.doc('problemas/'+c.id).delete();else await N.fs.doc('chamados/'+c.id).update({status:'resolvido',resolvidoTs:Date.now()});};
-N.verChamados=box=>{const e=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');const l=N.chamadosTodos();const ic=window.Tema?Tema.ic('suporte'):'';
+N.verChamados=box=>{const e=L.escHTML;const l=N.chamadosTodos();const ic=window.Tema?Tema.ic('suporte'):'';
   box.innerHTML=`<b style="font-size:22px;display:block;margin-bottom:8px">${ic} Chamados</b>${l.length?l.map((c,i)=>`<div class="card cham" style="margin:6px 0;border-left:5px solid ${c.status==='novo'?'#e08a00':'#1b8a3a'}">
    <div style="font-size:18px"><b>${e(c.nome)}</b> <small>${c.status==='novo'?'· novo':'· resolvido'}</small></div><small>${c.ts?L.fmtData(c.ts)+' às '+L.fmtHora(c.ts):''}</small>
    <details style="margin:6px 0"${c.status==='novo'&&i===0?' open':''}><summary>Abrir</summary><div style="font-size:18px;white-space:pre-wrap;margin:6px 0">${e(c.msg)}</div>
-   ${c.img?`<img src="${e(c.img)}" alt="foto" style="max-width:100%;max-height:320px;margin:4px 0;border-radius:8px">`:''}
+   ${L.imgOk(c.img)?`<img src="${e(c.img)}" alt="foto" style="max-width:100%;max-height:320px;margin:4px 0;border-radius:8px">`:''}
    <small>Versão ${e(c.versao)} · ${e(c.plataforma)}${c.login?' · '+e(c.login):''}<br>${e(c.aparelho)}</small></details>
    ${c.status==='novo'?`<button class="big ok" data-chok="${i}">✅ Marcar como resolvido</button>`:''}</div>`).join(''):'<p>Nenhum chamado ainda.</p>'}`;
   box.querySelectorAll('[data-chok]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await N.resolverChamado(l[+b.dataset.chok]);toast('✅ Resolvido');}catch(x){b.disabled=false;toast('Sem internet');}});};

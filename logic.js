@@ -18,7 +18,7 @@ function confStatus(c){if(!c||!(c.lidos||[]).length)return '';if(c.lidos.some(x=
   const lid=c.lidos.map(x=>x.cod);return (c.esperados||[]).every(e=>lid.includes(normCod(e)))?'OK':'INCOMPLETA';}
 const PFX={coleta:'COL-',saida:'EXP-',recebimento:'REC-',estorno:'EST-'};
 const tipoNome=t=>t==='coleta'?'Coleta':t==='recebimento'?'Recebimento':t==='estorno'?'Estorno':'Saída';
-function codigo(r){return (PFX[r.tipo]||'EXP-')+String(r.seq||0).padStart(4,'0');}
+function codigo(r){const p=Object.prototype.hasOwnProperty.call(PFX,r.tipo)?PFX[r.tipo]:'EXP-',n=Math.max(0,Math.floor(Number(r.seq)||0));return p+String(n).padStart(4,'0');}
 function proxSeq(regs,tipo){return regs.filter(r=>r.tipo===tipo).reduce((m,r)=>Math.max(m,r.seq||0),0)+1;}
 // v2.8 Recebimento: itens {cod,qtd}; lista de SKU esperada pode chegar depois
 const codItem=s=>String(s==null?'':s).trim();
@@ -467,14 +467,14 @@ function errosAdd(l,e,ts){l=Array.isArray(l)?l.slice():[];const m=String((e&&e.m
 function probCriar(o){o=o||{};const t=String(o.txt||'').trim().slice(0,PROB_TXT_MAX);if(!t)return null;
   const p={txt:t,quemUid:String(o.uid||''),quem:String(o.nome||'').slice(0,60),versao:String(o.versao||''),plataforma:String(o.plataforma||'').slice(0,40),
     aparelho:String(o.aparelho||'').slice(0,300),tela:String(o.tela||'').slice(0,40),erros:(o.erros||[]).slice(-ERROS_MAX).map(x=>({m:String(x.m||'').slice(0,300),o:String(x.o||'').slice(0,120),ts:Number(x.ts)||0})),ts:Number(o.ts)||Date.now()};
-  if(o.img&&typeof o.img==='string'&&o.img.length<PROB_IMG_MAX)p.img=o.img;return p;}
+  if(imgOk(o.img)&&o.img.length<PROB_IMG_MAX)p.img=o.img;return p;}
 function probFilaAdd(f,p){f=Array.isArray(f)?f.slice():[];if(p)f.push(p);return f.slice(-PROB_FILA_MAX);}
 function probPlataforma(ua,android){ua=String(ua||'');if(android)return 'Android (app)';if(/iPhone|iPad|iPod/.test(ua))return 'iPhone';if(/Android/.test(ua))return 'Android (site)';return 'Navegador';}
 
 // 4.3.28: chamados do suporte (sem telefone; só nome, mensagem, foto opcional e dados do aparelho)
 function chamadoCriar(o){o=o||{};const nome=String(o.nome||'').trim().slice(0,60),msg=String(o.msg||'').trim().slice(0,2000);if(!nome||!msg)return null;
   const c={nome,msg,quemUid:String(o.uid||''),versao:String(o.versao||''),plataforma:String(o.plataforma||''),aparelho:String(o.aparelho||'').slice(0,300),status:'novo',ts:Number(o.ts)||Date.now()};
-  if(o.login)c.login=String(o.login).slice(0,30);if(o.img&&String(o.img).length<400000)c.img=String(o.img);return c;}
+  if(o.login)c.login=String(o.login).slice(0,30);if(imgOk(o.img)&&o.img.length<400000)c.img=o.img;return c;}
 // jeito reserva (enquanto as regras novas não estão publicadas): o chamado vai como problema com tela 'suporte'
 function chamadoParaProblema(c){const p={txt:('[Suporte] '+c.nome+': '+c.msg).slice(0,2000),quemUid:c.quemUid,quem:c.nome,versao:c.versao,plataforma:c.plataforma,aparelho:c.aparelho,tela:'suporte',ts:c.ts};if(c.img)p.img=c.img;return p;}
 function chamadoDeProblema(p){const t=String(p.txt||'').replace(/^\[Suporte\]\s*/,'');const i=t.indexOf(': ');return {id:p.id,reserva:true,nome:p.quem||(i>0?t.slice(0,i):''),msg:p.quem&&t.startsWith(p.quem+': ')?t.slice(p.quem.length+2):t,img:p.img,versao:p.versao,plataforma:p.plataforma,aparelho:p.aparelho,status:'novo',ts:p.ts};}
@@ -526,9 +526,12 @@ function scriptsPacoteOk(p){
   if(p.codigo.length>SCRIPTS_MAX)return {ok:false,erro:'grande'};
   return {ok:true};
 }
+function temCSP(){try{return typeof document!=='undefined'&&!!document.querySelector('meta[http-equiv="Content-Security-Policy"]');}catch(e){return false;}}
 function scriptsSintaxeOk(p){
   const v=scriptsPacoteOk(p);if(!v.ok)return v;
   if(/\.css$/.test(p.arquivo))return {ok:true};
+  // v4.3.60: com a CSP (sem unsafe-eval) não dá para conferir aqui; se o script de teste der erro ao carregar, ele volta ao original sozinho
+  if(temCSP())return {ok:true,semChecagem:true};
   try{new Function(p.codigo);return {ok:true};}
   catch(e){return {ok:false,erro:'sintaxe',detalhe:String(e&&e.message||e)};}
 }
@@ -618,5 +621,43 @@ const sobreFrases=['+QiDok registra e confere a saída das mercadorias: notas, v
 function sobreApp(){return '<div class="nvSobre" role="note"><p>'+sobreFrases[0]+'</p><p>'+sobreFrases[1]+'</p></div>';}
 function sobreTxt(){return sobreFrases.join(' ');}
 function dataAtualizadaOk(s){return /^\d{2}\/\d{2}\/\d{4}$/.test(String(s||''));}
-const L={listaEscrever,listaDaNuvem,nomesDosRegistros,naNuvem,ONLINE_MS,estaOnline,loginsOnline,pendentesNuvem,shareFotos,identPedido,regChave,codCadastro,celTxt,chamadoCriar,chamadoParaProblema,chamadoDeProblema,chamadosLista,chamadosNovos,alternar,JANELA_MS,JANELA_OPCOES,janelaOk,janelaMs,janelaNome,acessoPedido,acessoTxt,REG_FIXOS,ehMeu,criadoBase,dentroJanela,limiteEdicao,podePedir,loginNorm,loginValido,loginHash,papelNome,pedidoCriar,pedidoTxt,ERROS_MAX,PROB_TXT_MAX,PROB_FILA_MAX,PROB_IMG_MAX,errosAdd,probCriar,probFilaAdd,probPlataforma,SCAN_MODOS,FORMATOS_BARRA,scanModoOk,scanChave,formatosModo,zxFormatosModo,modoAceitaFormato,candsModo,RASC_FOTOS,rascTem,rascSeparar,rascJuntar,estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,LEITOR_GAP,LEITOR_RAPIDO,LEITOR_PAUSA,LEITOR_MIN,leitorEnter,leitorTab,leitorChar,leitorTecla,leitorPausa,leitorQuebra,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,FOTO_VER_LAB,FOTO_VER_ORDEM,fotosLista,fotoVerIdx,fotosFaltando,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes,SCRIPTS_ARQS,SCRIPTS_KEY,SCRIPTS_TESTOU,SCRIPTS_PEDIDO,SCRIPTS_FALHOU,SCRIPTS_VOLTA,SCRIPTS_MAX,SCRIPTS_PARTES,scriptsESuperAdm,scriptsPodeVer,scriptsArqOk,scriptsPacoteOk,scriptsSintaxeOk,scriptsLerTeste,scriptsGuardarTeste,scriptsMarcarTestou,scriptsJaTestou,scriptsLimparTeste,scriptsDeveAplicar,scriptsPodeEnviar,scriptsMontarPedido,scriptsFiltrarPartes,scriptsPedidoTxt,scriptsLinhas,scriptsEsc,scriptsCodigoHTML,scriptsMesmoConteudo,scriptsPediuLimpar,UPD_TENTOU_KEY,updJaTentou,updMarcarTentou,updPodeAuto,sobreFrases,sobreApp,sobreTxt,dataAtualizadaOk};
+// v4.3.60: segurança — texto da nuvem nunca vira código na tela (A1/A2)
+function escHTML(v){return String(v==null?'':v).replace(/[&<>"'`]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));}
+const IMG_RE=/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+const IMG_MAX=20000000;
+// foto/print só entra na tela se for uma imagem de verdade (data:image jpeg/png/webp em base64); senão, nada
+function imgOk(v){return typeof v==='string'&&v.length<IMG_MAX&&IMG_RE.test(v);}
+function imgSrc(v){return imgOk(v)?v:'';}
+const REG_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
+function regIdOk(id){return typeof id==='string'&&REG_ID_RE.test(id);}
+const TIPOS_OK=['coleta','saida','recebimento','estorno'];
+function tipoOk(t){return TIPOS_OK.includes(t);}
+const num=v=>{const n=Number(v);return Number.isFinite(n)?n:0;};
+const txt=v=>v==null?'':String(v);
+// registro que veio da nuvem: números viram números e listas viram listas (sem mudar o que já é certo)
+function regLimpo(d){if(!d||typeof d!=='object')return d;const o=Object.assign({},d);
+  if('id' in o)o.id=txt(o.id);if('tipo' in o)o.tipo=txt(o.tipo);
+  for(const k of ['seq','volumes','ts','n_fotos','n_romaneio','n_caminhao','fotosTs','editadoEm','criadoMs','liberadoMs'])if(k in o&&o[k]!=null&&typeof o[k]!=='object')o[k]=num(o[k]);
+  if('seq' in o)o.seq=Math.max(0,Math.floor(num(o.seq)));
+  for(const k of ['cliente','obs','motorista','placa','motivo','origem','autorUid','autorLogin'])if(k in o&&o[k]!=null)o[k]=txt(o[k]);
+  if('nfs' in o)o.nfs=Array.isArray(o.nfs)?o.nfs.map(txt):[];
+  if(o.vtipos&&typeof o.vtipos==='object')o.vtipos={palete:num(o.vtipos.palete),volume:num(o.vtipos.volume)};
+  const itens=l=>Array.isArray(l)?l.filter(x=>x&&typeof x==='object').map(x=>Object.assign({},x,{cod:txt(x.cod),qtd:num(x.qtd)})):l==null?l:[];
+  if('itens' in o)o.itens=itens(o.itens);if('skuEsp' in o)o.skuEsp=itens(o.skuEsp);
+  if(o.conf&&typeof o.conf==='object'){const c=o.conf;o.conf={esperados:Array.isArray(c.esperados)?c.esperados.map(txt):[],
+    lidos:Array.isArray(c.lidos)?c.lidos.filter(x=>x&&typeof x==='object').map(x=>{const y=Object.assign({},x,{cod:txt(x.cod),ok:!!x.ok});if('n' in x)y.n=num(x.n);if('ts' in x)y.ts=num(x.ts);return y;}):[]};}
+  return o;}
+// v4.3.60: um celular por cadastro (logins/{u}.uidAtivo)
+const LOGIN_RE=/^[a-z0-9][a-z0-9._-]{2,29}$/;
+function loginOk(u){return typeof u==='string'&&LOGIN_RE.test(u);}
+function uidOk(u){return typeof u==='string'&&u.length>0&&u.length<=128&&/^[A-Za-z0-9_-]+$/.test(u);}
+// quais cadastros recebem uidAtivo agora: sem uidAtivo, não bloqueados, com exatamente 1 celular ativo (não bloqueado, não trocado); o do dono só pelo dono
+function m2Preencher(logins,membros,o){o=o||{};const r=[];
+  (logins||[]).forEach(l=>{if(!l||!loginOk(l.u)||l.bloq===true||('uidAtivo' in l))return;if(o.donoLogin&&l.u===o.donoLogin&&!o.dono)return;
+    const at=(membros||[]).filter(m=>m&&m.login===l.u&&m.bloq!==true&&!m.trocado&&uidOk(m.uid));if(at.length===1)r.push({u:l.u,uid:at[0].uid});});
+  return r;}
+// v4.3.60: App Check — qual jeito usar (fica desligado até existirem as chaves no Firebase)
+function appCheckModo(c,temSdk,temPonte){if(!c||c.on!==true)return 'off';if(!temSdk)return 'sem-sdk';
+  if(temPonte)return 'android';if(c.debug)return 'debug';if(typeof c.siteKey==='string'&&/^[A-Za-z0-9_-]{20,}$/.test(c.siteKey))return 'recaptcha';return 'sem-chave';}
+const L={appCheckModo,temCSP,loginOk,uidOk,m2Preencher,escHTML,IMG_RE,imgOk,imgSrc,regIdOk,REG_ID_RE,TIPOS_OK,tipoOk,regLimpo,listaEscrever,listaDaNuvem,nomesDosRegistros,naNuvem,ONLINE_MS,estaOnline,loginsOnline,pendentesNuvem,shareFotos,identPedido,regChave,codCadastro,celTxt,chamadoCriar,chamadoParaProblema,chamadoDeProblema,chamadosLista,chamadosNovos,alternar,JANELA_MS,JANELA_OPCOES,janelaOk,janelaMs,janelaNome,acessoPedido,acessoTxt,REG_FIXOS,ehMeu,criadoBase,dentroJanela,limiteEdicao,podePedir,loginNorm,loginValido,loginHash,papelNome,pedidoCriar,pedidoTxt,ERROS_MAX,PROB_TXT_MAX,PROB_FILA_MAX,PROB_IMG_MAX,errosAdd,probCriar,probFilaAdd,probPlataforma,SCAN_MODOS,FORMATOS_BARRA,scanModoOk,scanChave,formatosModo,zxFormatosModo,modoAceitaFormato,candsModo,RASC_FOTOS,rascTem,rascSeparar,rascJuntar,estOrigens,origemTxt,estDeOrigem,estornosDe,avisoPrecisa,avisoMudancas,avisoCriar,avisoTxt,APK_URL,SITE_URL,versaoNum,versaoNova,baixouOk,LEITURAS,estavel,estavelMulti,LEITOR_GAP,LEITOR_RAPIDO,LEITOR_PAUSA,LEITOR_MIN,leitorEnter,leitorTab,leitorChar,leitorTecla,leitorPausa,leitorQuebra,longeTxt,longeBar,corrigirOCR,ROM,romRegioes,juntarPalavras,romJuntar,romAplicar,nfsTxt,fotosTxt,acharPlacas,semAcento,parecido,acharNaLista,limparPrivado,confAdd,confResumo,acharPlaca,acharNFs,acharQtd,lerRomaneio,preencherVazios,renomearNome,regsRenomear,vtNorm,volTotal,volTxt,normCod,parseCods,conferir,confStatus,codigo,proxSeq,fmtData,fmtHora,parseNFs,resumo,filtrar,relatorio,csv,validar,mesKey,meses,htmlMes,extrairCods,casarEsperado,tipoNome,addItem,itensTot,parseSkuLista,skuTexto,conferirSku,recStatus,locNorm,parseLocLista,locCasa,locPrep,locPrevia,locLinha,ocrLinhas,sha256,senhaHash,regNuvem,semAutor,regMescla,podeEditar,editadoTxt,fotoOp,regEditar,editValidar,FOTO_CAMPOS,FOTO_ALVO,tamDataUrl,leveTentativas,fotoSig,fotoDocs,fotosDeDocs,FOTO_VER_LAB,FOTO_VER_ORDEM,fotosLista,fotoVerIdx,fotosFaltando,precisaFotos,fotosSync,mesId,mesArquivar,paraLimpar,manterAoRemover,nomeMes,pastaReg,arquivoItens,crc32,utf8,b64bytes,bytesB64,Zip,itemBytes,SCRIPTS_ARQS,SCRIPTS_KEY,SCRIPTS_TESTOU,SCRIPTS_PEDIDO,SCRIPTS_FALHOU,SCRIPTS_VOLTA,SCRIPTS_MAX,SCRIPTS_PARTES,scriptsESuperAdm,scriptsPodeVer,scriptsArqOk,scriptsPacoteOk,scriptsSintaxeOk,scriptsLerTeste,scriptsGuardarTeste,scriptsMarcarTestou,scriptsJaTestou,scriptsLimparTeste,scriptsDeveAplicar,scriptsPodeEnviar,scriptsMontarPedido,scriptsFiltrarPartes,scriptsPedidoTxt,scriptsLinhas,scriptsEsc,scriptsCodigoHTML,scriptsMesmoConteudo,scriptsPediuLimpar,UPD_TENTOU_KEY,updJaTentou,updMarcarTentou,updPodeAuto,sobreFrases,sobreApp,sobreTxt,dataAtualizadaOk};
 if(typeof module!=='undefined')module.exports=L; else root.L=L;})(this);
