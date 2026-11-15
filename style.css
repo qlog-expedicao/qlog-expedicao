@@ -467,3 +467,12 @@ html[data-tema=escuro] .dspNota,html[data-tema=escuro] .dspHint{color:#8a9bab}
 #scrTesteBan{position:sticky;top:0;z-index:8;background:#1b8a3a;color:#fff;padding:8px 12px;font-size:14px;font-weight:bold;display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:100%}
 #scrTesteBan button{border:0;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:bold;background:#fff;color:#1b8a3a;margin:0;width:auto}
 html[data-tema=retro] #scrTesteBan{background:#6c8a3a;color:#fff8ee}
+/* v4.3.61: identificação — 'Reportar um problema' fora do cartão, no espaço vazio logo acima do resumo (sem linha) */
+#nvPorta .nvAjFora{margin-top:auto;padding-top:12px;border-top:0}#nvPorta .nvAjFora+.nvSobre{margin-top:0}
+/* v4.3.61: fundo do galpão na identificação — cor suave que acompanha o tema; drones flutuam devagar (sem movimento se o celular pedir) */
+#nvPorta .poGalpao{color:#3a4651}
+html[data-tema=escuro] #nvPorta .poGalpao{color:#c5d0da;opacity:.75}
+html[data-tema=retro] #nvPorta .poGalpao{color:#5a4030}
+#nvPorta .poDr{animation:poDrone 3.2s ease-in-out infinite}#nvPorta .poDr2{animation-delay:-1.1s}#nvPorta .poDr3{animation-delay:-2.2s}
+@keyframes poDrone{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){#nvPorta .poDr{animation:none}}
