@@ -56,35 +56,70 @@ function ajDest(){return String.fromCharCode.apply(null,_ajC.map(function(c){ret
 // v4.3.57: resumo profissional vai no rodapé (letra menor, no fundo da tela, sem sobrepor o cartão)
 // v4.3.59: uma fonte só (L.sobreFrases / L.sobreApp) — também o rodapé da Info
 N.sobreApp=function(){return L.sobreApp();};
+// v4.3.64: Reportar um problema — 1 por celular a cada 7 dias (ADM e dono livres). Some o link até passar o prazo.
+// Prazo pela hora do servidor: limites/{uid}_p guarda a hora do servidor do último envio; a diferença do relógio do celular
+// vem do token do login (hora do servidor). Sem internet: usa o que ficou guardado (relógio para trás continua escondido).
+const REP_S='qlogRepServ',REP_L='qlogRepLoc',REP_OFF='qlogRelOff',REP_H='qlogRepHist';
+const repNum=k=>Number(localStorage.getItem(k))||0;
+function auxDB(){return new Promise((ok,er)=>{try{const q=indexedDB.open('qlog_aux',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>ok(q.result);q.onerror=()=>er(q.error);}catch(e){er(e);}});}
+async function auxGet(k){const db=await auxDB();return new Promise(ok=>{try{const r=db.transaction('kv').objectStore('kv').get(k);r.onsuccess=()=>ok(r.result);r.onerror=()=>ok(undefined);}catch(e){ok(undefined);}});}
+async function auxSet(k,v){const db=await auxDB();return new Promise(ok=>{try{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>ok(true);t.onerror=()=>ok(false);}catch(e){ok(false);}});}
+const repHist=()=>{try{return JSON.parse(localStorage.getItem(REP_H)||'[]');}catch(e){return [];}};
+function repGuardar(serv,loc,id){if(serv>repNum(REP_S))localStorage.setItem(REP_S,String(serv));if(loc>repNum(REP_L))localStorage.setItem(REP_L,String(loc));
+  if(id)localStorage.setItem(REP_H,JSON.stringify(L.repHistAdd(repHist(),id,Date.now())));
+  auxSet('rep',{serv:repNum(REP_S),loc:repNum(REP_L),hist:repHist()}).catch(()=>{});}
+N.repPode=()=>L.repVisivel({isento:!!N.admin,servTs:repNum(REP_S),locTs:repNum(REP_L),agora:Date.now(),offset:Number(localStorage.getItem(REP_OFF))||0});
+N.repAtualizar=()=>{if(!document.body)return;const v=N.repPode();document.querySelectorAll('[data-aj="report"],#probAbrir,.nvAjFora').forEach(b=>{b.hidden=!v;});
+  const pa=document.getElementById('probAbrir');if(pa&&pa.parentElement&&pa.parentElement.classList.contains('card'))pa.parentElement.hidden=!v;};
+// diferença entre o relógio do celular e o do servidor (hora em que o servidor emitiu o token)
+async function repOffset(){try{const u=window.firebase&&firebase.auth&&firebase.auth().currentUser;if(!u)return null;const t0=Date.now(),r=await u.getIdTokenResult(true),t1=Date.now();
+  const s=Date.parse(r.issuedAtTime);if(!s)return null;const off=s-Math.round((t0+t1)/2);localStorage.setItem(REP_OFF,String(off));return off;}catch(e){return null;}}
+N.repSync=async()=>{if(!N.fs||!N.uid||navigator.onLine===false)return;await repOffset();
+  try{const d=await N.fs.doc('limites/'+N.uid+'_p').get({source:'server'});const ts=d.exists&&d.data().ts;if(ts&&ts.toMillis)repGuardar(ts.toMillis(),0,'');}catch(e){}
+  N.repAtualizar();};
+// já foi reportado? (neste celular ou, com internet, na nuvem — marcador problemasHash/{código} sem conteúdo)
+N.repRepetido=async id=>{if(!id)return false;if(L.repHistTem(repHist(),id,Date.now()))return true;
+  if(!N.fs||!N.uid||navigator.onLine===false)return false;try{const d=await N.fs.doc('problemasHash/'+id).get({source:'server'});return d.exists;}catch(e){return false;}};
+N.repMarcar=async(id,nuvemGrava)=>{const loc=Date.now(),off=Number(localStorage.getItem(REP_OFF))||0;repGuardar(loc+off,loc,id);N.repAtualizar();
+  if(nuvemGrava&&N.fs&&N.uid){try{await N.fs.doc('limites/'+N.uid+'_p').set({ts:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){}}};
+N.repObrigado=txt=>{const m=document.getElementById('modal');if(!m)return;const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';m.dataset.nv='1';
+  m.innerHTML=`<div class="qwel nvRep repOk"><span class="nvRepIc">${ti('ok')}</span><b class="qwH">${L.escHTML(txt||'Reporte enviado. Obrigado!')}</b><button class="big ok" id="rpOk">OK</button></div>`;
+  m.classList.add('on');const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;N.repAtualizar();};document.getElementById('rpOk').onclick=fecha;clearTimeout(N._rpT);N._rpT=setTimeout(()=>{if(document.getElementById('rpOk'))fecha();},3500);};
+N.repRepetidoNuvem=async id=>{try{const d=await N.fs.doc('problemasHash/'+id).get({source:'server'});return d.exists;}catch(e){return false;}};
+N.repContador=(ta,el)=>{const up=()=>{el.textContent=ta.value.length+'/'+L.REP_TXT_MAX;};ta.addEventListener('input',up);up();};
+auxGet('rep').then(v=>{if(v&&typeof v==='object'){repGuardar(Number(v.serv)||0,Number(v.loc)||0,'');if(Array.isArray(v.hist)&&!repHist().length)localStorage.setItem(REP_H,JSON.stringify(v.hist));}N.repAtualizar();}).catch(()=>{});
+setInterval(()=>N.repAtualizar(),30*60000);setInterval(()=>N.repSync(),3*3600000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)N.repAtualizar();});
 N.rodapeAjuda=function(tela){const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
-  return `<div class="nvAjuda" data-tela="${tela}"><button type="button" class="nvAjBtn" data-aj="reload">${ti('limpar')} Recarregar página</button><button type="button" class="nvAjBtn" data-aj="report">${ti('suporte')} Reportar um problema</button></div></div>`+N.sobreApp();};
+  return `<div class="nvAjuda" data-tela="${tela}"><button type="button" class="nvAjBtn" data-aj="reload">${ti('limpar')} Recarregar página</button><button type="button" class="nvAjBtn" data-aj="report"${N.repPode()?'':' hidden'}>${ti('suporte')} Reportar um problema</button></div></div>`+N.sobreApp();};
 // v4.3.61: identificação — o cartão termina em 'Seja bem-vindo.'; só 'Reportar um problema' fica fora do cartão, logo acima do resumo
 N.rodapeFora=function(tela){const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
-  return `<div class="nvAjuda nvAjFora" data-tela="${tela}"><button type="button" class="nvAjBtn" data-aj="report">${ti('suporte')} Reportar um problema</button></div>`+N.sobreApp();};
+  return `<div class="nvAjuda nvAjFora" data-tela="${tela}"${N.repPode()?'':' hidden'}><button type="button" class="nvAjBtn" data-aj="report">${ti('suporte')} Reportar um problema</button></div>`+N.sobreApp();};
 N.ligarRodape=function(root){const box=root&&root.querySelector('.nvAjuda');if(!box||box.dataset.ligado)return;box.dataset.ligado='1';
   box.addEventListener('click',ev=>{const b=ev.target.closest('[data-aj]');if(!b)return;ev.preventDefault();
     if(b.dataset.aj==='reload')N.recarregarPagina();else N.abrirReportar(box.dataset.tela||'');});};
 N.recarregarPagina=async function(){try{if(navigator.serviceWorker){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister().catch(()=>{});}if(window.caches){for(const k of await caches.keys())await caches.delete(k);}}catch(e){}
   location.replace(location.pathname+'?v='+Date.now());};
-N.abrirReportar=function(tela){const m=document.getElementById('modal');if(!m)return;const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
+N.abrirReportar=function(tela){const m=document.getElementById('modal');if(!m)return;if(!N.repPode()){N.repAtualizar();return;}const ti=k=>window.Tema&&Tema.ic?Tema.ic(k):'';
   const nome0=L.escHTML(N.nome||localStorage.getItem('nvNome')||'');
   const rotulo={bloqueado:'bloqueado',identificacao:'identificação',trocado:'outro celular',espera:'aguardando ADM'}[tela]||tela||'acesso';
   m.dataset.nv='1';m.innerHTML=`<div class="qwel nvRep"><div class="qwTop"><span class="nvRepIc">${ti('suporte')}</span><b class="qwH">Reportar um problema</b><small class="qwSub">Descreva o que aconteceu. Abrimos o e-mail no seu aparelho.</small></div>
    <label for="ajN">Seu nome (opcional)</label><input id="ajN" maxlength="40" value="${nome0}" autocomplete="name">
-   <label for="ajM">Mensagem</label><textarea id="ajM" rows="4" maxlength="800" placeholder="O que precisa de ajuda?"></textarea>
+   <label for="ajM">Mensagem</label><textarea id="ajM" rows="4" maxlength="300" placeholder="O que precisa de ajuda?"></textarea><small class="repCont" id="ajC" aria-live="polite">0/300</small>
    <p id="ajE" class="qwErr"></p>
    <button class="big ok" id="ajEnviar">${ti('mao')} Enviar</button><button class="big alt" id="ajX">Cancelar</button></div>`;
   m.classList.add('on');
   const fecha=()=>{m.classList.remove('on');delete m.dataset.nv;};
-  document.getElementById('ajX').onclick=fecha;
-  document.getElementById('ajEnviar').onclick=()=>{const msg=(document.getElementById('ajM').value||'').trim(),er=document.getElementById('ajE');
+  document.getElementById('ajX').onclick=fecha;N.repContador(document.getElementById('ajM'),document.getElementById('ajC'));
+  document.getElementById('ajEnviar').onclick=async()=>{const msg=L.repTxt(document.getElementById('ajM').value),er=document.getElementById('ajE');
     if(!msg){er.textContent='Digite a mensagem';return;}
+    const rid=L.repId(msg);if(!rid){er.textContent='Escreva com letras ou números';return;}
+    if(await N.repRepetido(rid)){er.textContent='Esse problema já foi reportado.';return;}
     const nome=(document.getElementById('ajN').value||'').trim()||'Não informado';
     const ver=(typeof APP_V!=='undefined'?APP_V:'');
     const corpo=['Olá,','','Preciso de ajuda no Qlog Expedição.','', 'Nome: '+nome, 'Tela: '+rotulo, 'Versão: '+ver, '','Mensagem:', msg].join('\\n');
     const dest=ajDest();
     const url='mailto:'+encodeURIComponent(dest)+'?subject='+encodeURIComponent('Qlog Expedição — pedido de ajuda')+'&body='+encodeURIComponent(corpo);
-    fecha();try{location.href=url;}catch(e){}};
+    N.repMarcar(rid,true);N.repObrigado('Reporte enviado. Obrigado!');try{location.href=url;}catch(e){}};
 };
 
 N.travado=()=>cfgOk()&&localStorage.getItem(TRAVA)==='1';
@@ -146,7 +181,7 @@ if(localStorage.getItem('nvTrocado')==='1'&&exige())N.telaTrocado();
 N.portaFim=()=>{const p=document.getElementById('nvPorta');if(p)p.remove();document.body&&document.body.classList.remove('semAcesso');};
 if(exige())N.porta();
 window.addEventListener('pageshow',()=>{if(exige()&&!N.on)N.porta();});
-N.status=()=>{if(exige()&&!N.on)N.porta();setTimeout(()=>N.enviarFila&&N.enviarFila(),1500);N.checado=true;if(window.nvMudou)window.nvMudou();};
+N.status=()=>{N.repAtualizar();if(!N._repS&&N.uid){N._repS=1;N.repSync();}if(exige()&&!N.on)N.porta();setTimeout(()=>N.enviarFila&&N.enviarFila(),1500);N.checado=true;if(window.nvMudou)window.nvMudou();};
 // primeira abertura. v4.3.3: usuário + senha (criados pelo ADM em 👥 Equipe). v4.3.60: a senha de acesso antiga (da equipe) não vale mais
 N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esperar();const m=document.getElementById('modal');if(!m||m.classList.contains('on')&&m.dataset.nv)return;
   // v4.3.8: primeira abertura (sem login salvo) já abre no ✍️ Criar meu acesso
@@ -305,14 +340,17 @@ N.problemas=[];
 const filaP=()=>{try{return JSON.parse(localStorage.getItem('probFila')||'[]');}catch(e){return [];}};
 // v4.3.60: relato/chamado com limite de 1 por minuto por celular (limites/{uid}_p ou _c, hora do servidor).
 // Quem só pediu acesso manda o usuário do pedido (pendU) para as regras conferirem. Regras antigas (sem limites): jeito antigo.
-async function criarComLimite(col,suf,dados){const d=Object.assign({},dados);delete d.pendU;const pd=pendGet();if(pd&&!pd.novo&&pd.u&&!N.on&&L.loginOk(pd.u))d.pendU=pd.u;
-  const b=N.fs.batch();b.set(N.fs.doc('limites/'+N.uid+'_'+suf),{ts:firebase.firestore.FieldValue.serverTimestamp()});b.set(N.fs.collection(col).doc(),d);
+// v4.3.64: problema com nome fixo = código do texto (problemas/{código}) + marcador problemasHash/{código}: o mesmo texto não entra duas vezes
+async function criarComLimite(col,suf,dados){const d=Object.assign({},dados);const id=col==='problemas'&&L.REP_ID_RE.test(d._id||'')?d._id:'';delete d._id;delete d.pendU;
+  const pd=pendGet();if(pd&&!pd.novo&&pd.u&&!N.on&&L.loginOk(pd.u))d.pendU=pd.u;const ref=id?N.fs.doc(col+'/'+id):N.fs.collection(col).doc(),agora=firebase.firestore.FieldValue.serverTimestamp();
+  const b=N.fs.batch();b.set(N.fs.doc('limites/'+N.uid+'_'+suf),{ts:agora});b.set(ref,d);if(id)b.set(N.fs.doc('problemasHash/'+id),{ts:agora});
   try{await b.commit();return;}catch(e){if(!/permission/i.test(String(e.code||e.message)))throw e;}
-  const v=Object.assign({},d);delete v.pendU;await N.fs.collection(col).add(v);}
+  const v=Object.assign({},d);delete v.pendU;if(id)await ref.set(v);else await N.fs.collection(col).add(v);}
 // fila: se não foi (limite de 1 por minuto ou sem internet), tenta de novo em ~1 minuto (até 30 vezes por abertura)
 let filaT=0,filaN=0;function filaDepois(){if(filaT||filaN>=30)return;filaN++;filaT=setTimeout(()=>{filaT=0;N.enviarFila();},65000);}
 N.enviarFila=async()=>{if(!N.fs||!N.uid||!navigator.onLine)return false;let f=filaP();if(!f.length)return true;
-  while(f.length){const p=Object.assign({},f[0],{quemUid:N.uid});if('img' in p&&!L.imgOk(p.img))delete p.img;if(!p.quem&&N.nome)p.quem=N.nome;try{await criarComLimite('problemas','p',p);}catch(e){filaDepois();return false;}f.shift();localStorage.setItem('probFila',JSON.stringify(f));}return true;};
+  while(f.length){const p=Object.assign({},f[0],{quemUid:N.uid});
+    if(p._id&&await N.repRepetidoNuvem(p._id)){f.shift();localStorage.setItem('probFila',JSON.stringify(f));continue;}/* v4.3.64: já reportado: tira da fila */if('img' in p&&!L.imgOk(p.img))delete p.img;if(!p.quem&&N.nome)p.quem=N.nome;try{await criarComLimite('problemas','p',p);}catch(e){filaDepois();return false;}f.shift();localStorage.setItem('probFila',JSON.stringify(f));}return true;};
 N.reportar=async p=>{if(!p)return false;try{localStorage.setItem('probFila',JSON.stringify(L.probFilaAdd(filaP(),p)));}catch(e){try{const q=Object.assign({},p);delete q.img;localStorage.setItem('probFila',JSON.stringify(L.probFilaAdd(filaP(),q)));}catch(x){}}
   if(!N.fs||!N.uid)return false;return await Promise.race([N.enviarFila(),new Promise(r=>setTimeout(()=>r(false),8000))]);};
 window.addEventListener('online',()=>N.enviarFila());
@@ -320,7 +358,7 @@ function ouvirProblemas(){let primeiro=true;
   N.unsub.push(N.fs.collection('problemas').onSnapshot(q=>{const l=[];q.forEach(d=>l.push(Object.assign({id:d.id},d.data())));l.sort((a,b)=>(b.ts||0)-(a.ts||0));N.problemas=l;
     if(!primeiro){const novos=q.docChanges().filter(c=>c.type==='added'&&!c.doc.metadata.hasPendingWrites);const sup=novos.filter(c=>c.doc.data().tela==='suporte'),pr=novos.filter(c=>c.doc.data().tela!=='suporte');if(sup.length)avisarChamado(sup.map(c=>Object.assign({id:c.doc.id},L.chamadoDeProblema(c.doc.data()))));if(pr.length)banner(pr.length>1?pr.length+' problemas relatados':'🐞 Problema relatado: '+String(pr[0].doc.data().txt||'').slice(0,60));}
     primeiro=false;sinoMostrar();avAtualizar();chAtualizar();},()=>{}));}
-N.resolverProblema=async id=>{await N.fs.doc('problemas/'+id).delete();};
+N.resolverProblema=async id=>{await N.fs.doc('problemas/'+id).delete();if(L.REP_ID_RE.test(id)){try{await N.fs.doc('problemasHash/'+id).delete();}catch(e){}}};// v4.3.64: resolvido libera o mesmo texto
 function probHTML(e){const l=(N.problemas||[]).filter(p=>p.tela!=='suporte');if(!l.length)return '';
   return '<b style="font-size:21px;display:block;margin:12px 0 6px">🐞 Problemas relatados</b>'+l.map(p=>`<div class="card" style="margin:6px 0;border-left:5px solid #c62828"><div style="font-size:18px;white-space:pre-wrap"><b>${e(p.txt)}</b></div>
    <small>${p.ts?L.fmtData(p.ts)+' às '+L.fmtHora(p.ts):''}${p.quem?' · '+e(p.quem):''}</small><details style="margin:6px 0"><summary>Detalhes</summary><small>Versão ${e(p.versao)} · ${e(p.plataforma)} · tela: ${e(p.tela)}<br>${e(p.aparelho)}</small>
