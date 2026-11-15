@@ -473,14 +473,13 @@ html[data-tema=retro] #scrTesteBan{background:#6c8a3a;color:#fff8ee}
 #nvPorta .poGalpao{color:#3a4651}
 html[data-tema=escuro] #nvPorta .poGalpao{color:#c5d0da;opacity:.75}
 html[data-tema=retro] #nvPorta .poGalpao{color:#5a4030}
-#nvPorta .poDr{animation:poDrone 3.2s ease-in-out infinite}#nvPorta .poDr2{animation-delay:-1.1s}#nvPorta .poDr3{animation-delay:-2.2s}
+#nvPorta .poDr{animation:poDrone 3.2s ease-in-out infinite}#nvPorta .poDr2{animation-delay:-1.1s}
 @keyframes poDrone{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){#nvPorta .poDr{animation:none}}
 /* v4.3.62: drones atravessam o galpão de um lado para o outro (só transform; parados no lugar se o celular pedir menos movimento) */
 #nvPorta .poVoo1{transform:translateX(56px);animation:poVoo1 17s linear infinite}
 #nvPorta .poVoo2{transform:translateX(296px);animation:poVoo2 21s linear infinite;animation-delay:-8s}
-#nvPorta .poVoo3{transform:translateX(228px);animation:poVoo3 14s ease-in-out infinite alternate;animation-delay:-3s}
 @keyframes poVoo1{from{transform:translateX(-40px)}to{transform:translateX(400px)}}
 @keyframes poVoo2{from{transform:translateX(400px)}to{transform:translateX(-40px)}}
-@keyframes poVoo3{from{transform:translateX(24px)}to{transform:translateX(336px)}}
 @media (prefers-reduced-motion:reduce){#nvPorta .poVoo{animation:none}}
+/* v4.3.63: saiu o drone mais alto (ia e voltava e parecia parado no canto de cima à direita); ficam 2 drones atravessando */
