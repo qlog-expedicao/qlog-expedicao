@@ -487,3 +487,20 @@ html[data-tema=retro] #nvPorta .poGalpao{color:#5a4030}
 [hidden]{display:none!important}
 .repCont{display:block;text-align:right;font-size:13px;opacity:.6;margin:2px 2px 0}
 .repOk{text-align:center}.repOk .nvRepIc .qi,.repOk .nvRepIc svg{width:40px;height:40px}
+/* v4.3.66: dono pela conta Google — cartão na Info (só o dono), link discreto na entrada e ponte do app Android no navegador */
+.nvDonoG .nvDgT{font-size:19px;margin:4px 0 6px;overflow-wrap:normal;word-break:normal}
+.nvDonoG .nvDgOk{margin:4px 0;font-weight:700;color:#1b7a3a}
+.nvDonoG .nvDgEm{margin:0 0 6px;font-size:15px;opacity:.75;overflow-wrap:anywhere}
+.nvDonoG .nvDgTx{margin:4px 0 8px;font-size:16px;line-height:1.4;overflow-wrap:normal;word-break:normal}
+.nvDonoG .big{width:100%;max-width:100%;box-sizing:border-box}
+.nvDgMsg{margin:8px 0 0;font-size:16px;color:var(--ac,#0b4f8a);text-align:center;overflow-wrap:normal;word-break:normal}
+#nvPorta .nvDonoFora{width:100%;max-width:400px;box-sizing:border-box;text-align:center;margin:6px auto 0}
+#nvPorta .nvDonoFora .nvAjBtn{font-size:14px}
+#nvPonte{position:fixed;inset:0;z-index:2147483060;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;text-align:center}
+html:not([data-estilo]) #nvPonte{background:#f2f4f7}
+html[data-tema=escuro] #nvPonte{background:#0d141b;color:#e3eaf1}
+#nvPonte .nvPoCx{background:var(--card,#fff);border-radius:18px;padding:24px 18px;width:100%;max-width:400px;box-sizing:border-box;box-shadow:0 6px 24px #0002}
+#nvPonte .trIc .qi{width:64px;height:64px}
+#nvPonte .qwH{display:block;font-size:23px;margin:8px 0;overflow-wrap:normal;word-break:normal;hyphens:none}
+#nvPonte .big{width:100%;margin-top:12px;box-sizing:border-box}
+#nvPonte .pnVoltar{display:block;text-decoration:none;text-align:center}
