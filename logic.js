@@ -696,7 +696,7 @@ function donoVoltarUrl(token,nonce,pkg){if(!donoTokenOk(token)||!donoNonceOk(non
 function donoGErro(code){code=String(code||'');
   if(/popup-closed|cancelled-popup|user-cancelled/.test(code))return 'Entrada com Google cancelada.';
   if(/popup-blocked/.test(code))return 'O celular bloqueou a janela do Google. Tente de novo.';
-  if(/network|offline/.test(code))return 'Sem internet. Conecte e tente de novo.';
+  if(/network|offline/.test(code))return 'Sem conexão';
   if(/operation-not-allowed|unauthorized-domain|configuration|invalid-api-key|app-not-authorized/.test(code))return 'Entrar com Google ainda não foi ligado no sistema. Fale com o suporte.';
   if(code==='nao-dono')return 'Esse Google não é o do dono. Nada mudou.';
   if(/web-storage|operation-not-supported/.test(code))return 'Este navegador não deixa entrar com Google. Abra o link no Chrome.';

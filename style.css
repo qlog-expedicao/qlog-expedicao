@@ -494,8 +494,6 @@ html[data-tema=retro] #nvPorta .poGalpao{color:#5a4030}
 .nvDonoG .nvDgTx{margin:4px 0 8px;font-size:16px;line-height:1.4;overflow-wrap:normal;word-break:normal}
 .nvDonoG .big{width:100%;max-width:100%;box-sizing:border-box}
 .nvDgMsg{margin:8px 0 0;font-size:16px;color:var(--ac,#0b4f8a);text-align:center;overflow-wrap:normal;word-break:normal}
-#nvPorta .nvDonoFora{width:100%;max-width:400px;box-sizing:border-box;text-align:center;margin:6px auto 0}
-#nvPorta .nvDonoFora .nvAjBtn{font-size:14px}
 #nvPonte{position:fixed;inset:0;z-index:2147483060;background:var(--bg,#f2f4f7);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;text-align:center}
 html:not([data-estilo]) #nvPonte{background:#f2f4f7}
 html[data-tema=escuro] #nvPonte{background:#0d141b;color:#e3eaf1}

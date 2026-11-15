@@ -17,7 +17,7 @@ const TIPOS=[['coleta','📦 Coleta'],['estorno','↩️ Estorno'],['recebimento
 const tipoRow=()=>`<div class="row tipo">${TIPOS.map(([k,t])=>`<button data-tipo="${k}" class="${f.tipo===k?'on':''}">${window.Tema?Tema.ic(k)+'<span>'+t.replace(/^\S+\s/,'')+'</span>':t}</button>`).join('')}</div>`;
 const tagHTML=r=>`<span class="tag ${esc(r.tipo==='recebimento'?'rec':r.tipo)}">${L.tipoNome(r.tipo).toUpperCase()}</span>`;
 const stCls=s=>s==='CONFERIDO OK'?'c-ok':s==='DIVERGENTE'?'c-bad':'c-wait';
-function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-iq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-iq="1" data-ii="${i}">+</button><button data-idel="${i}" class="idel">🗑</button></div>`).join(''):'<p><small>Nenhum código ainda. Bipe com o leitor, use o scanner ou digite abaixo.</small></p>')+
+function itensHTML(){const t=L.itensTot(f.itens);return (f.itens.length?f.itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-iq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-iq="1" data-ii="${i}">+</button><button data-idel="${i}" class="idel">🗑</button></div>`).join(''):'<p><small>Nenhum código ainda.</small></p>')+
   `<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
 function novaRec(){const fl=fornecedores();$('#main').innerHTML=tipoRow()+`
 <label>Cliente</label><div class="cli">${fl.map(c=>`<button data-forn="${esc(c)}" class="${f.forn===c?'on':''}">${esc(c)}</button>`).join('')}<button id="addForn">➕ Novo cliente</button></div>
@@ -123,33 +123,33 @@ function abrirFotoVer(el){const lista=fotosDaTela();if(!lista.length)return;let 
 function fotoSemInternet(){if(navigator.onLine===false)return true;return !(window.Nuvem&&Nuvem.on&&typeof Nuvem.fotosDe==='function');}
 function fotosAvisoHTML(r){if(!L.fotosFaltando(r))return '';
   if(fvCarregando===r.id)return '<p class="fotoAviso" id="fotoAviso"><small>⏳ Carregando foto…</small></p>';
-  if(fotoSemInternet())return '<p class="fotoAviso" id="fotoAviso" data-fotoload="1"><small>📷 Para ver as fotos de outro celular, precisa de internet. Toque para tentar.</small></p>';
-  if(fvTentou[r.id])return '<p class="fotoAviso" id="fotoAviso" data-fotoload="1"><small>📷 As fotos ficaram no celular de quem fez o registro. Toque para tentar de novo.</small></p>';
-  return '<p class="fotoAviso" id="fotoAviso" data-fotoload="1"><small>📷 As fotos ainda não estão neste celular. Toque para ver.</small></p>';}
+  if(fotoSemInternet())return '<p class="fotoAviso" id="fotoAviso" data-fotoload="1"><small>📷 Sem conexão · carregar fotos</small></p>';
+  if(fvTentou[r.id])return '<p class="fotoAviso" id="fotoAviso" data-fotoload="1"><small>📷 Fotos ainda no celular de origem · tentar de novo</small></p>';
+  return '<p class="fotoAviso" id="fotoAviso" data-fotoload="1"><small>📷 Ver fotos</small></p>';}
 async function puxarFotosReg(r){if(!r||!window.Nuvem||!Nuvem.fotosDe)return null;
   const fn=await Nuvem.fotosDe(r.id);if(!L.FOTO_CAMPOS.some(k=>(fn[k]||[]).length))return null;
   return L.fotosLista(fn);}
 async function pedirFotoNuvem(el){const id=detalhe;const r=id&&regs.find(x=>x.id===id);if(!r)return;
   if(!L.fotosFaltando(r)&&fotosDaTela().length){const campo=el&&el.dataset&&(el.dataset.verfalt||el.dataset.ver),i=el&&el.dataset?+el.dataset.i:0;const lista=fotosDaTela();let idx=campo?L.fotoVerIdx(lista,campo,i):0;if(idx<0)idx=0;return fotoVerAbrir(lista,idx);}
   if(fvCarregando===r.id)return;
-  if(fotoSemInternet()){const msg='Sem internet. Conecte para ver a foto.';toast(msg);if(fotoVerAberta()){fv.msg=msg;fotoVerPintar();}else if(tab==='hist'&&detalhe===r.id)render();return;}
+  if(fotoSemInternet()){const msg='Sem conexão';toast(msg);if(fotoVerAberta()){fv.msg=msg;fotoVerPintar();}else if(tab==='hist'&&detalhe===r.id)render();return;}
   fvCarregando=r.id;const campo=el&&el.dataset&&(el.dataset.verfalt||el.dataset.ver),i=el&&el.dataset?+el.dataset.i:0;
   fotoVerAbrir([],0,'Carregando foto…');if(tab==='hist'&&detalhe===r.id){const av=$('#fotoAviso');if(av)av.innerHTML='<small>⏳ Carregando foto…</small>';}
   let lista=[],falhou=false;try{lista=await puxarFotosReg(r)||[];}catch(e){falhou=true;lista=[];}
   fvCarregando=null;fvTentou[r.id]=1;
   if(lista.length){let idx=campo!=null?L.fotoVerIdx(lista,campo,i):0;if(idx<0)idx=0;fotoVerAbrir(lista,idx);}
-  else{const msg=falhou?'Não consegui carregar a foto. Tente de novo quando tiver internet.':'As fotos ficaram no celular de quem fez o registro.';toast(msg);if(fotoVerAberta()){fv.msg=msg;fv.lista=[];fotoVerPintar();}}
+  else{const msg=falhou?'Não foi possível carregar a foto.':'As fotos ficaram no celular de quem fez o registro.';toast(msg);if(fotoVerAberta()){fv.msg=msg;fv.lista=[];fotoVerPintar();}}
   if(tab==='hist'&&detalhe===r.id)render();}
 function render(){if(tab!=='sobre')telaAnt=tab;try{document.documentElement.dataset.tela=tab;}catch(e){}document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));navAdm();if(tab==='adm'&&!admOn())tab='nova';{const ft=document.querySelector('footer');if(ft)ft.style.display=tab==='sobre'?'':'none';}({nova,hist,rel,sobre,loc,arquivo:arquivoTela,adm:admTela})[tab]();}
 function nova(){if(f.tipo==='recebimento')return novaRec();const cl=clientes();$('#main').innerHTML=tipoRow()+`
 ${f.tipo==='estorno'?estCab():''}<label>Transportadora</label><div class="cli">${cl.map(c=>`<button data-cli="${esc(c)}" class="${f.cliente===c?'on':''}"${f.cliente===c?autoCls('cliente'):''}>${esc(c)}</button>`).join('')}<button id="addCli">➕ Nova transportadora</button></div>
-<label>NFs (separe com - ou espaço)</label><input id="nfs" type="text" inputmode="text" autocomplete="off" placeholder="Digite as NFs aqui" value="${esc(f.nfs)}"${autoCls('nfs')}>${autoDica('nfs')}
+<label>NFs (separe com - ou espaço)</label><input id="nfs" type="text" inputmode="text" autocomplete="off" placeholder="NFs" value="${esc(f.nfs)}"${autoCls('nfs')}>${autoDica('nfs')}
 <label>Volumes</label><div class="row vt">${[['palete','🟫 Paletes'],['volume','📦 Volumes']].map(([k,t])=>`<div><small>${t}</small><input data-vt="${k}" type="number" inputmode="numeric" placeholder="0" value="${esc(f.vt[k])}"${k==='volume'?autoCls('volume'):''}>${k==='volume'?autoDica('volume'):''}</div>`).join('')}</div>
 <p class="tot">Total: <b id="vtp">${+f.vt.palete||0}</b> paletes · <b id="vtv">${+f.vt.volume||0}</b> volumes</p>
 <details ${f.confEsp||f.confLidos.length?'open':''}><summary class="confSum"><button type="button" class="big ok" id="confScan0" aria-label="Ler código com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><span>Conferência de código (opcional)</span></summary>
-<label>Código(s) da NF (esperado)</label><div class="row"><input id="confEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(f.confEsp)}"><button class="big alt" data-ocr="esp" style="flex:0 0 120px;margin:0">📷 Ler texto</button></div>
+<label>Código(s) da NF (esperado)</label><div class="row"><input id="confEsp" placeholder="Código da NF" style="text-transform:uppercase" value="${esc(f.confEsp)}"><button class="big alt" data-ocr="esp" style="flex:0 0 120px;margin:0">📷 Ler texto</button></div>
 <div id="confRes">${confMiniHTML(f.confLidos)}</div>
-<label>Código da etiqueta</label><div class="row"><input id="confLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="confOk" style="flex:0 0 110px;margin:0">✔ Conferir</button></div>
+<label>Código da etiqueta</label><div class="row"><input id="confLido" placeholder="Código" style="text-transform:uppercase"><button class="big" id="confOk" style="flex:0 0 110px;margin:0">✔ Conferir</button></div>
 <button class="big alt" data-ocr="lido">📷 Ler texto da etiqueta</button>
 <button class="big alt" id="confScan">📷 Ler código com a câmera</button>
 </details>
@@ -182,7 +182,7 @@ function ocrModal(alvo,cands,texto,modo){const esp=L.parseCods(f.confEsp);
   if(alvo==='lido'&&esp.length&&(!modo||modo==='texto')){cands=cands.map(c=>L.corrigirOCR(c,esp));const m=L.casarEsperado(cands,esp);cands=m.concat(cands.filter(c=>!m.includes(c)));cands=cands.filter((c,i)=>cands.indexOf(c)===i);}
   const m=$('#modal'),cod=cands[0]||'';
   m.innerHTML=`<div style="text-align:center"><p style="font-size:20px;margin-top:0"><b>${alvo==='esp'?'Código da NF':'Código da etiqueta'}</b></p>
-  ${cod?`<p>Código lido:</p><div id="ocrBig" style="font-size:44px;font-weight:bold;letter-spacing:3px;word-break:break-all;background:#eef3f8;border-radius:12px;padding:14px">${esc(cod)}</div>`:'<p>Não achei código. Digite abaixo.</p>'}
+  ${cod?`<p>Código lido:</p><div id="ocrBig" style="font-size:44px;font-weight:bold;letter-spacing:3px;word-break:break-all;background:#eef3f8;border-radius:12px;padding:14px">${esc(cod)}</div>`:'<p>Nenhum código encontrado.</p>'}
   <button class="big ok" id="ocrOk" style="font-size:24px">✅ Usar</button><button class="big" id="ocrDeNovo" style="font-size:22px">🔁 Ler de novo</button>
   <details style="text-align:left"><summary style="padding:10px 0">✏️ Corrigir / outros códigos</summary>${cands.slice(1).map(c=>`<button class="big alt" data-cand="${esc(c)}" style="font-size:22px">${esc(c)}</button>`).join('')}
   <input id="ocrVal" style="text-transform:uppercase;font-size:24px" value="${esc(cod)}"><button class="big alt" id="ocrNao">Cancelar</button>
@@ -242,7 +242,7 @@ async function scCam(){const ts=[{video:{facingMode:{ideal:'environment'},width:
 function scQuadro(){const v=$('#scVid');if(!v||!v.videoWidth)return null;const c=document.createElement('canvas'),z=Math.min(1,1000/v.videoWidth);c.width=Math.round(v.videoWidth*z);c.height=Math.round(v.videoHeight*z);c.getContext('2d').drawImage(v,0,0,c.width,c.height);return c;}
 async function abrirScanner(al,multi){
   if(window.AndroidScan&&!multi){const id='s'+(++scanSeq);scanCbs[id]=al;try{const tt=al==='esp'?'Código da NF':'Código da etiqueta',ch=L.scanChave(al);if(window.AndroidScan.abrirModo)window.AndroidScan.abrirModo(id,tt,scanModoGet(ch),ch);else window.AndroidScan.abrir(id,tt);}catch(e){delete scanCbs[id];fotoOcr(al);}return;}
-  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){if(multi){toast('Câmera ao vivo indisponível. Digite os códigos.');return multi.onFim();}return fotoOcr(al);}
+  if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){if(multi){toast('Câmera indisponível.');return multi.onFim();}return fotoOcr(al);}
   const o=document.createElement('div');o.id='scanner';
   o.innerHTML=`<video id="scVid" playsinline muted autoplay></video><div class="scMask"><div class="scBox" id="scBox"></div></div>
   <div class="scTop">${multi?esc(multi.titulo):al==='esp'?'Código da NF':'Código da etiqueta'}${scModosHTML(scanModoGet(L.scanChave(al,multi&&multi.titulo)))}<small id="scMsg">Aponte o código dentro do quadro</small><div id="scLast" class="scLast"></div></div>
@@ -252,7 +252,7 @@ async function abrirScanner(al,multi){
     o.querySelectorAll('[data-scmodo]').forEach(x=>x.classList.toggle('on',x===b));scMsg('Aponte o código dentro do quadro');});
   if(multi)$('#scFim').onclick=fecharScanner;if($('#scZera'))$('#scZera').onclick=()=>{if(confirm('Zerar a contagem? A lista continua.')){multi.zerar();SC.seen={};SC.ms={};const z=$('#scLast');if(z)z.textContent='Contagem zerada';}};else{$('#scCancel').onclick=fecharScanner;$('#scFoto').onclick=()=>{fecharScanner();fotoOcr(al);};}
   let st;try{st=await scCam();}
-  catch(e){fecharScanner();if(multi){toast('Câmera ao vivo não liberada. Digite os códigos.');return;}toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
+  catch(e){fecharScanner();if(multi){toast('Câmera não liberada.');return;}toast('Câmera ao vivo não liberada. Usando foto.');return fotoOcr(al);}
   if(!SC||!SC.on){st.getTracks().forEach(t=>t.stop());return;}SC.stream=st;
   const v=$('#scVid');v.srcObject=SC.stream;try{await v.play();}catch(e){}
   const tr=SC.stream.getVideoTracks()[0];try{if(tr.getCapabilities&&tr.getCapabilities().torch){const b=$('#scTorch');b.style.display='';b.onclick=async()=>{SC.torch=!SC.torch;try{await tr.applyConstraints({advanced:[{torch:SC.torch}]});b.textContent=SC.torch?'🔦 Desligar lanterna':'🔦 Lanterna';}catch(e){}};}}catch(e){}
@@ -287,12 +287,12 @@ async function scLoop(){if(!SC||!SC.on)return;const me=SC;let rapido=false;
   if(SC===me&&me.on)me.h=setTimeout(scLoop,rapido?120:400);}
 async function lerTexto(file,alvo){const m=$('#modal');m.innerHTML='<div style="text-align:center"><p style="font-size:26px">⏳ Lendo texto...</p><p id="ocrPct" style="font-size:22px"></p><p><small>Pode levar alguns segundos.</small></p></div>';m.classList.add('on');
   try{const d=await compress(file);if(!d)throw new Error('foto');const t=await ocrTexto(d);ocrModal(alvo,L.extrairCods(t),t);}
-  catch(e){m.classList.remove('on');toast('Não consegui ler o texto. Digite o código.');}}
+  catch(e){m.classList.remove('on');toast('Texto não reconhecido.');}}
 function alerta(ok,cod){const m=$('#modal');m.innerHTML=`<div style="text-align:center"><div class="conf ${ok?'c-ok':'c-bad'}" style="font-size:34px">${ok?'✔ Confere':'✖ Código diferente!'}</div><p>Lido: <b>${esc(cod)}</b>${ok?'':'<br>Esperado: <b>'+esc(L.parseCods(f.confEsp).join(', '))+'</b>'}</p><button class="big" id="mOk">OK</button></div>`;m.classList.add('on');$('#mOk').onclick=()=>m.classList.remove('on');}
 function conferirCod(v){const esp=L.parseCods(f.confEsp);if(!esp.length){$('#erro').textContent='Coloque primeiro o código esperado da NF';return;}
   const c=L.conferir(esp,v);if(!c.cod){relerIdx=-1;return;}if(relerIdx>=0&&f.confLidos[relerIdx]){f.confLidos.splice(relerIdx,1);}relerIdx=-1;f.confLidos=L.confAdd(f.confLidos,c,Date.now());nova();alerta(c.ok,c.cod);}
 async function scan(file){try{const bd=new BarcodeDetector();const b=await createImageBitmap(file);const r=await bd.detect(b);
-  if(r.length)conferirCod(r[0].rawValue);else toast('Não achei código na foto. Digite o código.');}catch(e){toast('Leitor falhou. Digite o código.');}}
+  if(r.length)conferirCod(r[0].rawValue);else toast('Nenhum código na foto.');}catch(e){toast('Falha no leitor.');}}
 async function salvar(enviar){if(window.Nuvem&&Nuvem.liberado&&!Nuvem.liberado())return toast('Entre com seu acesso para usar o app');if(window.Nuvem&&Nuvem.esperando&&Nuvem.esperando())return;if(window.Nuvem&&Nuvem.travado&&Nuvem.travado())return toast('Acesso bloqueado pelo ADM');if(f.tipo==='recebimento')return salvarRec(enviar);const r={id:Date.now()+''+Math.floor(Math.random()*1e4),ts:Date.now(),seq:L.proxSeq(regs,f.tipo),tipo:f.tipo,cliente:f.cliente,nfs:L.parseNFs(f.nfs),volumes:L.volTotal(f.vt),vtipos:{palete:+f.vt.palete||0,volume:+f.vt.volume||0},conf:f.confLidos.length?{esperados:L.parseCods(f.confEsp),lidos:f.confLidos}:null,
   motorista:f.motorista.trim(),placa:f.placa.trim().toUpperCase(),obs:f.obs.trim(),fotos:f.fotos,romaneio:f.romaneio,caminhao:f.caminhao};if(f.tipo==='estorno'){r.motivo=f.motivo.trim();if(f.origem)r.origem=f.origem;}
   const e=L.validar(r);if(e.length){$('#erro').innerHTML=e.map(esc).join('<br>');return;}
@@ -305,9 +305,9 @@ function grpHTML(c){return [['c-ok','✔ OK',c.ok],['c-dif','⚠ Quantidade dife
   `<div class="grp"><div class="gh ${k}">${t} (${a.length})</div>${a.length?'<table><tr><th>Código</th><th>Esperado</th><th>Lido</th></tr>'+a.map(x=>`<tr><td>${esc(x.cod)}</td><td>${x.esp}</td><td>${x.lido}</td></tr>`).join('')+'</table>':'<p><small>Nenhum</small></p>'}</div>`).join('');}
 function detRec(r){const c=L.conferirSku(r.itens,r.skuEsp),t=L.itensTot(r.itens);$('#main').innerHTML=`<button class="big alt" id="voltar">⬅ Voltar</button><div class="card">${tagHTML(r)} <span class="st ${stCls(c.status)}">${c.status}</span>
  <pre style="white-space:pre-wrap;font-size:17px">${esc(L.resumo(r))}</pre></div>
- <div class="card"><b>${ic('lista')} Códigos dos produtos</b>${t.cods?`<p>${t.cods} código${t.cods===1?'':'s'} · ${t.un} unidade${t.un===1?'':'s'}</p><div id="detItens">`+edItensRead(r.itens)+'</div>':`<p>Nenhum código ainda. Pode adicionar para completar o registro.</p>`}
+ <div class="card"><b>${ic('lista')} Códigos dos produtos</b>${t.cods?`<p>${t.cods} código${t.cods===1?'':'s'} · ${t.un} unidade${t.un===1?'':'s'}</p><div id="detItens">`+edItensRead(r.itens)+'</div>':`<p>Nenhum código ainda.</p>`}
  <button class="big" id="addCods">${ic('adicionar')} ${t.cods?'Adicionar mais códigos':'Adicionar códigos'}</button></div>
- <div class="card"><b>📋 Conferência com lista de SKU</b>${r.skuEsp?`<p>Lista: ${r.skuEsp.length} códigos · ${r.skuEsp.reduce((s,x)=>s+x.qtd,0)} unidades. Lido: ${t.cods} códigos · ${t.un} unidades.</p>`+grpHTML(c):'<p>Lista de SKU ainda não chegou. Quando chegar, toque abaixo.</p>'}
+ <div class="card"><b>📋 Conferência com lista de SKU</b>${r.skuEsp?`<p>Lista: ${r.skuEsp.length} códigos · ${r.skuEsp.reduce((s,x)=>s+x.qtd,0)} unidades. Lido: ${t.cods} códigos · ${t.un} unidades.</p>`+grpHTML(c):'<p>Lista de SKU ainda não recebida.</p>'}
  <button class="big" id="skuBtn">📋 ${r.skuEsp?'Editar lista de SKU':'Conferir com lista de SKU'}</button></div>
  <div class="card"><label>🧾 Romaneio</label>${miniFotos(r,'romaneio')}<label>📷 Produtos</label>${miniFotos(r,'fotos')}</div>
  ${nomeAutor(r)?'<p>👤 Feito por: <b>'+esc(nomeAutor(r))+'</b></p>':''}${fotosAvisoHTML(r)} ${L.editadoTxt(r)?'<p><small>'+esc(L.editadoTxt(r))+'</small></p>':''}${nuvemBtn(r)}<button class="big ok" id="share">📤 Compartilhar no WhatsApp</button>${botoesEd(r)}`;
@@ -332,9 +332,9 @@ const edItensRead=it=>(it||[]).map(x=>`<div class="item"><span class="icod">${es
 function addCodsModal(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode adicionar códigos');
   let itens=(r.itens||[]).map(x=>({cod:x.cod,qtd:x.qtd}));
   const m=$('#modal');
-  const lista=()=>{const t=L.itensTot(itens),el=$('#acItens');if(el)el.innerHTML=(itens.length?itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button type="button" data-acq="-1" data-i="${i}">−</button><b class="iqt">${x.qtd}</b><button type="button" data-acq="1" data-i="${i}">+</button><button type="button" data-acdel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Bipe com o leitor, use o scanner ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;};
+  const lista=()=>{const t=L.itensTot(itens),el=$('#acItens');if(el)el.innerHTML=(itens.length?itens.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button type="button" data-acq="-1" data-i="${i}">−</button><b class="iqt">${x.qtd}</b><button type="button" data-acq="1" data-i="${i}">+</button><button type="button" data-acdel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;};
   m.innerHTML=`<div style="max-height:90vh;overflow:auto;overflow-x:hidden"><p style="font-size:20px;margin-top:0"><b>${ic('adicionar')} Adicionar códigos · ${esc(L.codigo(r))}</b></p>
-    <p><small>Complementa este Recebimento. A alteração vai para a nuvem como qualquer outra edição.</small></p>
+    <p><small>Complementa este Recebimento.</small></p>
     <button class="big ok" id="acScan">${ic('mira')} Ler código de barras (scanner)</button>
     <div id="acItens"></div>
     <div class="row edAdd recAdd"><input id="acCodTxt" placeholder="Código" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="big ok" id="acScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="acAdd">${ic('adicionar')} Adicionar</button></div>
@@ -368,7 +368,7 @@ function nuvemBtn(r){if(!(window.Nuvem&&Nuvem.exige&&Nuvem.exige()))return '';co
 async function nuvemEnviar(r,b){if(!b||b.dataset.ok==='1'||b.disabled)return;b.disabled=true;
   try{if(!Nuvem.on&&Nuvem.pulso)await Nuvem.pulso();if(Nuvem.on){if(!r.autorUid){r.autorUid=Nuvem.uid;await tx('readwrite',s=>s.put(r));}
       if(await Nuvem.salvar(r)){toast('✅ Salvo');await load();return render();}}
-    toast('Sem internet. Tente de novo.');}catch(e){toast('Sem internet. Tente de novo.');}b.disabled=false;}
+    toast(navigator.onLine===false?'Sem conexão':'Não foi possível salvar');}catch(e){toast((window.nvFalha?nvFalha(e):'Não foi possível concluir'));}b.disabled=false;}
 async function compartilhar(r){let x=r;if(L.fotosFaltando(r)&&window.Nuvem&&Nuvem.on&&Nuvem.fotosDe){try{const fn=await Nuvem.fotosDe(r.id);if(fn&&L.FOTO_CAMPOS.some(k=>(fn[k]||[]).length))x=Object.assign({},r,fn);}catch(e){}}
   const t=L.resumo(x),p=L.shareFotos(x);
   if(window.AndroidShare){AndroidShare.share(t,JSON.stringify(p),'');return;}
@@ -410,7 +410,7 @@ function det(r){if(r.tipo==='recebimento')return detRec(r);$('#main').innerHTML=
 let ed=null;
 // v4.3.3: botões do registro conforme o papel (ADM / Colaborador): 1 hora para editar o seu, depois 📝 Pedir edição
 function botoesEd(r){const u=usuario(),nv=window.Nuvem&&Nuvem.ativo()&&u.on;let h='';
-  if(L.podeEditar(r,u)){h+='<button class="big" id="editar">✏️ Editar</button>';if(nv&&!u.admin){const lim=L.limiteEdicao(r,u.janela);if(lim)h+='<p style="text-align:center"><small>⏱ Você pode editar até '+L.fmtHora(lim)+'</small></p>';}}
+  if(L.podeEditar(r,u)){h+='<button class="big" id="editar">✏️ Editar</button>';if(nv&&!u.admin){const lim=L.limiteEdicao(r,u.janela);if(lim)h+='<p style="text-align:center"><small>⏱ Edição até '+L.fmtHora(lim)+'</small></p>';}}
   else if(L.podePedir(r,u))h+='<button class="big" id="pedirEd">📝 Pedir edição</button><p style="text-align:center"><small>O prazo de '+L.janelaNome(window.Nuvem&&Nuvem.janelaMin)+' para editar acabou. Peça ao ADM.</small></p>';
   if(!nv||u.admin)h+='<button class="big red" id="apagar">🗑 Apagar registro</button>';return h;}
 function ligarEd(r){const e=$('#editar');if(e)e.onclick=()=>confirmar('Deseja editar este registro?',()=>abrirEdicao(r),'Sim','ok','Cancelar');const p=$('#pedirEd');if(p)p.onclick=()=>pedirEdicaoModal(r);}
@@ -420,7 +420,7 @@ function pedirEdicaoModal(r){const m=$('#modal');m.innerHTML=`<div><b style="fon
   <button class="big ok" id="peOk">📤 Enviar pedido</button><button class="big alt" id="peX">Cancelar</button></div>`;m.classList.add('on');
   $('#peX').onclick=()=>m.classList.remove('on');
   $('#peOk').onclick=async()=>{const t=$('#peT').value.trim(),mo=$('#peM').value.trim();if(!t)return $('#peE').textContent='Escreva o que precisa mudar';if(!mo)return $('#peE').textContent='Escreva o motivo';
-    $('#peOk').disabled=true;try{await Nuvem.pedirEdicao(r,t,mo);m.classList.remove('on');toast('✅ Pedido enviado ao ADM');}catch(x){$('#peOk').disabled=false;$('#peE').textContent='Não consegui enviar. Precisa de internet.';}};}
+    $('#peOk').disabled=true;try{await Nuvem.pedirEdicao(r,t,mo);m.classList.remove('on');toast('✅ Pedido enviado ao ADM');}catch(x){$('#peOk').disabled=false;$('#peE').textContent=navigator.onLine===false?'Sem conexão':'Não foi possível enviar';}};}
 function usuario(){const N=window.Nuvem;return {on:!!(N&&N.on),admin:!!(N&&N.admin),uid:N&&N.uid,login:N&&N.login||'',now:Date.now(),janela:N&&N.janelaMs?N.janelaMs():L.JANELA_MS};}
 const prazoTxt=()=>'O prazo de '+L.janelaNome(window.Nuvem&&Nuvem.janelaMin)+' acabou. Use 📝 Pedir edição';
 function abrirEdicao(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r,usuario())?prazoTxt():'Só quem fez o registro ou o ADM pode editar');
@@ -431,14 +431,14 @@ function abrirEdicao(r){if(!L.podeEditar(r,usuario()))return toast(L.podePedir(r
 function edLer(){if(!ed)return;document.querySelectorAll('[data-ec]').forEach(i=>{ed.c[i.dataset.ec]=i.value;});}
 // v4.3.30: produtos e leitores também no Editar (igual ao Novo)
 const ic=k=>window.Tema?Tema.ic(k):'';
-function edItensHTML(){const it=ed.c.itens,t=L.itensTot(it);return (it.length?it.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-eiq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-eiq="1" data-ii="${i}">+</button><button data-eidel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda. Bipe com o leitor, use o scanner ou digite abaixo.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
+function edItensHTML(){const it=ed.c.itens,t=L.itensTot(it);return (it.length?it.map((x,i)=>`<div class="item"><span class="icod">${esc(x.cod)}</span><button data-eiq="-1" data-ii="${i}">−</button><b class="iqt">${x.qtd}</b><button data-eiq="1" data-ii="${i}">+</button><button data-eidel="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código ainda.</small></p>')+`<p class="tot">Total: <b>${t.cods}</b> itens · <b>${t.un}</b> unidades</p>`;}
 function edConfHTML(){const l=ed.c.confLidos;return (l.length?`<p class="tot">${esc(L.confResumo(l))}</p>`+l.map((x,i)=>`<div class="item edCf ${x.ok?'c-ok':'c-bad'}"><span class="icod">${ic(x.ok?'ok':'erro')} ${esc(x.cod)}${(x.n||1)>1?' <small>· '+x.n+' vezes</small>':''}</span><button data-ecrm="${i}" class="idel" aria-label="Tirar">${ic('lixeira')}</button></div>`).join(''):'<p><small>Nenhum código conferido ainda.</small></p>');}
 function edProdHTML(rec){return rec?`<div class="card edProd"><b class="edTit">${ic('recebimento')} Itens recebidos</b>
   <button class="big ok" id="edScan">${ic('mira')} Ler código de barras (scanner)</button><div id="edItens">${edItensHTML()}</div>
   <div class="row edAdd recAdd"><input id="edCodTxt" placeholder="Código" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="big ok" id="edScan2" aria-label="Ler com o scanner">${ic('mira')}<small class="scLbl">scanner</small></button><button class="big alt" id="edCodAdd">${ic('adicionar')} Adicionar</button></div></div>`
  :`<div class="card edProd"><b class="edTit">${ic('lista')} Conferência de código</b>
-  <label>Código(s) da NF (esperado)</label><div class="row edAdd"><input data-ec="confEsp" id="edEsp" placeholder="Digite o código da NF" style="text-transform:uppercase" value="${esc(ed.c.confEsp)}"><button class="big alt" id="edEspScan">${ic('camera')} Ler</button></div>
-  <label>Código da etiqueta</label><div class="row edAdd"><input id="edLido" placeholder="Digite o código" style="text-transform:uppercase"><button class="big" id="edLidoOk">${ic('ok')} Conferir</button></div>
+  <label>Código(s) da NF (esperado)</label><div class="row edAdd"><input data-ec="confEsp" id="edEsp" placeholder="Código da NF" style="text-transform:uppercase" value="${esc(ed.c.confEsp)}"><button class="big alt" id="edEspScan">${ic('camera')} Ler</button></div>
+  <label>Código da etiqueta</label><div class="row edAdd"><input id="edLido" placeholder="Código" style="text-transform:uppercase"><button class="big" id="edLidoOk">${ic('ok')} Conferir</button></div>
   <button class="big ok" id="edConfScan">${ic('mira')} Ler códigos com a câmera</button><div id="edConf">${edConfHTML()}</div></div>`;}
 function edConferir(v){const esp=L.parseCods(ed.c.confEsp);if(!esp.length){toast('Coloque primeiro o código esperado da NF');return null;}const c=L.conferir(esp,v);if(!c.cod)return null;ed.c.confLidos=L.confAdd(ed.c.confLidos,c,Date.now());const o=$('#edConf');if(o)o.innerHTML=edConfHTML();return c;}
 const edPode=()=>!(window.Nuvem&&((Nuvem.travado&&Nuvem.travado())||(Nuvem.esperando&&Nuvem.esperando())));
@@ -501,7 +501,7 @@ function loc(){const l=locGet(),c=locCont();$('#main').innerHTML=`<div class="ca
  ${window.AndroidScan?'':`<button class="big alt" id="locBip">${localStorage.getItem('locBip')==='0'?'🔇 Bipe: DESLIGADO':'🔊 Bipe: LIGADO'}</button>`}
  <label>Colar a lista (pode colar a tabela do e-mail: SAP, descrição e peças)</label><textarea id="locTxt" rows="4" placeholder="ABC123&#10;7891234567890"></textarea>
  <button class="big" id="locAdd">➕ Colocar na lista</button><button class="big alt" id="locFoto">📷 Ler print/foto da tabela</button><input type="file" id="locImg" accept="image/*" hidden><button class="big alt" id="locArq">📄 Importar arquivo TXT/CSV</button><input type="file" id="locFile" accept=".csv,.txt,text/plain,text/csv" hidden>
- <label>Lista (use − e + para corrigir)</label>${l.length?l.map((x,i)=>{const ok=x.alvo?x.n>=x.alvo:x.n>0;return `<div class="locit ${ok?'lok':x.n?'lmeio':''}"><div class="lt"><div class="lsap">${ok?'✅':x.n?'✔':'⏳'} ${esc(x.cod)}</div>${x.al.length?'<div class="ldesc">'+esc(x.al.join(' · '))+'</div>':''}<div class="lcont">${x.alvo?'contado <b>'+x.n+'</b> de <b>'+x.alvo+'</b>'+(ok?' · COMPLETO':''):'contado <b>'+x.n+'</b>'}</div>${x.ult?'<div class="lult">📷 Último lido: '+esc(x.ult)+' às '+esc(x.uh)+'</div>':'<div class="lult">Ainda não lido pela câmera</div>'}</div><div class="lbt"><button data-locq="1" data-loci="${i}">+</button><b>${x.n}</b><button data-locq="-1" data-loci="${i}">−</button></div></div>`;}).join(''):'<p><small>Lista vazia. Cole os códigos acima.</small></p>'}
+ <label>Lista (use − e + para corrigir)</label>${l.length?l.map((x,i)=>{const ok=x.alvo?x.n>=x.alvo:x.n>0;return `<div class="locit ${ok?'lok':x.n?'lmeio':''}"><div class="lt"><div class="lsap">${ok?'✅':x.n?'✔':'⏳'} ${esc(x.cod)}</div>${x.al.length?'<div class="ldesc">'+esc(x.al.join(' · '))+'</div>':''}<div class="lcont">${x.alvo?'contado <b>'+x.n+'</b> de <b>'+x.alvo+'</b>'+(ok?' · COMPLETO':''):'contado <b>'+x.n+'</b>'}</div>${x.ult?'<div class="lult">📷 Último lido: '+esc(x.ult)+' às '+esc(x.uh)+'</div>':'<div class="lult">Ainda não lido pela câmera</div>'}</div><div class="lbt"><button data-locq="1" data-loci="${i}">+</button><b>${x.n}</b><button data-locq="-1" data-loci="${i}">−</button></div></div>`;}).join(''):'<p><small>Lista vazia.</small></p>'}
  ${l.length?'<button class="big alt" id="locZera">🔄 Zerar contagem</button><button class="big red" id="locDel">🗑 Apagar lista</button>':''}`;
  $('#locAdd').onclick=()=>{if(!$('#locTxt').value.trim())return toast('Cole os códigos primeiro');locPrev($('#locTxt').value);};
  $('#locFoto').onclick=()=>{$('#locImg').value='';$('#locImg').click();};
@@ -519,14 +519,14 @@ function locPrev(txt){let p;try{p=L.locPrevia(txt);}catch(e){p={itens:[],duv:0};
    ${p.itens.map((x,i)=>`<div class="locit ${x.duv?'lduv':''}"><div class="lt"><div class="lsap">${esc(x.cod)}</div>${x.al.length?'<div class="ldesc">'+esc(x.al.join(' · '))+'</div>':''}<div class="lcont">${x.alvo?x.alvo+' peças':'sem quantidade'}</div>${x.duv?'<input data-pv="'+i+'" value="'+esc(L.locLinha(x))+'" style="width:100%;font-size:18px">':''}</div></div>`).join('')}
    <button class="big ok" id="pvOk">✅ Confirmar</button><button class="big alt" id="pvEd">✏️ Corrigir</button></div>`;m.classList.add('on');
   $('#pvOk').onclick=()=>{try{const lin=p.itens.map((x,i)=>{const e=m.querySelector('[data-pv="'+i+'"]');return e?e.value:L.locLinha(x);}).join('\n');m.classList.remove('on');
-    const n=locAdd(lin);toast(n?n+' item(ns) colocado(s)':'Lista atualizada');if($('#locTxt'))$('#locTxt').value='';loc();}catch(e){m.classList.remove('on');toast('Não consegui salvar. Tente de novo.');}};
+    const n=locAdd(lin);toast(n?n+' item(ns) colocado(s)':'Lista atualizada');if($('#locTxt'))$('#locTxt').value='';loc();}catch(e){m.classList.remove('on');toast('Não foi possível salvar.');}};
   $('#pvEd').onclick=()=>{const lin=p.itens.map((x,i)=>{const e=m.querySelector('[data-pv="'+i+'"]');return e?e.value:L.locLinha(x);}).join('\n');m.classList.remove('on');loc();$('#locTxt').value=lin;$('#locTxt').focus();toast('Corrija e toque em Colocar na lista');};}
 async function locFoto(fl){toast('Lendo a imagem...');try{const url=await new Promise((ok,er)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=er;r.readAsDataURL(fl);});
   let txt='';if(window.AndroidOcr&&window.AndroidOcr.lerLinhas){const js=await new Promise((ok,er)=>{const id='o'+(++ocrSeq);ocrCbs[id]={ok,er};window.AndroidOcr.lerLinhas(url,id);});txt=L.ocrLinhas(JSON.parse(js||'[]'));}
   else if(window.AndroidOcr){txt=await ocrTexto(url);}
   else{if(!window.Tesseract)await loadScript('ocr/tesseract.min.js');if(!tessW)tessW=await Tesseract.createWorker('eng',1,{workerPath:'ocr/worker.min.js',corePath:'ocr/',langPath:'ocr/',workerBlobURL:false,gzip:true});
     const r=await tessW.recognize(url);const ls=(r.data.lines||[]).flatMap(l=>(l.words||[]).map(w=>({t:w.text,x:w.bbox.x0,y:w.bbox.y0,h:w.bbox.y1-w.bbox.y0})));txt=ls.length?L.ocrLinhas(ls):(r.data.text||'');}
-  if(!txt.trim())return toast('Não achei texto na imagem. Tente um print mais nítido.');locPrev(txt);}catch(e){toast('Não consegui ler a imagem. Tente de novo.');}}
+  if(!txt.trim())return toast('Não achei texto na imagem. Tente um print mais nítido.');locPrev(txt);}catch(e){toast('Não foi possível ler a imagem.');}}
 function locCamera(){const l=locGet();if(!l.length)return toast('Coloque os códigos na lista primeiro');
   if(window.AndroidScan&&window.AndroidScan.abrirLocalizar){try{const ch=L.scanChave(null,'Localizar e contar');if(window.AndroidScan.abrirLocalizarModo)window.AndroidScan.abrirLocalizarModo(JSON.stringify(l),scanModoGet(ch),ch);else window.AndroidScan.abrirLocalizar(JSON.stringify(l));return;}catch(e){}}
   abrirScanner(null,{titulo:'Localizar e contar',noBip:()=>localStorage.getItem('locBip')==='0',cool:2500,match:t=>L.locCasa(t,locGet()),
@@ -538,7 +538,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.66';const APP_ATUALIZADO='15/11/2026';function pintarRodapeInfo(){const v=document.getElementById('ftV');if(v)v.textContent=APP_V;const d=document.getElementById('ftData');if(d)d.textContent=APP_ATUALIZADO;const s=document.getElementById('ftSobre');if(s&&window.L&&L.sobreFrases)s.innerHTML=L.sobreFrases.map(x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>');}document.addEventListener('DOMContentLoaded',pintarRodapeInfo);let updNova=null,updChecou=0;
+const APP_V='4.3.67';const APP_ATUALIZADO='15/11/2026';function pintarRodapeInfo(){const v=document.getElementById('ftV');if(v)v.textContent=APP_V;const d=document.getElementById('ftData');if(d)d.textContent=APP_ATUALIZADO;const s=document.getElementById('ftSobre');if(s&&window.L&&L.sobreFrases)s.innerHTML=L.sobreFrases.map(x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>');}document.addEventListener('DOMContentLoaded',pintarRodapeInfo);let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
@@ -592,7 +592,7 @@ function cadTela(bx){const j=Nuvem.janelaMin||60;
    <select id="cfgJan" style="width:100%;font-size:20px">${L.JANELA_OPCOES.map(m=>`<option value="${m}"${m===j?' selected':''}>${L.janelaNome(m)}</option>`).join('')}</select>
    <button class="big ok" id="cfgJanOk">💾 Salvar tempo</button></div>
    ${listasHTML()}`;
-  $('#cfgJanOk').onclick=()=>{const v=Number($('#cfgJan').value);confirmar('Mudar o tempo para editar para '+L.janelaNome(v)+'?',async()=>{try{await Nuvem.salvarJanela(v);toast('✅ Tempo salvo: '+L.janelaNome(v));}catch(e){toast(/permission/i.test(String(e&&(e.code||e.message)))?'Sem permissão (regras da nuvem)':'Não consegui. Precisa de internet.');}render();},'Sim, salvar','ok','Cancelar');};
+  $('#cfgJanOk').onclick=()=>{const v=Number($('#cfgJan').value);confirmar('Mudar o tempo para editar para '+L.janelaNome(v)+'?',async()=>{try{await Nuvem.salvarJanela(v);toast('✅ Tempo salvo: '+L.janelaNome(v));}catch(e){toast(/permission/i.test(String(e&&(e.code||e.message)))?'Sem permissão (regras da nuvem)':(navigator.onLine===false?'Sem conexão':'Não foi possível salvar'));}render();},'Sim, salvar','ok','Cancelar');};
 }
 // v4.3.7: listas da Info começam fechadas; tocar no título abre/fecha
 const abertas={cli:false,forn:false};
@@ -600,7 +600,7 @@ function dobra(k,t,n){return `<b data-dobra="${k}" class="dob" style="display:fl
 // v4.3.50: lista de transportadoras vazia — oferece trazer de volta os nomes que estão nos registros (não mexe sozinho)
 function recuperarCliHTML(){if(window.Nuvem&&!Nuvem.pode())return '';const v=L.nomesDosRegistros(regs,clientes());return v.length?`<p style="font-size:17px">Achei ${v.length} nome(s) nos registros.</p><button class="big ok" id="recCli">🔄 Trazer ${v.length} de volta</button>`:'';}
 function listasHTML(){return `<div class="card">${dobra('cli','🚚 Transportadora',clientes().length)}${!abertas.cli?'':clientes().length?clientes().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edcli="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmcli="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join('')+'<button class="big red" id="resetCli">🗑 Apagar todas</button>':'<p>Nenhuma salva.</p>'+recuperarCliHTML()}</div><div class="card">${dobra('forn','📥 Cliente',fornecedores().length)}${!abertas.forn?'':fornecedores().length?fornecedores().map(c=>`<div class="row" style="align-items:center"><span style="flex:1;font-size:19px">${esc(c)}</span><button class="big" data-edforn="${esc(c)}" style="flex:0 0 70px;margin:4px 6px 4px 0">✏️</button><button class="big red" data-rmforn="${esc(c)}" style="flex:0 0 70px;margin:4px 0">🗑</button></div>`).join(''):'<p>Nenhum salvo.</p>'}</div>`;}
-function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Toque aqui para entrar</a></p>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.on?(Nuvem.euHTML?Nuvem.euHTML():'<div class="card"><p>'+esc(Nuvem.nome||Nuvem.login||'Este celular')+' · '+L.papelNome(Nuvem.admin?'adm':'colab')+'</p></div>'):''}<div id="updBox">${updHTML()}</div>${window.Tema?Tema.html():''}<div class="card"${window.Nuvem&&Nuvem.repPode&&!Nuvem.repPode()?' hidden':''}><button class="big alt" id="probAbrir">💬 Enviar feedback</button></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}${window.Nuvem&&Nuvem.ativo()?'':listasHTML()}`;}
+function sobre(){checarUpd();$('#main').innerHTML=`<div class="card" style="text-align:center"><img src="logo.png" alt="Qlog" style="width:180px;max-width:60%"><h2 style="color:#354350;margin-top:4px">Qlog Expedição</h2></div>${window.Nuvem&&Nuvem.ativo()&&Nuvem.checado&&!Nuvem.on&&!Nuvem.admin?'<p style="text-align:center;margin:8px 0"><a href="#" id="nvEntrar" style="font-size:17px;color:#0b4f8a">Ainda não está na equipe? Entrar</a></p>':''}${window.Nuvem&&Nuvem.ativo()&&Nuvem.on?(Nuvem.euHTML?Nuvem.euHTML():'<div class="card"><p>'+esc(Nuvem.nome||Nuvem.login||'Este celular')+' · '+L.papelNome(Nuvem.admin?'adm':'colab')+'</p></div>'):''}<div id="updBox">${updHTML()}</div>${window.Tema?Tema.html():''}<div class="card"${window.Nuvem&&Nuvem.repPode&&!Nuvem.repPode()?' hidden':''}><button class="big alt" id="probAbrir">💬 Enviar feedback</button></div>${isIOSSafari()?'<div class="card" style="background:#e8f1fb;border:2px solid #0b4f8a"><b>📱 Instalar no iPhone</b><p style="font-size:19px">Toque em Compartilhar ⬆️ e depois em \'Adicionar à Tela de Início\'</p></div>':''}${window.Nuvem&&Nuvem.ativo()?'':'<div class="card"><button class="big alt" id="arqAbrir">📦 Arquivo</button></div>'}${window.Nuvem&&Nuvem.ativo()?'':listasHTML()}`;}
 let fotoAlvo='fotos';
 document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preventDefault();Nuvem.pedirEntrada();return;}const db_=e.target.closest('[data-dobra]');if(db_){const k=db_.dataset.dobra;abertas[k]=!abertas[k];render();return;}const fal=e.target.closest('[data-fotoload],[data-verfalt]');if(fal){e.preventDefault();pedirFotoNuvem(fal);return;}const ver=e.target.closest('[data-ver]');if(ver&&!e.target.closest('[data-del],[data-efr],[data-eft]')){e.preventDefault();abrirFotoVer(ver);return;}const t=e.target.closest('button,[data-open],[data-del]');if(!t)return;const d=t.dataset;
   if(t.id==='updApp'){atualizarApp();return;}
@@ -754,7 +754,7 @@ function abrirSuporte(){const m=$('#modal');let img='';const N=window.Nuvem||{};
   $('#supEnv').onclick=async()=>{const nome=$('#supNome').value.trim(),msg=$('#supMsg').value.trim();if(!nome)return toast('Escreva seu nome');if(!msg)return toast('Escreva a mensagem');
     const c=L.chamadoCriar({nome,msg,img,uid:N.uid||'',login:N.login||'',versao:APP_V,plataforma:L.probPlataforma(navigator.userAgent,!!window.AndroidScan),aparelho:navigator.userAgent,ts:Date.now()});
     const b=$('#supEnv');b.disabled=true;b.textContent='Enviando...';const ok=N.enviarChamado?await N.enviarChamado(c):false;
-    if(ok){m.classList.remove('on');toast('✅ Mensagem enviada ao suporte. Obrigado!');}else{b.disabled=false;b.textContent='📤 Enviar';toast(N.fs?'Sem internet. Tente de novo.':'Sem conexão com a nuvem. Tente de novo.');}};}
+    if(ok){m.classList.remove('on');toast('✅ Mensagem enviada ao suporte. Obrigado!');}else{b.disabled=false;b.textContent='📤 Enviar';toast(navigator.onLine===false?'Sem conexão':'Não foi possível enviar');}};}
 document.addEventListener('click',e=>{if(e.target.closest('#supAbrir')){e.preventDefault();abrirSuporte();}});
 function reportarProblema(){const m=$('#modal');let img='';const tela=telaAnt;const NV=window.Nuvem||{};if(NV.repPode&&!NV.repPode()){NV.repAtualizar();return;}// v4.3.64: 1 a cada 7 dias
   m.innerHTML=`<div style="max-height:85vh;overflow:auto"><b style="font-size:22px;display:block;margin-bottom:8px">💬 Enviar feedback</b>
@@ -773,7 +773,7 @@ function reportarProblema(){const m=$('#modal');let img='';const tela=telaAnt;co
     const N=window.Nuvem||{};const p=L.probCriar({txt,img,uid:N.uid||'',nome:N.nome||localStorage.getItem('nvNome')||'',versao:APP_V,plataforma:L.probPlataforma(navigator.userAgent,!!window.AndroidScan),
       aparelho:navigator.userAgent,tela,erros:JSON.parse(localStorage.getItem('errosApp')||'[]'),ts:Date.now()});
     m.classList.remove('on');const ok=N.reportar?await N.reportar(p):false;if(N.repMarcar)N.repMarcar(rid,false);
-    if(N.repObrigado)N.repObrigado(ok?'Reporte enviado. Obrigado!':'Reporte guardado. Vai ser enviado quando tiver internet.');else toast(ok?'✅ Feedback enviado. Obrigado!':'📥 Guardado. Será enviado quando tiver internet.');};}
+    if(N.repObrigado)N.repObrigado(ok?'Reporte enviado. Obrigado!':'Reporte guardado. Será enviado ao conectar.');else toast(ok?'✅ Feedback enviado. Obrigado!':'📥 Guardado. Será enviado ao conectar.');};}
 window.reportarProblema=reportarProblema;
 // ===== v4.1: arquivo mensal =====
 const podeArquivar=()=>!(window.Nuvem&&Nuvem.ativo())||Nuvem.admin;
@@ -823,7 +823,7 @@ function arquivoPronto(mes,nome,A,onde,blob){const m=$('#modal');let ok=!!onde&&
   $('#arqOk').onclick=async()=>{if(!ok)return;const info={mes,nome,regs:A.regs,fotos:A.fotos,onde:onde&&onde!=='cache'?onde:'compartilhado'};
     try{if(nuvem){await Nuvem.marcarArquivo(info);Nuvem.feitos=[...new Set(Nuvem.feitos.concat(mes))];const n=await Nuvem.limpar();toast('✅ Arquivado. '+n+' registros saíram da nuvem.');}
       else{const l=JSON.parse(localStorage.getItem('arqLocal')||'[]').filter(x=>x.mes!==mes);l.unshift(Object.assign({criado:Date.now()},info));localStorage.setItem('arqLocal',JSON.stringify(l));toast('✅ Arquivado');}
-      m.classList.remove('on');tab='arquivo';render();}catch(e){toast('Precisa de internet para terminar. Tente de novo.');}};}
+      m.classList.remove('on');tab='arquivo';render();}catch(e){toast((window.nvFalha?nvFalha(e):'Não foi possível concluir'));}};}
 // administrador abriu o app: pergunta se quer arquivar o mês que passou e limpa o que já foi arquivado
 window.arquivoAoAbrir=async()=>{if(!(window.Nuvem&&Nuvem.admin))return;try{const n=await Nuvem.limpar();if(n)toast('☁️ '+n+' registros antigos saíram da nuvem (continuam no celular)');}catch(e){}
   const mes=L.mesArquivar(regs,Date.now(),Nuvem.feitos),hoje=L.fmtData(Date.now());if(!mes||localStorage.getItem('arqPerguntou')===mes+hoje||$('#modal').classList.contains('on'))return;
