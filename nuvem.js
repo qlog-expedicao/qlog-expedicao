@@ -212,7 +212,7 @@ N.pedirEntrada=(equipe)=>{if(equipe===undefined&&pendGet()&&!N.on)return N.esper
     try{await docM().set({nome:u,login:u,hash:L.loginHash(u,s),bloq:false,ts:Date.now()});fecha();await papel();toast('✅ Bem-vindo! Você entrou como '+(N.admin?'ADM':'colaborador'));}
     catch(e){er.textContent=/permission/i.test(String(e.code||e.message))?'Usuário ou senha errados, ou acesso bloqueado':N.falhaTxt(e);}};};
 // v4.3.3: sair / trocar de usuário neste celular
-N.sair=async()=>{localStorage.removeItem(FOI);try{N.unsub.forEach(f=>f());N.unsub=[];N.acessos=[];N.on=false;N.admin=false;N.membro=false;N.login='';N.papel='';await firebase.auth().signOut();}catch(e){}};
+N.sair=async()=>{localStorage.removeItem(FOI);try{N.unsub.forEach(f=>f());N.unsub=[];N.acessos=[];N.uso=null;N.on=false;N.admin=false;N.membro=false;N.login='';N.papel='';await firebase.auth().signOut();}catch(e){}};
 // ouvir mudanças da nuvem -> grava no celular
 // v4.1: meses já arquivados (registros desses meses ficam nos celulares mesmo quando saem da nuvem)
 N.feitos=JSON.parse(localStorage.getItem('arqFeitos')||'[]');N.arquivos=JSON.parse(localStorage.getItem('arqLista')||'[]');
@@ -223,6 +223,7 @@ async function ouvir(){N.unsub.forEach(f=>f());N.unsub=[];limparAutores();setTim
   if(N.admin)N.unsub.push(N.fs.collection('membros').onSnapshot(q=>{const o={};const pr={};q.forEach(d=>{const x=d.data();o[d.id]=x.nome||'';pr[d.id]={login:x.login||'',bloq:!!x.bloq,ts:x.ts||0};if(d.id===N.adminUid)N.donoLogin=x.login||'';});if(!N.dono)delete o[N.adminUid];N.presenca=pr;N.luzes();
     const mud=JSON.stringify(o)!==JSON.stringify(N.nomes);N.nomes=o;if(mud&&tab==='hist')render();},()=>{}));
   if(N.admin){ouvirAvisos();ouvirProblemas();ouvirChamados();ouvirPedidos();ouvirAcessos();ouvirCelulares();}else{N.celulares=[];N.avisos=[];N.problemas=[];N.chamados=[];N.pedidos=[];N.acessos=[];sinoMostrar();ouvirMeusPedidos();}
+  if(N.admin)ouvirUso();else N.uso=null;
   ouvirAjustes();ouvirMeuAcesso();
   await ouvirArquivo();
   N.unsub.push(N.fs.collection('registros').onSnapshot(async q=>{try{for(const ch of q.docChanges()){if(!L.regIdOk(ch.doc.id))continue;const d=L.regLimpo(ch.doc.data());d.id=ch.doc.id;
@@ -515,6 +516,8 @@ function acHTML(e){const l=N.acessos||[];if(!l.length)return celHTML(e);
 function ouvirMeuAcesso(){if(N.dono)return;const sai=()=>{if(!N.on)return;N.unsub.forEach(f=>f());N.unsub=[];N.on=false;toast('🚪 Seu acesso foi removido ou bloqueado');N.travar();papel();};
   N.unsub.push(docM().onSnapshot(d=>{if(d.metadata.fromCache)return;if(!d.exists||d.data().bloq)sai();},e=>{if(/permission/i.test(String(e.code||'')))sai();}));
   if(N.login)N.unsub.push(N.fs.doc('logins/'+N.login).onSnapshot(d=>{if(d.metadata.fromCache)return;if(!d.exists||d.data().bloq)sai();},e=>{if(/permission/i.test(String(e.code||'')))sai();}));}
+// v4.3.68: espaço da nuvem (config/uso) — só o ADM escuta; o app nunca grava este documento
+function ouvirUso(){if(!N.fs)return;N.unsub.push(N.fs.doc('config/uso').onSnapshot(d=>{N.uso=d.exists?d.data():null;if(window.usoPintar)window.usoPintar();},()=>{N.uso=null;if(window.usoPintar)window.usoPintar();}));}
 function ouvirAjustes(){N.unsub.push(docE().onSnapshot(d=>{const x=d.exists?d.data():{};const v=('janelaMin' in x)?Number(x.janelaMin):60;N.janelaMin=L.janelaOk(v)?v:60;localStorage.setItem('janMin',String(N.janelaMin));
   if(window.admAtualizar)window.admAtualizar('cfg');},()=>{}));}
 N.janelaMs=()=>L.janelaMs(N.janelaMin);

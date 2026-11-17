@@ -502,3 +502,45 @@ html[data-tema=escuro] #nvPonte{background:#0d141b;color:#e3eaf1}
 #nvPonte .qwH{display:block;font-size:23px;margin:8px 0;overflow-wrap:normal;word-break:normal;hyphens:none}
 #nvPonte .big{width:100%;margin-top:12px;box-sizing:border-box}
 #nvPonte .pnVoltar{display:block;text-decoration:none;text-align:center}
+
+
+/* v4.3.68: espaço da nuvem — cartão na aba ADM, gráfico em SVG, claro e escuro, sem rolagem lateral */
+.usoNuvem{margin:8px 0 10px;overflow-x:hidden;max-width:100%;box-sizing:border-box}
+.usoNuvem .usoTit{font-size:19px;margin:4px 0 6px;display:flex;align-items:center;gap:6px;overflow-wrap:anywhere}
+.usoNuvem .usoTit .qi,.usoNuvem .usoTit svg{width:1.15em;height:1.15em;flex:0 0 auto;vertical-align:-.2em}
+.usoNuvem .usoResumo{font-size:18px;font-weight:700;margin:0 0 8px;overflow-wrap:anywhere}
+.usoNuvem .usoLivre{font-size:15px;margin:6px 0 10px;opacity:.75;overflow-wrap:anywhere}
+.usoBarra{height:12px;border-radius:8px;background:color-mix(in srgb,var(--txt,#354350) 12%,var(--card,#fff));overflow:hidden;width:100%;max-width:100%;box-sizing:border-box}
+.usoBarraUso{display:block;height:100%;border-radius:8px;background:var(--ac,#0b4f8a);max-width:100%;box-sizing:border-box}
+.usoGraf{display:block;width:100%;max-width:100%;height:auto;overflow:hidden}
+.usoGraf .usoCol{fill:var(--ac,#0b4f8a)}
+.usoGraf .usoColParcial{fill:var(--ac,#0b4f8a);opacity:.72}
+.usoGraf .usoBase{stroke:currentColor;stroke-width:1;opacity:.28}
+.usoGraf text{fill:currentColor;font-size:11px;font-family:inherit}
+.usoGraf .usoAte{font-size:9px;opacity:.7}
+html[data-tema=escuro] .usoLivre{opacity:.7}
+html[data-tema=escuro] .usoBarra{background:#2b3440}
+html[data-tema=retro] .usoBarra{background:#eadcc6}
+
+
+/* v4.3.68: cartão da Info reusa a esteira da identificação/espera (mesmos keyframes), cabida no cartão, sem rolagem lateral */
+.infoLogoCard{overflow-x:hidden;max-width:100%;box-sizing:border-box;padding:4px 4px 0;margin:10px 0}
+.infoLogo{width:100%;max-width:100%;margin:0 auto;overflow:hidden;box-sizing:border-box;color:#3a4651;aspect-ratio:360/280}
+.infoLogo .esAnim{display:block;width:100%;max-width:100%;height:auto;overflow:hidden}
+.infoLogo .esCaixas{animation:esAnda 6s linear infinite}
+.infoLogo .esFita{animation:esFita .5s linear infinite}
+.infoLogo .esRolo{transform-box:fill-box;transform-origin:center;animation:esGira .6s linear infinite}
+.infoLogo .esZoom{transform-origin:180px 134px;animation:esZum 3s ease-in-out infinite}
+.infoLogo .esLupa{animation:esVai 6s ease-in-out infinite}
+.infoLogo .esContra{animation:esVem 6s ease-in-out infinite}
+.infoLogo .poGalpao{color:#3a4651}
+.infoLogo .poDr{animation:poDrone 3.2s ease-in-out infinite}.infoLogo .poDr2{animation-delay:-1.1s}
+.infoLogo .poVoo1{transform:translateX(56px);animation:poVoo1 17s linear infinite}
+.infoLogo .poVoo2{transform:translateX(296px);animation:poVoo2 21s linear infinite;animation-delay:-8s}
+html[data-tema=escuro] .infoLogo,html[data-tema=escuro] .infoLogo .poGalpao{color:#c5d0da}
+html[data-tema=escuro] .infoLogo .poGalpao{opacity:.75}
+html[data-tema=retro] .infoLogo,html[data-tema=retro] .infoLogo .poGalpao{color:#5a4030}
+@media (prefers-reduced-motion:reduce){
+  .infoLogo .esCaixas,.infoLogo .esFita,.infoLogo .esRolo,.infoLogo .esZoom,.infoLogo .esLupa,.infoLogo .esContra,
+  .infoLogo .poDr,.infoLogo .poVoo{animation:none}
+}
