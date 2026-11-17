@@ -538,7 +538,7 @@ function rel(){mesLista();const rm=doMes(),x=L.relatorio(rm),tb=(o,t)=>`<h3>${t}
   <button class="big ok" id="expMes">💻 Exportar ${mesNome(mesAt)} para o notebook (com fotos)</button>`;
   $('#mesAt').onchange=e=>{mesAt=e.target.value;rel();};}
 window.updMsg=(t,pct)=>{const m=$('#updMsg');if(m)m.innerHTML=esc(t)+(pct>=0?`<div style="background:#dde;border-radius:6px;height:14px;margin-top:4px"><div style="background:#2a8a3a;height:14px;border-radius:6px;width:${Math.min(100,pct)}%"></div></div>`:'');else toast(t);};
-const APP_V='4.3.68';const APP_ATUALIZADO='17/11/2026';function pintarRodapeInfo(){const v=document.getElementById('ftV');if(v)v.textContent=APP_V;const d=document.getElementById('ftData');if(d)d.textContent=APP_ATUALIZADO;const s=document.getElementById('ftSobre');if(s&&window.L&&L.sobreFrases)s.innerHTML=L.sobreFrases.map(x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>');}document.addEventListener('DOMContentLoaded',pintarRodapeInfo);let updNova=null,updChecou=0;
+const APP_V='4.3.69';const APP_ATUALIZADO='17/11/2026';function pintarRodapeInfo(){const v=document.getElementById('ftV');if(v)v.textContent=APP_V;const d=document.getElementById('ftData');if(d)d.textContent=APP_ATUALIZADO;const s=document.getElementById('ftSobre');if(s&&window.L&&L.sobreFrases)s.innerHTML=L.sobreFrases.map(x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;')).join('<br>');}document.addEventListener('DOMContentLoaded',pintarRodapeInfo);let updNova=null,updChecou=0;
 function updHTML(){if(!updNova)return '';const meio=regEmAndamento();
   // Aviso só na aba Info. Site: sozinho / aguarde registro. Android: botão Atualizar.
   if(!window.AndroidUpd){return `<div class="card" id="updCard" style="border:2px solid #2a8a3a"><b style="font-size:19px">Nova versão ${esc(updNova)} disponível</b><p style="font-size:18px;margin:8px 0">${meio?'Termine o registro pra atualizar':'Atualizando sozinho…'}</p><div id="updMsg" style="font-size:19px;margin:6px 0"></div></div>`;}
@@ -614,7 +614,12 @@ document.addEventListener('click',e=>{if(e.target.closest('#nvEntrar')){e.preven
   else if(d.iq){const x=f.itens[+d.ii];if(x){f.itens=L.addItem(f.itens,x.cod,+d.iq);$('#itens').innerHTML=itensHTML();}}
   else if(d.idel!==undefined){const x=f.itens[+d.idel];if(x)confirmar('Tirar o código '+x.cod+' da lista?',()=>{f.itens=f.itens.filter(i=>i!==x);$('#itens').innerHTML=itensHTML();},'Sim, tirar');}
   else if(t.id==='addCli'){const m=$('#modal');m.innerHTML='<div><label>Nome da transportadora</label><input id="nc"><button class="big ok" id="ncOk">Adicionar</button><button class="big alt" id="ncX">Cancelar</button></div>';m.classList.add('on');$('#nc').focus();
-    $('#ncX').onclick=()=>m.classList.remove('on');$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(n){const c=clientes();if(!c.includes(n))c.push(n);setClientes(c);f.cliente=n;}m.classList.remove('on');nova();};}
+    const fecha=()=>m.classList.remove('on');const usar=n=>{f.cliente=n;fecha();nova();};
+    $('#ncX').onclick=fecha;$('#ncOk').onclick=()=>{const n=$('#nc').value.trim();if(!n)return;const c=clientes(),r=L.transpNova(n,c);
+      if(!r.ok){if(r.ja||!r.msg){usar(r.nome||n);return;}
+        m.innerHTML='<div><p style="font-size:20px">'+esc(r.msg)+'</p><button class="big ok" id="ncUsa">Usar essa</button><button class="big alt" id="ncX">Cancelar</button></div>';
+        $('#ncX').onclick=fecha;$('#ncUsa').onclick=()=>usar(r.nome);return;}
+      c.push(n);setClientes(c);usar(n);};}
   else if(d.foto){fotoAlvo=d.foto;$('#cam').value='';$('#cam').onchange=async ev=>{for(const fl of ev.target.files){const u=await compress(fl);if(u)f[fotoAlvo].push(u);}nova();};$('#cam').click();}
   else if(d.del){f[d.del].splice(+d.i,1);nova();}else if(d.open){if(hist.sel){hist.sel.has(d.open)?hist.sel.delete(d.open):hist.sel.add(d.open);lista();$('#selN').textContent=hist.sel.size;document.querySelectorAll('.selN2').forEach(x=>x.textContent=hist.sel.size);}else{detalhe=d.open;render();}}
   else if(t.id==='confOk')conferirCod($('#confLido').value);else if(d.ocr)abrirScanner(d.ocr);
